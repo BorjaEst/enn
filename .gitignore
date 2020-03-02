@@ -5,6 +5,7 @@
 *.swp
 *.swo
 *.iml
+.\#*
 _build
 _checkouts
 ebin
