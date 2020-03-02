@@ -2,6 +2,10 @@
 %%% @author borja
 %%% @copyright (C) 2018, <COMPANY>
 %%% @doc
+%%% 
+%%% @TODO: Remove concept of layer. In the model might be correct but
+%%% not necessarely on the cortex. Be carefull with deadlocks on 
+%%% recurrence and neurons call backs.
 %%%
 %%% @end
 %%% Created : 22. Sep 2018 18:46
@@ -10,11 +14,7 @@
 -author("borja").
 -compile([export_all, nowarn_export_all]). %%TODO: To delete after build
 
-%%% TODO -------------------------------------------------------------
-% TODO: Eliminar el concepto de layer, en el modelo es correcto pero no el en cortex
-% TODO: Si se elimina el concepto de layers, hay que tener cuidado con los bloqueos conmo en la recurrencia
-
--include_lib("layers.hrl").
+-include_lib("layers.hrl"). %% TODO: Join inside layers.erl with types
 -include_lib("nnelements.hrl").
 -include_lib("kernel/include/logger.hrl").
 
@@ -32,22 +32,23 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns a list of tuples with the record name and attributes
+%% list.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
+-spec attributes_table() -> 
+	[{Elem :: nnelements:element(), [Attr :: atom()]}].
 attributes_table() ->
 	?ENN_TABLES_ATTRIBUTES_LIST.
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
+%% @doc 
+%% 
 %%
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
+-spec sequential([Layer :: layer:layer()]) -> 
+	Model :: term(). %% TODO: Create model:model and introduce here
 sequential(Layers) ->
 	_Model = sequential(Layers, nnref:new()).
 
@@ -85,7 +86,7 @@ compile(Model) ->
 %%--------------------------------------------------------------------
 %TODO: Correct specs
 predict(Cortex_PId, [_ | _] = ExternalInputs) ->
-	_Predictions = [cortex:predict(Cortex_PId, Inputs) || Inputs <- ExternalInputs];
+	[cortex:predict(Cortex_PId, Inputs) || Inputs <- ExternalInputs];
 predict(_Cortex_PId, []) ->
 	[].
 

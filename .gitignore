@@ -19,3 +19,4 @@ rebar.lock
 .rebar
 .rebar3
 .erlang.cookie
+Mnesia.*

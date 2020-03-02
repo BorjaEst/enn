@@ -16,6 +16,16 @@
 
 %% API
 %%-export([]).
+-export_type([layer/0]).
+
+
+-type type_id() :: dense | input | output.
+-type layer() :: #{type := type_id(),
+				   units := integer(),
+				   activation := activation_function:activation_function(),
+				   activation_function := activation_function:activation_function(),
+				   options := []}. %% TODO: create neuron:options
+
 
 -ifdef(debug_mode).
 -define(LOG(X), io:format("{~p,~p,~p}: ~p~n", [self(), ?MODULE, ?LINE, X])).

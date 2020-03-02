@@ -13,9 +13,11 @@
 -define(PI, 3.141592653589793).
 -define(DELTA_MULTIPLIER, ?PI * 2).
 
--export_type([cortex_id/0, neuron_id/0]).
+-export_type([element/0, cortex_id/0, neuron_id/0]).
 
 
+%%% Neuronal networks are composed mostly by 2 elements: cortex and neruons
+-type element() :: cortex | neuron.
 
 %%% The cortex is a NN synchronizing element. It needs to know the PId of every neural network element, so that it will
 %%% know when all the outputs have received their control inputs, and that it’s time for the inputs to again gather
