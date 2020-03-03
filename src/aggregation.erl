@@ -6,18 +6,17 @@
 %%% @end
 %%% Created : 16. Aug 2018 14:25
 %%%-------------------------------------------------------------------
--module(aggregation_function).
--compile([debug_info, export_all, nowarn_export_all, {d, debug_mode}]). %% TODO: To delete after build
+-module(aggregation).
 
+-include_lib("math_constants.hrl").
 -include_lib("eunit/include/eunit.hrl").
-
--define(EULER, 2.718281828459045235360287471352662497757247093699959574966967627724076630353).
 
 %% API
 -export([apply/3]).
+-export_type([func/0]).
 
--type aggregation_function() :: dotprod | diffprod.
--export_type([aggregation_function/0]).
+-type func() :: dotprod | diffprod.
+
 
 %%%===================================================================
 %%% API

@@ -6,20 +6,20 @@
 %%% @end
 %%% Created : 16. Aug 2018 14:25
 %%%-------------------------------------------------------------------
--module(activation_function).
--compile([export_all, nowarn_export_all]). %% TODO: To delete after build
+-module(activation).
 
+-include_lib("math_constants.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
--define(PI, 3.141592653589793238462643383279502884197169399375105820974944592307816406286).
--define(EULER, 2.718281828459045235360287471352662497757247093699959574966967627724076630353).
 -define(EQUAL_TOLERANCE, 0.001).
 
 %% API
 -export([apply/2, beta/3]).
+-export_type([func/0]).
 
--type activation_function() :: direct | sigmoid | tanh | softplus | softsign | elu | selu | relu | crelu | relu_x | dropout.
--export_type([activation_function/0]).
+-type func() :: direct | sigmoid | tanh | softplus | softsign 
+			  | elu | selu | relu | crelu | relu_x | dropout.
+
 
 %%%===================================================================
 %%% API

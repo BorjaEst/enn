@@ -7,24 +7,25 @@
 %%% Created : 16. Aug 2018 14:25
 %%%-------------------------------------------------------------------
 -module(layer).
--compile([export_all, nowarn_export_all]). %% TODO: To delete after build
 
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("nnelements.hrl").
 
--define(MIN_LINK_WEIGHT, 0.05).
-
 %% API
-%%-export([]).
--export_type([layer/0]).
-
+-export([dense/2, input/2, output/2, compile/2]).
+-export_type([type_id/0, specifications/0]).
 
 -type type_id() :: dense | input | output.
--type layer() :: #{type := type_id(),
-				   units := integer(),
-				   activation := activation_function:activation_function(),
-				   activation_function := activation_function:activation_function(),
-				   options := []}. %% TODO: create neuron:options
+-type specifications() :: #{
+	type := type_id(),
+	units := integer(),
+	activation := activation:func(),
+	aggregation := aggregation:func(),
+	options := []}. %% TODO: create neuron:options
+
+-type properties() :: #{
+	activation => activation:func(),
+	aggregation => aggregation:func()}.
 
 
 -ifdef(debug_mode).
@@ -40,12 +41,11 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns the complilation specifications for a dense layer.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: To make description and specs
+-spec dense(Units :: integer(), Properties :: properties()) ->
+	DenseLayer :: specifications().
 dense(Units, Properties) ->
 	#{
 		type        => dense,
@@ -56,12 +56,11 @@ dense(Units, Properties) ->
 	}.
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns the compilation specifications for an input layer.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: To make description and specs
+-spec input(Units :: integer(), Properties :: properties()) ->
+	InputsLayer :: specifications().
 input(Units, Properties) ->
 	#{
 		type        => input,
@@ -72,12 +71,11 @@ input(Units, Properties) ->
 	}.
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns the compilation specifications for an output layer.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: To make description and specs
+-spec output(Units :: integer(), Properties :: properties()) -> 
+	OutputsLayer :: specifications().
 output(Units, Properties) ->
 	#{
 		type        => output,
@@ -88,21 +86,22 @@ output(Units, Properties) ->
 	}.
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Compiles a layer. Returns a tuple indicating the layer type 
+%% together with the ids of all the neuron specifications.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: To make description and specs
-compile(LayerCoordinate, LayerProperties) ->
+-spec compile(Coordinade :: float(), Spec :: specifications()) ->
+	CompiledLayer :: {Type :: type_id(), [NId :: neuron_id()]}.
+compile(Coordinade, Spec) ->
 	#{
 		type        := Type,
 		units       := Units,
 		activation  := AF,
 		aggregation := AggrF,
 		options     := Options
-	} = LayerProperties,
-	{Type, [neuron:new(LayerCoordinate, AF, AggrF, Options) || _ <- lists:seq(1, Units)]}.
+	} = Spec,
+	{Type, [neuron:new(Coordinade, AF, AggrF, Options) || 
+								 _ <- lists:seq(1, Units)]}.
 
 
 %%====================================================================
@@ -113,21 +112,17 @@ compile(LayerCoordinate, LayerProperties) ->
 %%====================================================================
 %% Eunit white box tests
 %%====================================================================
+%% TODO: To implement some eunit tests
 
-% ----------------------------------------------------------------------------------------------------------------------
-% TESTS DESCRIPTIONS ---------------------------------------------------------------------------------------------------
+% --------------------------------------------------------------------
+% TESTS DESCRIPTIONS -------------------------------------------------
 
-% ----------------------------------------------------------------------------------------------------------------------
-% SPECIFIC SETUP FUNCTIONS ---------------------------------------------------------------------------------------------
-no_setup() ->
-	ok.
+% --------------------------------------------------------------------
+% SPECIFIC SETUP FUNCTIONS -------------------------------------------
 
-no_cleanup(_) ->
-	ok.
+% --------------------------------------------------------------------
+% ACTUAL TESTS -------------------------------------------------------
 
-% ----------------------------------------------------------------------------------------------------------------------
-% ACTUAL TESTS ---------------------------------------------------------------------------------------------------------
-
-% ----------------------------------------------------------------------------------------------------------------------
-% SPECIFIC HELPER FUNCTIONS --------------------------------------------------------------------------------------------
+% --------------------------------------------------------------------
+% SPECIFIC HELPER FUNCTIONS ------------------------------------------
 

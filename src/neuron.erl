@@ -105,7 +105,7 @@ init(Neuron_Id, Parent) ->
 
 init2(State) ->
 	Tensor = tensor(State), put(tensor, Tensor),
-	B = activation_function:beta(State#state.af, State#state.error, Tensor#tensor.soma),
+	B = activation:beta(State#state.af, State#state.error, Tensor#tensor.soma),
 	forward(maps:filter(fun is_recurrent/2, State#state.outputs), Tensor#tensor.signal), %Recurrence init
 	backward(maps:filter(fun is_recurrent/2, State#state.inputs), B), %Recurrence init
 	loop(State#state{
@@ -184,7 +184,7 @@ forward_signal(State) -> %TODO: save on signals_acc the "Tensor" (modifying tens
 backward_error(State) ->
 	Tensor = State#state.tensor,
 	DTensor = d_tensor(Tensor),
-	B = activation_function:beta(State#state.af, State#state.error, Tensor#tensor.soma),
+	B = activation:beta(State#state.af, State#state.error, Tensor#tensor.soma),
 	backward(State#state.inputs, B),
 	State#state{
 		bias          = adjust_bias(Tensor#tensor.bias, DTensor#tensor.bias, B),
@@ -264,8 +264,8 @@ is_recurrent(_Key, Value) when is_record(Value, output) ->
 tensor(State) ->
 	Tensor_In = maps:from_list(
 		[{PId, {Input#input.w, Input#input.s}} || {PId, Input} <- maps:to_list(State#state.inputs)]),
-	Soma = aggregation_function:apply(State#state.aggrf, maps:values(Tensor_In), State#state.bias),
-	Signal = activation_function:apply(State#state.af, Soma),
+	Soma = aggregation:apply(State#state.aggrf, maps:values(Tensor_In), State#state.bias),
+	Signal = activation:apply(State#state.af, Soma),
 	#tensor{
 		bias   = State#state.bias,
 		in     = Tensor_In,

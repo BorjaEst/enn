@@ -14,7 +14,7 @@
 -author("borja").
 -compile([export_all, nowarn_export_all]). %%TODO: To delete after build
 
--include_lib("layers.hrl"). %% TODO: Join inside layers.erl with types
+-include_lib("layers.hrl"). 
 -include_lib("nnelements.hrl").
 -include_lib("kernel/include/logger.hrl").
 
@@ -33,7 +33,7 @@
 
 %%--------------------------------------------------------------------
 %% @doc Returns a list of tuples with the record name and attributes
-%% list.
+%% list. This is mainly used to prepare the tables in mnesia.
 %% @end
 %%--------------------------------------------------------------------
 -spec attributes_table() -> 
@@ -42,12 +42,11 @@ attributes_table() ->
 	?ENN_TABLES_ATTRIBUTES_LIST.
 
 %%--------------------------------------------------------------------
-%% @doc 
-%% 
-%%
+%% @doc Compiles and returns a sequential model from the defined 
+%% layers.
 %% @end
 %%--------------------------------------------------------------------
--spec sequential([Layer :: layer:layer()]) -> 
+-spec sequential([Layer :: layer:specifications()]) -> 
 	Model :: term(). %% TODO: Create model:model and introduce here
 sequential(Layers) ->
 	_Model = sequential(Layers, nnref:new()).

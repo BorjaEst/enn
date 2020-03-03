@@ -12,8 +12,6 @@
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("nnelements.hrl").
 
--define(MIN_LINK_WEIGHT, 0.05).
-
 %% API
 %%-export([]).
 

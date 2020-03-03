@@ -10,7 +10,7 @@
 -define(NEW_CORTEX_ID(Name), {Name, cortex}).
 -define(NEW_NEURON_ID(Layer), {{Layer, nnref:new()}, neuron}).
 
--define(PI, 3.141592653589793).
+-define(PI, 3.141592653589793).  %% TODO: Use global PI in math_contstants.hrl
 -define(DELTA_MULTIPLIER, ?PI * 2).
 
 -export_type([element/0, cortex_id/0, neuron_id/0]).
@@ -43,8 +43,8 @@
 -type neuron_id() :: {{LayerCoordinate :: float(), Unique_Id :: reference()}, neuron} | [].
 -record(neuron, {
 	id :: neuron_id(),
-	af :: activation_function:activation_function(), % Activation function
-	aggrf :: aggregation_function:activation_function(), % Name of the aggregation function
+	af :: activation:func(), % Activation function
+	aggrf :: aggregation:func(), % Name of the aggregation function
 	bias = ?DELTA_MULTIPLIER * (rand:uniform() - 0.5) :: float(),
 	inputs_idps = [] :: [{neuron_id() | cortex_id(), Weights :: [float()]}], % Inputs IdPs,
 	outputs_ids = [] :: [neuron_id() | cortex_id()], % Outputs Ids,
