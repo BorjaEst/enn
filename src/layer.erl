@@ -91,7 +91,7 @@ output(Units, Properties) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec compile(Coordinade :: float(), Spec :: specifications()) ->
-	CompiledLayer :: {Type :: type_id(), [NId :: neuron_id()]}.
+	CompiledLayer :: {Type :: type_id(), [NId :: neuron:neuron_id()]}.
 compile(Coordinade, Spec) ->
 	#{
 		type        := Type,

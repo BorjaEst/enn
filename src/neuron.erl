@@ -1,8 +1,13 @@
 %%%-------------------------------------------------------------------
 %%% @author borja
 %%% @copyright (C) 2018, <COMPANY>
-%%% @doc
+%%% @doc The neuron is a signal processing element. It accepts
+%%% signals, accumulates them into an ordered vector, then processes
+%%% this input vector to produce an output, and finally passes the
+%%% output to other elements it is connected to.
 %%%
+%%% The neuron waits until it receives all the input signals, 
+%%% processes those signals, and then passes the output forward.
 %%% @end
 %%% Created : 16. Aug 2018 15:20
 %%%-------------------------------------------------------------------
@@ -12,23 +17,29 @@
 % TODO: fsm?? with forward or other according to the best performance
 % TODO: Optimise network when shutdown (Part can be on the shutdown, another in the clonation¿?)
 
+-include_lib("math_constants.hrl").
 -include_lib("kernel/include/logger.hrl").
--include_lib("nnelements.hrl").
+
+
+-include_lib("nnelements.hrl"). %% TODO: remove this include
 
 %% API
 %%-export([]).
+-export_type([id/0]).
 
--record(input, {id :: neuron_id(), w :: float(), r :: boolean(), s = 0.0 :: float()}).
--record(output, {id :: neuron_id(), r :: boolean(), e = 0.0 :: float()}).
+-type id() :: {{LayerCoordinate :: float(), Unique_Id :: reference()}, neuron} | [].
+
+-record(input, {id :: id(), w :: float(), r :: boolean(), s = 0.0 :: float()}).
+-record(output, {id :: id(), r :: boolean(), e = 0.0 :: float()}).
 -record(tensor, {bias :: float(), in :: #{pid() => {W :: float(), S :: float()}}, soma :: float(), signal :: float()}).
 -record(state, {
-	id :: neuron_id(),
-	af :: function(), % Activation function
-	aggrf :: function(), % Name of the aggregation function
+	id :: id(),
+	af :: activation:func(),
+	aggrf :: aggregation:func(),
 	bias :: float(), % Last bias value
 	tensor :: #tensor{},
-	inputs :: #{PId :: neuron_id() => #input{}},
-	outputs :: #{PId :: neuron_id() => #output{}},
+	inputs :: #{PId :: id() => #input{}},
+	outputs :: #{PId :: id() => #output{}},
 	forward_wait :: [pid()],
 	backward_wait :: [pid()],
 	error :: float()
@@ -36,9 +47,9 @@
 
 -define(LEARNING_FACTOR, 0.00).  % TODO: Make it modifiable according to the error and by the eevo module
 -define(MOMENTUM_FACTOR, 0.00).
--define(SAT_LIMIT, 1.5 * ?DELTA_MULTIPLIER).
-
+-define(SAT_LIMIT, 3.0 ?PI).
 -define(R2(Val), round(Val * 100.0) / 100.0).
+
 
 -ifdef(debug_mode).
 -define(STDCALL_TIMEOUT, infinity).
@@ -60,9 +71,9 @@
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
 new(Layer, AF, AggrF, Options) ->
-	Neuron = nn_elements:create_neuron(Layer, AF, AggrF, Options),
+	Neuron = elements:create_neuron(Layer, AF, AggrF, Options),
 	nndb:write(Neuron),
-	Neuron#neuron.id.
+	elements:id(Neuron).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -88,10 +99,10 @@ init(Neuron_Id, Parent) ->
 	proc_lib:init_ack(Parent, {ok, self()}),                % Supervisor synchronisation
 	TId = receive {continue_init, TableId} -> TableId end,   % Cortex synchronisation
 	init2(#state{
-		id      = Neuron#neuron.id,
-		af      = Neuron#neuron.af,
-		aggrf   = Neuron#neuron.aggrf,
-		bias    = Neuron#neuron.bias,
+		id      = elements:element_id(Neuron),
+		af      = elements:af(Neuron),
+		aggrf   = elements:aggrf(Neuron),
+		bias    = elements:bias(Neuron),
 		inputs  = maps:from_list(
 			[{cortex:nn_id2pid(Id, TId), #input{id = Id, w = W, r = false}} || {Id, W} <- Neuron#neuron.inputs_idps] ++
 			[{cortex:nn_id2pid(Id, TId), #input{id = Id, w = W, r = true}} || {Id, W} <- Neuron#neuron.rcc_inputs_idps]
@@ -225,6 +236,10 @@ weights_restore(State) ->
 terminate(State, Reason) ->
 	% TODO: When saving the new state, those links with weights ~= 0, must be deleted (both neurons)
 	% TODO: If the neuron has not at least 1 input or 1 output, it must be deleted (and bias forwarded)
+	
+	% ideal would be to get from this function the neuron passing State as options
+	Neuron = elements:create_neuron(Layer, AF, AggrF, Options),
+	
 	nndb:write(#neuron{
 		id              = State#state.id,
 		af              = State#state.af,
@@ -246,8 +261,8 @@ terminate(State, Reason) ->
 check_neuron(Neuron) ->
 	try
 		#neuron{} = Neuron,
-		false = [] == nn_elements:inputs_idps(Neuron),
-		false = [] == nn_elements:outputs_ids(Neuron)
+		false = [] == elements:inputs_idps(Neuron),
+		false = [] == elements:outputs_ids(Neuron)
 	catch
 		error:{badmatch, _} ->
 			?LOG_NOTICE("broken network on neuron: ~p", [Neuron]),

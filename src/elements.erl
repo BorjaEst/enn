@@ -6,16 +6,30 @@
 %%% @end
 %%% Created : 16. Aug 2018 14:25
 %%%-------------------------------------------------------------------
--module(nn_elements).
+-module(elements).
 -compile([export_all, nowarn_export_all]). %% TODO: To delete after build
 
+-include_lib("math_constants.hrl").
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("nnelements.hrl").
 
--define(MIN_LINK_WEIGHT, 0.05).
+-define(DELTA_MULTIPLIER, ?PI * 2).
 
 %% API
 %%-export([]).
+-export_type([neuron/0]).
+
+-record(neuron, {
+	id :: neuron:id(),
+	af :: activation:func(), % Activation function
+	aggrf :: aggregation:func(), % Name of the aggregation function
+	bias = ?DELTA_MULTIPLIER * (rand:uniform() - 0.5) :: float(),
+	inputs_idps = [] :: [{neuron:id() | cortex_id(), Weights :: [float()]}], % Inputs IdPs,
+	outputs_ids = [] :: [neuron:id() | cortex_id()], % Outputs Ids,
+	rcc_inputs_idps = [] :: [{neuron:id() | cortex_id(), Weights :: [float()]}],  % Recurrent inputs IdPs,
+	rcc_outputs_ids = [] :: [neuron:id() | cortex_id()]}).  % Recurrent outputs Ids,
+-type neuron() :: #neuron{}.
+
 
 -ifdef(debug_mode).
 -define(LOG(X), io:format("{~p,~p,~p}: ~p~n", [self(), ?MODULE, ?LINE, X])).
@@ -28,6 +42,19 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%%
+%% @end
+%%--------------------------------------------------------------------
+% TODO: To make description and specs
+fields(neuron) ->
+	record_info(fields, neuron);
+fields(cortex) ->
+	record_info(fields, cortex);
+
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -125,9 +152,9 @@ size(Cortex) ->
 %% @end
 %%--------------------------------------------------------------------
 %TODO: Correct specs
-element_id(Element) when is_record(Element, neuron) ->
+id(Element) when is_record(Element, neuron) ->
 	Element#neuron.id;
-element_id(Element) when is_record(Element, cortex) ->
+id(Element) when is_record(Element, cortex) ->
 	Element#cortex.id.
 
 %%--------------------------------------------------------------------
@@ -139,7 +166,35 @@ element_id(Element) when is_record(Element, cortex) ->
 %TODO: Correct specs
 layerIndex({{LI, _}, neuron}) -> LI;
 layerIndex({_, cortex})       -> cortex;
-layerIndex(Element)           -> layerIndex(element_id(Element)).
+layerIndex(Element)           -> layerIndex(id(Element)).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%%
+%% @end
+%%--------------------------------------------------------------------
+%TODO: Correct specs
+af(Neuron) ->
+	Neuron#neuron.af.
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%%
+%% @end
+%%--------------------------------------------------------------------
+aggrf(Neuron) -> 
+	Neuron#neuron.aggrf.
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%%
+%% @end
+%%--------------------------------------------------------------------
+bias(Neuron) -> 
+	Neuron#neuron.bias.
 
 %%--------------------------------------------------------------------
 %% @doc

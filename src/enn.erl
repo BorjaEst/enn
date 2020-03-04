@@ -21,11 +21,6 @@
 %% API
 -export([]).
 
--define(ENN_TABLES_ATTRIBUTES_LIST,
-	[
-		{cortex, record_info(fields, cortex)},
-		{neuron, record_info(fields, neuron)}
-	]).
 
 %%====================================================================
 %% API
@@ -39,7 +34,10 @@
 -spec attributes_table() -> 
 	[{Elem :: nnelements:element(), [Attr :: atom()]}].
 attributes_table() ->
-	?ENN_TABLES_ATTRIBUTES_LIST.
+	[
+		{cortex, record_info(fields, cortex)},
+		{neuron, elements:fields(neuron)}
+	].
 
 %%--------------------------------------------------------------------
 %% @doc Compiles and returns a sequential model from the defined 
@@ -220,10 +218,10 @@ averageLoss(_LossList, _Batch_Size, _C) ->
 check_links(Cortex, Neurons) ->
 	InL = lists:append(
 		[[{In, Cortex#cortex.id} || In <- nn_elements:inputs_ids(Cortex)] |
-		 [[{In, N#neuron.id} || In <- nn_elements:inputs_ids(N)] || N <- Neurons]]),
+		 [[{In, neuron:id(N)} || In <- nn_elements:inputs_ids(N)] || N <- Neurons]]),
 	OutL = lists:append(
 		[[{Cortex#cortex.id, Out} || Out <- nn_elements:outputs_ids(Cortex)] |
-		 [[{N#neuron.id, Out} || Out <- nn_elements:outputs_ids(N)] || N <- Neurons]]),
+		 [[{neuron:id(N), Out} || Out <- nn_elements:outputs_ids(N)] || N <- Neurons]]),
 	case InL -- OutL of
 		[] -> ok;
 		Diff ->
