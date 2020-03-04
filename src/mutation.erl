@@ -10,7 +10,6 @@
 -compile([export_all, nowarn_export_all]). %%TODO: To delete after build
 
 -include_lib("eunit/include/eunit.hrl").
--include_lib("nnelements.hrl").
 
 %% API
 %%-export([]).
@@ -35,7 +34,7 @@ edit_link(FromElement_Id, {_, neuron} = ToNeuron_Id, NewWeight) ->
 		true ->
 			nndb:write(nn_elements:edit_input_id(ToNeuron, FromElement_Id, NewWeight));
 		false ->
-			exit({not_member, FromElement_Id, ToNeuron#neuron.inputs_idps})
+			exit({not_member, FromElement_Id, elements:inputs_idps(ToNeuron)})
 	end.
 
 %%--------------------------------------------------------------------
@@ -47,7 +46,8 @@ edit_link(FromElement_Id, {_, neuron} = ToNeuron_Id, NewWeight) ->
 % TODO: Define specs
 edit_bias({_, neuron} = Neuron_Id, NewValue) ->
 	Neuron = nndb:read(Neuron_Id),
-	nndb:write(Neuron#neuron{bias = NewValue}).
+	NewNeuron = elements:edit_neuron(Neuron, [{bias, NewValue}]),
+	nndb:write(NewNeuron).
 
 
 %%%===================================================================
@@ -102,7 +102,8 @@ remove_link(FromElement_Id, ToElement_Id) ->
 % TODO: Define specs
 change_af({_, neuron} = Neuron_Id, NewAFun) ->
 	Neuron = nndb:read(Neuron_Id),
-	nndb:write(Neuron#neuron{af = NewAFun}).
+	NewNeuron = elements:edit_neuron(Neuron, [{af, NewAFun}]),
+	nndb:write(NewNeuron).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -113,7 +114,8 @@ change_af({_, neuron} = Neuron_Id, NewAFun) ->
 % TODO: Define specs
 change_aggrf({_, neuron} = Neuron_Id, NewAggrFun) ->
 	Neuron = nndb:read(Neuron_Id),
-	nndb:write(Neuron#neuron{aggrf = NewAggrFun}).
+	NewNeuron = elements:edit_neuron(Neuron, [{aggrf, NewAggrFun}]),
+	nndb:write(NewNeuron).
 
 
 %%%===================================================================

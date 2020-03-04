@@ -9,7 +9,6 @@
 -module(layer).
 
 -include_lib("eunit/include/eunit.hrl").
--include_lib("nnelements.hrl").
 
 %% API
 -export([dense/2, input/2, output/2, compile/2]).

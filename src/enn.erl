@@ -14,8 +14,6 @@
 -author("borja").
 -compile([export_all, nowarn_export_all]). %%TODO: To delete after build
 
--include_lib("layers.hrl"). 
--include_lib("nnelements.hrl").
 -include_lib("kernel/include/logger.hrl").
 
 %% API
@@ -35,7 +33,7 @@
 	[{Elem :: nnelements:element(), [Attr :: atom()]}].
 attributes_table() ->
 	[
-		{cortex, record_info(fields, cortex)},
+		{cortex, elements:fields(cortex)},
 		{neuron, elements:fields(neuron)}
 	].
 
@@ -114,7 +112,7 @@ inputs(Model) when is_map(Model) ->
 	N_Inputs;
 inputs({_, cortex} = Cortex_Id) ->
 	Cortex = nndb:read(Cortex_Id),
-	length(Cortex#cortex.outputs_ids). % Cortex inputs are the output neurons
+	length(elements:outputs_ids(Cortex)). % Cortex inputs are the output neurons
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -128,7 +126,7 @@ outputs(Model) when is_map(Model) ->
 	N_Outputs;
 outputs({_, cortex} = Cortex_Id) ->
 	Cortex = nndb:read(Cortex_Id),
-	length(Cortex#cortex.inputs_idps). % Cortex outputs are the input neurons
+	length(elements:inputs_idps(Cortex)). % Cortex outputs are the input neurons
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -144,7 +142,7 @@ clone({_, cortex} = Cortex_Id) ->
 	Neurons = [nn_elements:clone_neuron(Neuron, ConversionETS) || Neuron <- nndb:read(Neurons_Ids)],
 	ets:delete(ConversionETS),
 	nndb:write([Clone | Neurons]),
-	Clone#cortex.id.
+	elements:id(Clone).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -217,15 +215,15 @@ averageLoss(_LossList, _Batch_Size, _C) ->
 % ......................................................................................................................
 check_links(Cortex, Neurons) ->
 	InL = lists:append(
-		[[{In, Cortex#cortex.id} || In <- nn_elements:inputs_ids(Cortex)] |
+		[[{In, elements:id(Cortex)} || In <- nn_elements:inputs_ids(Cortex)] |
 		 [[{In, neuron:id(N)} || In <- nn_elements:inputs_ids(N)] || N <- Neurons]]),
 	OutL = lists:append(
-		[[{Cortex#cortex.id, Out} || Out <- nn_elements:outputs_ids(Cortex)] |
+		[[{elements:id(Cortex), Out} || Out <- nn_elements:outputs_ids(Cortex)] |
 		 [[{neuron:id(N), Out} || Out <- nn_elements:outputs_ids(N)] || N <- Neurons]]),
 	case InL -- OutL of
 		[] -> ok;
 		Diff ->
-			?LOG_ERROR("Broken NN on cortex ~p with links ~p", [Cortex#cortex.id, Diff]),
+			?LOG_ERROR("Broken NN on cortex ~p with links ~p", [elements:id(Cortex), Diff]),
 			error(broken_nn)
 	end.
 
@@ -235,7 +233,7 @@ check_inputs(Cortex, Neurons) ->
 	case lists:any(fun is_broken_at_inputs/1, Neurons) of
 		false -> ok;
 		true ->
-			?LOG_ERROR("Broken NN on ~p neurons", [Cortex#cortex.id]),
+			?LOG_ERROR("Broken NN on ~p neurons", [elements:id(Cortex)]),
 			error(broken_nn)
 	end.
 
@@ -254,7 +252,7 @@ check_outputs(Cortex, Neurons) ->
 	case lists:any(fun is_broken_at_outputs/1, Neurons) of
 		false -> ok;
 		true ->
-			?LOG_ERROR("Broken NN on ~p neurons", [Cortex#cortex.id]),
+			?LOG_ERROR("Broken NN on ~p neurons", [elements:id(Cortex)]),
 			error(broken_nn)
 	end.
 

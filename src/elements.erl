@@ -11,24 +11,38 @@
 
 -include_lib("math_constants.hrl").
 -include_lib("eunit/include/eunit.hrl").
--include_lib("nnelements.hrl").
 
 -define(DELTA_MULTIPLIER, ?PI * 2).
 
 %% API
 %%-export([]).
--export_type([neuron/0]).
+-export_type([type/0, cortex/0, neuron/0]).
+
+
+%%% Neuronal networks are composed mostly by 2 types:
+-type type() :: cortex | neuron.
+
+-record(cortex, {
+	id :: cortex:id(),
+	layers = #{} :: #{Layer :: float() => [neuron:neuron_id()]},
+	outputs_ids = [] :: [nneuro:neuron_id()], % Output neurons, first network layer usually
+	inputs_idps = [] :: [{nneuro:neuron_id(), Weights :: float()}] % Input neurons, last network layer usually
+}).
+-type cortex() :: #cortex{}.
 
 -record(neuron, {
 	id :: neuron:id(),
 	af :: activation:func(), % Activation function
 	aggrf :: aggregation:func(), % Name of the aggregation function
 	bias = ?DELTA_MULTIPLIER * (rand:uniform() - 0.5) :: float(),
-	inputs_idps = [] :: [{neuron:id() | cortex_id(), Weights :: [float()]}], % Inputs IdPs,
-	outputs_ids = [] :: [neuron:id() | cortex_id()], % Outputs Ids,
-	rcc_inputs_idps = [] :: [{neuron:id() | cortex_id(), Weights :: [float()]}],  % Recurrent inputs IdPs,
-	rcc_outputs_ids = [] :: [neuron:id() | cortex_id()]}).  % Recurrent outputs Ids,
+	inputs_idps = [] :: [{neuron:id() | cortex:id(), Weights :: [float()]}], % Inputs IdPs,
+	outputs_ids = [] :: [neuron:id() | cortex:id()], % Outputs Ids,
+	rcc_inputs_idps = [] :: [{neuron:id() | cortex:id(), Weights :: [float()]}],  % Recurrent inputs IdPs,
+	rcc_outputs_ids = [] :: [neuron:id() | cortex:id()]}).  % Recurrent outputs Ids,
 -type neuron() :: #neuron{}.
+
+-define(NEW_CORTEX_ID(Name), {Name, cortex}).
+-define(NEW_NEURON_ID(Layer), {{Layer, nnref:new()}, neuron}).
 
 
 -ifdef(debug_mode).
@@ -53,7 +67,7 @@
 fields(neuron) ->
 	record_info(fields, neuron);
 fields(cortex) ->
-	record_info(fields, cortex);
+	record_info(fields, cortex).
 
 
 %%--------------------------------------------------------------------
@@ -67,8 +81,15 @@ create_neuron(Layer, AF, AggrF, Options) ->
 	Neuron = #neuron{id = ?NEW_NEURON_ID(Layer), af = AF, aggrf = AggrF},
 	write_neuron_options(Neuron, Options).
 
+edit_neuron(Neuron, Options) ->
+	write_neuron_options(Neuron, Options).
+
 write_neuron_options(Neuron, [{id, Value} | Options]) ->
 	write_neuron_options(Neuron#neuron{id = Value}, Options);
+write_neuron_options(Neuron, [{af, Value} | Options]) ->
+	write_neuron_options(Neuron#neuron{af = Value}, Options);
+write_neuron_options(Neuron, [{aggrf, Value} | Options]) ->
+	write_neuron_options(Neuron#neuron{aggrf = Value}, Options);
 write_neuron_options(Neuron, [{bias, Value} | Options]) ->
 	write_neuron_options(Neuron#neuron{bias = Value}, Options);
 write_neuron_options(Neuron, [{inputs_idps, Value} | Options]) ->

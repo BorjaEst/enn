@@ -1,29 +1,32 @@
 %%%-------------------------------------------------------------------
 %%% @author borja
 %%% @copyright (C) 2018, <COMPANY>
-%%% @doc
-%%%
+%%% @doc The cortex is a NN synchronizing element. It needs to know 
+%%% the PId of every neural network element, so that it will know when
+%%% all the outputs have received their control inputs, and that it’s
+%%% time for the inputs to again gather and fanout input data to the
+%%% neurons in the input layer. 
 %%% @end
 %%% Created : 30. Aug 2018 0:05
 %%%-------------------------------------------------------------------
 -module(cortex).
 -compile([export_all, nowarn_export_all]). %% TODO: To delete after build
 
+-include_lib("math_constants.hrl").
 -include_lib("kernel/include/logger.hrl").
 -include_lib("eunit/include/eunit.hrl").
--include_lib("nnelements.hrl").
 
 -behaviour(gen_statem).
 
 %% API
 %%-export([start_link/0]).
+-export_type([id/0]).
 
 %% gen_statem callbacks
 -export([init/1, format_status/2, handle_event/4, terminate/3, code_change/4, callback_mode/0]).
 -export([inactive/3, on_feedforward/3, on_backpropagation/3]).
 
--define(DEFAULT_BATCH_SIZE, 08).
--define(MIN_LOSS, 1.0e-2).
+-type id() :: {Agent_Reference :: reference(), cortex}.
 
 -record(input, {pid :: pid(), s :: float(), loss :: float(), lossB :: float(), acc = [] :: [float()]}).
 -record(output, {pid :: pid(), s :: float(), error :: float()}).
@@ -32,6 +35,10 @@
 	wait :: [term()],
 	from :: gen_statem:from()
 }).
+
+-define(DEFAULT_BATCH_SIZE, 08).
+-define(MIN_LOSS, 1.0e-2).
+
 
 -ifdef(debug_mode).
 -define(STDCALL_TIMEOUT, infinity).

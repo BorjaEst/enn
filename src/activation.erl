@@ -25,7 +25,7 @@
 %%% API
 %%%===================================================================
 
-% ......................................................................................................................
+% ....................................................................
 % TODO: Define specs and comments
 apply(sigmoid, Soma)  -> sigmoid(Soma);
 apply(tanh, Soma)     -> tanh(Soma);
@@ -34,24 +34,24 @@ apply(softsign, Soma) -> softsign(Soma);
 apply(elu, Soma)      -> elu(Soma);
 apply(selu, Soma)     -> selu(Soma);
 apply(relu, Soma)     -> relu(Soma);
-apply(crelu, _Soma)   -> error("activation function not defined");
-apply(relu_x, _Soma)  -> error("activation function not defined");
-apply(dropout, _Soma) -> error("activation function not defined");
-apply(_Reference, _)  -> error("activation function not defined").
+apply(crelu, _Soma)   -> error(not_defined); %% TODO: To implement
+apply(relu_x, _Soma)  -> error(not_defined); %% TODO: To implement
+apply(dropout, _Soma) -> error(not_defined); %% TODO: To implement
+apply(_Ref, _)        -> error(not_defined).
 
-% ......................................................................................................................
+% ....................................................................
 % TODO: Define specs and comments
-beta(sigmoid, Error, Soma)      -> do_beta(Error, Soma, fun d_sigmoid/1);
-beta(tanh, Error, Soma)         -> do_beta(Error, Soma, fun d_tanh/1);
-beta(softplus, Error, Soma)     -> do_beta(Error, Soma, fun d_softplus/1);
-beta(softsign, Error, Soma)     -> do_beta(Error, Soma, fun d_softsign/1);
-beta(elu, Error, Soma)          -> do_beta(Error, Soma, fun d_elu/1);
-beta(selu, Error, Soma)         -> do_beta(Error, Soma, fun d_selu/1);
-beta(relu, Error, Soma)         -> do_beta(Error, Soma, fun d_relu/1);
-beta(crelu, _Error, _Soma)      -> error("activation derivative function not defined");
-beta(relu_x, _Error, _Soma)     -> error("activation derivative function not defined");
-beta(dropout, _Error, _Soma)    -> error("activation derivative function not defined");
-beta(_Reference, _Error, _Soma) -> error("activation derivative function not defined").
+beta(sigmoid, Err, Soma)   -> do_beta(Err, Soma, fun d_sigmoid/1);
+beta(tanh, Err, Soma)      -> do_beta(Err, Soma, fun d_tanh/1);
+beta(softplus, Err, Soma)  -> do_beta(Err, Soma, fun d_softplus/1);
+beta(softsign, Err, Soma)  -> do_beta(Err, Soma, fun d_softsign/1);
+beta(elu, Err, Soma)       -> do_beta(Err, Soma, fun d_elu/1);
+beta(selu, Err, Soma)      -> do_beta(Err, Soma, fun d_selu/1);
+beta(relu, Err, Soma)      -> do_beta(Err, Soma, fun d_relu/1);
+beta(crelu, _Err, _Soma)   -> error(not_defined); %% TODO: To implement
+beta(relu_x, _Err, _Soma)  -> error(not_defined); %% TODO: To implement
+beta(dropout, _Err, _Soma) -> error(not_defined); %% TODO: To implement
+beta(_Ref, _Err, _Soma)    -> error(not_defined).
 
 do_beta(Error, Soma, DerF) when Error =< 0 ->
 	if
@@ -66,7 +66,7 @@ do_beta(Error, Soma, DerF) ->
 %% Internal functions
 %%====================================================================
 
-% ......................................................................................................................
+% ....................................................................
 % TODO: Define specs and comments
 sigmoid(X) when X > 10.0  -> 1.0;
 sigmoid(X) when X < -10.0 -> 0.0;
@@ -78,7 +78,7 @@ d_sigmoid(X) ->
 	Sig = sigmoid(X),
 	Sig * (1 - Sig).
 
-% ......................................................................................................................
+% ....................................................................
 % TODO: Define specs and comments
 tanh(X) ->
 	math:tanh(X).
@@ -87,7 +87,7 @@ tanh(X) ->
 d_tanh(X) ->
 	1 - math:pow(tanh(X), 2).
 
-% ......................................................................................................................
+% ....................................................................
 % TODO: Define specs and comments
 softplus(X) ->
 	math:log(1 + math:exp(X)).
@@ -96,7 +96,7 @@ softplus(X) ->
 d_softplus(X) ->
 	1 / (1 + math:exp(X)).
 
-% ......................................................................................................................
+% ....................................................................
 % TODO: Define specs and comments
 softsign(X) ->
 	X / (1 + abs(X)).
@@ -105,7 +105,7 @@ softsign(X) ->
 d_softsign(X) ->
 	1 / math:pow(1 + abs(X), 2).
 
-% ......................................................................................................................
+% ....................................................................
 % TODO: Define specs and comments
 elu(X) when X =< 0 ->
 	math:exp(X) - 1;
@@ -118,7 +118,7 @@ d_elu(X) when X =< 0 ->
 d_elu(X) when X > 0 ->
 	1.
 
-% ......................................................................................................................
+% ....................................................................
 % TODO: Define specs and comments
 selu(X) when X =< 0 ->
 	1.0507 * 1.67326 * elu(X);
@@ -131,7 +131,7 @@ d_selu(X) when X =< 0 ->
 d_selu(X) when X > 0 ->
 	1.0507 * d_elu(X).
 
-% ......................................................................................................................
+% ....................................................................
 % TODO: Define specs and comments
 relu(X) when X < 0 ->
 	0;
@@ -149,27 +149,29 @@ d_relu(X) when X >= 0 ->
 %% Eunit white box tests
 %%====================================================================
 
-% ----------------------------------------------------------------------------------------------------------------------
-% TESTS DESCRIPTIONS ---------------------------------------------------------------------------------------------------
+% --------------------------------------------------------------------
+% TESTS DESCRIPTIONS -------------------------------------------------
 this_example_test_() ->
 	% {setup, Where, Setup, Cleanup, Tests | Instantiator}
 	[
 		{"Test for the trigonometrical activation functions",
-		 {setup, local, fun no_setup/0, fun no_cleanup/1, fun test_trigonometric_functions/1}},
+		 {setup, local, fun no_setup/0, fun no_cleanup/1, 
+		  fun test_trigonometric_functions/1}},
 		{"Test for sigmoid activation functions",
-		 {setup, local, fun no_setup/0, fun no_cleanup/1, fun test_sigmoid_functions/1}}
+		 {setup, local, fun no_setup/0, fun no_cleanup/1, 
+		  fun test_sigmoid_functions/1}}
 	].
 
-% ----------------------------------------------------------------------------------------------------------------------
-% SPECIFIC SETUP FUNCTIONS ---------------------------------------------------------------------------------------------
+% --------------------------------------------------------------------
+% SPECIFIC SETUP FUNCTIONS -------------------------------------------
 no_setup() ->
 	ok.
 
 no_cleanup(_) ->
 	ok.
 
-% ----------------------------------------------------------------------------------------------------------------------
-% ACTUAL TESTS ---------------------------------------------------------------------------------------------------------
+% --------------------------------------------------------------------
+% ACTUAL TESTS -------------------------------------------------------
 test_trigonometric_functions(_) ->
 	[
 		?_assert(almost_equal(0.0, tanh(0.0))),
@@ -184,10 +186,12 @@ test_sigmoid_functions(_) ->
 		?_assert(almost_equal(1.0, sigmoid(10.0)))
 	].
 
-% ----------------------------------------------------------------------------------------------------------------------
-% SPECIFIC HELPER FUNCTIONS --------------------------------------------------------------------------------------------
-almost_equal(Ref_Val, Value) when is_list(Ref_Val), is_list(Value), length(Ref_Val) == length(Value) ->
-	lists:all(fun(X) -> X end, [almost_equal(X, Y) || {X, Y} <- lists:zip(Ref_Val, Value)]);
+% --------------------------------------------------------------------
+% SPECIFIC HELPER FUNCTIONS ------------------------------------------
+almost_equal(Ref_Val, Value) ->
+	lists:all(fun(X) -> X end, [almost_equal(X, Y) ||
+		          	            {X, Y} <- lists:zip(Ref_Val, Value)]);
+
 almost_equal(Ref_Val, Value) ->
 	Sup = Ref_Val + ?EQUAL_TOLERANCE,
 	Inf = Ref_Val - ?EQUAL_TOLERANCE,

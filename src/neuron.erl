@@ -19,9 +19,7 @@
 
 -include_lib("math_constants.hrl").
 -include_lib("kernel/include/logger.hrl").
-
-
--include_lib("nnelements.hrl"). %% TODO: remove this include
+-include_lib("eunit/include/eunit.hrl").
 
 %% API
 %%-export([]).
