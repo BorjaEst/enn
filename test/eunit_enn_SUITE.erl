@@ -101,10 +101,10 @@ all() ->
 	[
 		eunit_model,
 		eunit_layer,
-		eunit_nn_elements,
+		eunit_elements,
 		eunit_mutation,
-		eunit_activation_function,
-		eunit_aggregation_function,
+		eunit_activation,
+		eunit_aggregation,
 		eunit_cortex
 		].
 
@@ -125,17 +125,17 @@ eunit_model(_Config) -> ok = eunit:test([model]).
 eunit_layer() -> [].
 eunit_layer(_Config) -> ok = eunit:test([layer]).
 
-eunit_nn_elements() -> [].
-eunit_nn_elements(_Config) -> ok = eunit:test([nn_elements]).
+eunit_elements() -> [].
+eunit_elements(_Config) -> ok = eunit:test([elements]).
 
 eunit_mutation() -> [].
 eunit_mutation(_Config) -> ok = eunit:test([mutation]).
 
-eunit_activation_function() -> [].
-eunit_activation_function(_Config) -> ok = eunit:test([activation_function]).
+eunit_activation() -> [].
+eunit_activation(_Config) -> ok = eunit:test([activation]).
 
-eunit_aggregation_function() -> [].
-eunit_aggregation_function(_Config) -> ok = eunit:test([aggregation_function]).
+eunit_aggregation() -> [].
+eunit_aggregation(_Config) -> ok = eunit:test([aggregation]).
 
 eunit_cortex() -> [].
 eunit_cortex(_Config) -> ok = eunit:test([cortex]).

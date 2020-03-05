@@ -105,7 +105,7 @@ iacc_setup() ->
 	Tensor2_2 = {-2.0, 3.0},
 	Tensor3 = {0.0, 2.0},
 	Tensor4 = {-2.0, 1.0},
-	#{iacc   => [Tensor1, Tensor2, Tensor3, Tensor4],
+	#{iacc_1 => [Tensor1, Tensor2, Tensor3, Tensor4],
 	  iacc_2 => [Tensor1, Tensor2_2, Tensor3, Tensor4]}.
 
 no_cleanup(_) ->
@@ -114,32 +114,31 @@ no_cleanup(_) ->
 % --------------------------------------------------------------------
 % ACTUAL TESTS -------------------------------------------------------
 test_dot_product_functions(Data) ->
-	#{iacc := TensorAcc} = Data,
+	#{iacc_1 := TensorAcc} = Data,
 	[
 		?_assertEqual(0.5, dot_product(TensorAcc, 2.5))
 	].
 
 test_diff_product_functions(Data) ->
-	#{iacc := TensorAcc,
+	#{iacc_1 := TensorAcc_1,
 	  iacc_2 := TensorAcc_2} = Data,
+	put(diff_product, TensorAcc_1),
 	[
-		?_assertEqual(-0.5, diff_product(TensorAcc, -0.5)),
 		?_assertEqual(-2.5, diff_product(TensorAcc_2, 1.5))
 	].
 
 test_dot_power_functions(Data) ->
-	#{iacc := TensorAcc} = Data,
+	#{iacc_1 := TensorAcc} = Data,
 	[
 		?_assertEqual(math:pow(?EULER, -2.0) * (-0.2), 
 							   dot_power(TensorAcc, -0.2))
 	].
 
 test_diff_power_functions(Data) ->
-	#{iacc := TensorAcc,
+	#{iacc_1 := TensorAcc_1,
 	  iacc_2 := TensorAcc_2} = Data,
+	put(diff_product, TensorAcc_1),
 	[
-		?_assertEqual(math:pow(?EULER, 0.0) * (-0.2), 
-							   diff_power(TensorAcc, -0.2)),
 		?_assertEqual(math:pow(?EULER, -4.0) * (-0.2), 
 							   diff_power(TensorAcc_2, -0.2))
 	].
