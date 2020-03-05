@@ -264,7 +264,7 @@ correct_model_training(Cortex_Id, Cortex_PId, Training_Generator) ->
 
 correct_model_stop(Cortex_Id, Cortex_PId) ->
 	?INFO("Correct neural network stop form a cortex id ........................................."),
-	[Neuron_Id | _] = nn_elements:neurons(nndb:read(Cortex_Id)),
+	[Neuron_Id | _] = elements:neurons(nndb:read(Cortex_Id)),
 	Neuron_BeforeTraining = nndb:read(Neuron_Id), ?INFO(Neuron_BeforeTraining),
 	enn:stop_nn(Cortex_Id),
 	false = is_process_alive(Cortex_PId),

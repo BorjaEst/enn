@@ -30,11 +30,12 @@
 % TODO: Define specs
 edit_link(FromElement_Id, {_, neuron} = ToNeuron_Id, NewWeight) ->
 	ToNeuron = nndb:read(ToNeuron_Id),
-	case lists:keymember(FromElement_Id, 1, nn_elements:inputs_idps(ToNeuron)) of
+	ToInputs = elements:inputs_ids(ToNeuron) ++ elements:rcc_inputs_ids(ToNeuron),
+	case lists:member(FromElement_Id, ToInputs) of
 		true ->
-			nndb:write(nn_elements:edit_input_id(ToNeuron, FromElement_Id, NewWeight));
+			nndb:write(elements:edit_input_id(ToNeuron, FromElement_Id, NewWeight));
 		false ->
-			exit({not_member, FromElement_Id, elements:inputs_idps(ToNeuron)})
+			exit({not_member, FromElement_Id, ToInputs})
 	end.
 
 %%--------------------------------------------------------------------
@@ -102,7 +103,7 @@ remove_link(FromElement_Id, ToElement_Id) ->
 % TODO: Define specs
 change_af({_, neuron} = Neuron_Id, NewAFun) ->
 	Neuron = nndb:read(Neuron_Id),
-	NewNeuron = elements:edit_neuron(Neuron, [{af, NewAFun}]),
+	NewNeuron = elements:edit(Neuron, [{af, NewAFun}]),
 	nndb:write(NewNeuron).
 
 %%--------------------------------------------------------------------
@@ -114,7 +115,7 @@ change_af({_, neuron} = Neuron_Id, NewAFun) ->
 % TODO: Define specs
 change_aggrf({_, neuron} = Neuron_Id, NewAggrFun) ->
 	Neuron = nndb:read(Neuron_Id),
-	NewNeuron = elements:edit_neuron(Neuron, [{aggrf, NewAggrFun}]),
+	NewNeuron = elements:edit(Neuron, [{aggrf, NewAggrFun}]),
 	nndb:write(NewNeuron).
 
 
@@ -151,8 +152,8 @@ remove_neuron({{Layer, _}, neuron} = Neuron_Id, Cortex_Id) ->
 	Cortex = nndb:read(Cortex_Id),
 	Neurons_Ids = maps:get(Layer, elements:layers(Cortex)),
 	Neuron = nndb:read(Neuron_Id),
-	[remove_link(E_Id, Neuron_Id) || E_Id <- nn_elements:inputs_ids(Neuron)],
-	[remove_link(Neuron_Id, E_Id) || E_Id <- nn_elements:outputs_ids(Neuron)],
+	[remove_link(E_Id, Neuron_Id) || E_Id <- elements:inputs_ids(Neuron) ++ elements:rcc_inputs_ids(Neuron)],
+	[remove_link(Neuron_Id, E_Id) || E_Id <- elements:outputs_ids(Neuron) ++ elements:rcc_outputs_ids(Neuron)],
 	NewCortex = case lists:delete(Neuron_Id, Neurons_Ids) of
 		[] ->
 			NewLayer = maps:remove(Layer, elements:layers(Cortex)),
@@ -170,48 +171,48 @@ remove_neuron({{Layer, _}, neuron} = Neuron_Id, Cortex_Id) ->
 
 %.......................................................................................................................
 link_only_From(From, To) ->
-	ToId = nn_elements:element_id(To),
-	case lists:member(ToId, nn_elements:outputs_ids(From)) of
+	ToId = elements:id(To),
+	case lists:member(ToId, elements:outputs_ids(From) ++ elements:rcc_outputs_ids(From)) of
 		false ->
-			_U_From = nn_elements:add_output_id(From, ToId);
+			_U_From = elements:add_output_id(From, ToId);
 		true ->
-			FromId = nn_elements:element_id(From),
+			FromId = elements:id(From),
 			Error_Text = io_lib:format("[can not add O_Id]: ~w already a member of ~w outputs", [ToId, FromId]),
 			error({link_fail, lists:flatten(Error_Text)})
 	end.
 
 %.......................................................................................................................
 link_only_To(From, To) ->
-	FromId = nn_elements:element_id(From),
-	case lists:member(FromId, nn_elements:inputs_ids(To)) of
+	FromId = elements:id(From),
+	case lists:member(FromId, elements:inputs_ids(To) ++ elements:rcc_inputs_ids(To)) of
 		false ->
-			_U_To = nn_elements:add_input_id(To, FromId);
+			_U_To = elements:add_input_id(To, FromId);
 		true ->
-			ToId = nn_elements:element_id(To),
+			ToId = elements:id(To),
 			Error_Text = io_lib:format("[can not add I_Id]: ~w already a member of ~w inputs", [FromId, ToId]),
 			error({link_fail, lists:flatten(Error_Text)})
 	end.
 
 %.......................................................................................................................
 unlink_only_From(From, To) ->
-	ToId = nn_elements:element_id(To),
-	case lists:member(ToId, nn_elements:outputs_ids(From)) of
+	ToId = elements:id(To),
+	case lists:member(ToId, elements:outputs_ids(From) ++ elements:rcc_outputs_ids(From)) of
 		true ->
-			_U_From = nn_elements:remove_output_id(From, ToId);
+			_U_From = elements:remove_output_id(From, ToId);
 		false ->
-			FromId = nn_elements:element_id(From),
+			FromId = elements:id(From),
 			Error_Text = io_lib:format("[can not remove O_Id]: ~w not a member of ~w outputs", [ToId, FromId]),
 			error({unlink_fail, lists:flatten(Error_Text)})
 	end.
 
 %.......................................................................................................................
 unlink_only_To(From, To) ->
-	FromId = nn_elements:element_id(From),
-	case lists:member(FromId, nn_elements:inputs_ids(To)) of
+	FromId = elements:id(From),
+	case lists:member(FromId, elements:inputs_ids(To) ++ elements:rcc_inputs_ids(To)) of
 		true ->
-			_U_To = nn_elements:remove_input_id(To, FromId);
+			_U_To = elements:remove_input_id(To, FromId);
 		false ->
-			ToId = nn_elements:element_id(To),
+			ToId = elements:id(To),
 			Error_Text = io_lib:format("[can not remove I_Id]: ~w not a member of ~w intputs", [FromId, ToId]),
 			error({unlink_fail, lists:flatten(Error_Text)})
 	end.

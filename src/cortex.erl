@@ -58,7 +58,7 @@
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
 new(Name, Compiled_Layers, Options) ->
-	Cortex = nn_elements:cortex(Name, maps:map(fun elements/2, Compiled_Layers), Options),
+	Cortex = elements:cortex(Name, maps:map(fun elements/2, Compiled_Layers), Options),
 	nndb:write(Cortex),
 	[mutation:create_link(elements:id(Cortex), To) || To <- get_inputs(Compiled_Layers)],
 	[mutation:create_link(From, elements:id(Cortex)) || From <- get_outputs(Compiled_Layers)],
@@ -371,7 +371,7 @@ loss_calc(Input) ->
 % ......................................................................................................................
 handle_start_nn() ->
 	Cortex = nndb:read(get(id)), NNSup_PId = get(nn_sup), TId_IdPIds = get(tid_idpids),
-	Neurons = [{start_nn_element(NNSup_PId, TId_IdPIds, N_Id), nndb:read(N_Id)} || N_Id <- nn_elements:neurons(Cortex)],
+	Neurons = [{start_nn_element(NNSup_PId, TId_IdPIds, N_Id), nndb:read(N_Id)} || N_Id <- elements:neurons(Cortex)],
 	[PId ! {continue_init, TId_IdPIds} || {PId, _} <- Neurons],
 	put(neurons, maps:from_list(Neurons)),
 	put(inputs, [#input{pid = cortex:nn_id2pid(Id, TId_IdPIds)} || {Id, _} <- elements:inputs_idps(Cortex)]),

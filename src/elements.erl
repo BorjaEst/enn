@@ -264,9 +264,15 @@ bias(Neuron) ->
 %%--------------------------------------------------------------------
 %TODO: Correct specs
 outputs_ids(Element) when is_record(Element, neuron) ->
-	Element#neuron.outputs_ids ++ Element#neuron.rcc_outputs_ids;
+	Element#neuron.outputs_ids;
 outputs_ids(Element) when is_record(Element, cortex) ->
 	Element#cortex.outputs_ids.
+
+rcc_outputs_ids(Element) when is_record(Element, neuron) ->
+	Element#neuron.rcc_outputs_ids;
+rcc_outputs_ids(Element) when is_record(Element, cortex) ->
+	[].
+
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -278,6 +284,9 @@ outputs_ids(Element) when is_record(Element, cortex) ->
 inputs_ids(Element) ->
 	[Id || {Id, _W} <- inputs_idps(Element)].
 
+rcc_inputs_ids(Element) ->
+	[Id || {Id, _W} <- rcc_inputs_idps(Element)].
+
 %%--------------------------------------------------------------------
 %% @doc
 %%
@@ -286,9 +295,15 @@ inputs_ids(Element) ->
 %%--------------------------------------------------------------------
 %TODO: Correct specs
 inputs_idps(Element) when is_record(Element, neuron) ->
-	Element#neuron.inputs_idps ++ Element#neuron.rcc_inputs_idps;
+	Element#neuron.inputs_idps;
 inputs_idps(Element) when is_record(Element, cortex) ->
 	Element#cortex.inputs_idps.
+
+rcc_inputs_idps(Element) when is_record(Element, neuron) ->
+	Element#neuron.rcc_inputs_idps;
+rcc_inputs_idps(Element) when is_record(Element, cortex) ->
+	[].
+
 
 %%--------------------------------------------------------------------
 %% @doc

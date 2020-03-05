@@ -69,7 +69,7 @@
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
 new(Layer, AF, AggrF, Options) ->
-	Neuron = elements:create_neuron(Layer, AF, AggrF, Options),
+	Neuron = elements:neuron(Layer, AF, AggrF, Options),
 	nndb:write(Neuron),
 	elements:id(Neuron).
 
@@ -97,7 +97,7 @@ init(Neuron_Id, Parent) ->
 	proc_lib:init_ack(Parent, {ok, self()}),                % Supervisor synchronisation
 	TId = receive {continue_init, TableId} -> TableId end,   % Cortex synchronisation
 	init2(#state{
-		id      = elements:element_id(Neuron),
+		id      = elements:id(Neuron),
 		af      = elements:af(Neuron),
 		aggrf   = elements:aggrf(Neuron),
 		bias    = elements:bias(Neuron),
@@ -258,8 +258,8 @@ terminate(State, Reason) ->
 check_neuron(Neuron) ->
 	try
 		true = elements:is_neuron(Neuron),
-		false = [] == elements:inputs_idps(Neuron),
-		false = [] == elements:outputs_ids(Neuron)
+		false = [] == elements:inputs_idps(Neuron) ++ elements:rcc_inputs_idps(Neuron),
+		false = [] == elements:outputs_ids(Neuron) ++ elements:rcc_outputs_ids(Neuron)
 	catch
 		error:{badmatch, _} ->
 			?LOG_NOTICE("broken network on neuron: ~p", [Neuron]),

@@ -137,9 +137,9 @@ outputs({_, cortex} = Cortex_Id) ->
 %TODO: Correct specs
 clone({_, cortex} = Cortex_Id) ->
 	Cortex = nndb:read(Cortex_Id),
-	{Clone, ConversionETS} = nn_elements:clone_cortex(Cortex),
-	Neurons_Ids = nn_elements:neurons(Cortex),
-	Neurons = [nn_elements:clone_neuron(Neuron, ConversionETS) || Neuron <- nndb:read(Neurons_Ids)],
+	{Clone, ConversionETS} = elements:clone_cortex(Cortex),
+	Neurons_Ids = elements:neurons(Cortex),
+	Neurons = [elements:clone_neuron(Neuron, ConversionETS) || Neuron <- nndb:read(Neurons_Ids)],
 	ets:delete(ConversionETS),
 	nndb:write([Clone | Neurons]),
 	elements:id(Clone).
@@ -174,7 +174,7 @@ stop_nn(Cortex_Id) ->
 %%--------------------------------------------------------------------
 %TODO: Correct specs
 pformat(Element) ->
-	nn_elements:pformat(Element).
+	elements:pformat(Element).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -185,7 +185,7 @@ pformat(Element) ->
 %TODO: Correct specs
 check_nn(Cortex_Id) ->
 	Cortex = nndb:read(Cortex_Id),
-	Neurons = nndb:read(nn_elements:neurons(Cortex)),
+	Neurons = nndb:read(elements:neurons(Cortex)),
 	check_links(Cortex, Neurons),
 	check_inputs(Cortex, Neurons),
 	check_outputs(Cortex, Neurons),
@@ -215,11 +215,11 @@ averageLoss(_LossList, _Batch_Size, _C) ->
 % ......................................................................................................................
 check_links(Cortex, Neurons) ->
 	InL = lists:append(
-		[[{In, elements:id(Cortex)} || In <- nn_elements:inputs_ids(Cortex)] |
-		 [[{In, neuron:id(N)} || In <- nn_elements:inputs_ids(N)] || N <- Neurons]]),
+		[[{In, elements:id(Cortex)} || In <- elements:inputs_ids(Cortex)] |
+		 [[{In, neuron:id(N)} || In <- elements:inputs_ids(N) ++ elements:rcc_inputs_ids(N)] || N <- Neurons]]),
 	OutL = lists:append(
-		[[{elements:id(Cortex), Out} || Out <- nn_elements:outputs_ids(Cortex)] |
-		 [[{neuron:id(N), Out} || Out <- nn_elements:outputs_ids(N)] || N <- Neurons]]),
+		[[{elements:id(Cortex), Out} || Out <- elements:outputs_ids(Cortex)] |
+		 [[{neuron:id(N), Out} || Out <- elements:outputs_ids(N) ++ elements:rcc_outputs_ids(N)] || N <- Neurons]]),
 	case InL -- OutL of
 		[] -> ok;
 		Diff ->
@@ -238,9 +238,10 @@ check_inputs(Cortex, Neurons) ->
 	end.
 
 is_broken_at_inputs(Element) ->
-	case nn_elements:inputs_idps(Element) of
+	Inputs = elements:inputs_idps(Element) ++ elements:rcc_inputs_idps(Element),
+	case Inputs of
 		[] ->
-			?LOG_ERROR("Broken NN ~p, empty neuron inputs", [nn_elements:element_id(Element)]),
+			?LOG_ERROR("Broken NN ~p, empty neuron inputs", [elements:id(Element)]),
 			true;
 		_NonEmpty ->
 			false
@@ -257,9 +258,10 @@ check_outputs(Cortex, Neurons) ->
 	end.
 
 is_broken_at_outputs(Element) ->
-	case nn_elements:outputs_ids(Element) of
+	Outputs = elements:outputs_ids(Element) ++ elements:rcc_outputs_ids(Element),
+	case Outputs of
 		[] ->
-			?LOG_ERROR("Broken NN ~p, empty neuron outputs", [nn_elements:element_id(Element)]),
+			?LOG_ERROR("Broken NN ~p, empty neuron outputs", [elements:id(Element)]),
 			true;
 		_NonEmpty ->
 			false
