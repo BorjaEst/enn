@@ -188,18 +188,19 @@ test_sigmoid_functions(_) ->
 
 % --------------------------------------------------------------------
 % SPECIFIC HELPER FUNCTIONS ------------------------------------------
-almost_equal(Ref_Val, Value) ->
-	lists:all(fun(X) -> X end, [almost_equal(X, Y) ||
-		          	            {X, Y} <- lists:zip(Ref_Val, Value)]);
+
+% almost_equal({Ref_Val, Value}) -> 
+% 	almost_equal(Ref_Val, Value);
+% almost_equal(RefV_ValList) ->
+% 	lists:all(fun almost_equal/1, RefV_ValList).
 
 almost_equal(Ref_Val, Value) ->
 	Sup = Ref_Val + ?EQUAL_TOLERANCE,
 	Inf = Ref_Val - ?EQUAL_TOLERANCE,
 	if
-		Sup > Value, Inf < Value ->
-			true;
-		true ->
-			false
+		Value > Sup -> false;
+		Value < Inf -> false;
+		true -> true
 	end.
 
 

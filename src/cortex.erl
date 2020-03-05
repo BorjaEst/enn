@@ -58,11 +58,11 @@
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
 new(Name, Compiled_Layers, Options) ->
-	Cortex = nn_elements:create_cortex(Name, maps:map(fun elements/2, Compiled_Layers), Options),
+	Cortex = nn_elements:cortex(Name, maps:map(fun elements/2, Compiled_Layers), Options),
 	nndb:write(Cortex),
-	[mutation:create_link(Cortex#cortex.id, To) || To <- get_inputs(Compiled_Layers)],
-	[mutation:create_link(From, Cortex#cortex.id) || From <- get_outputs(Compiled_Layers)],
-	Cortex#cortex.id.
+	[mutation:create_link(elements:id(Cortex), To) || To <- get_inputs(Compiled_Layers)],
+	[mutation:create_link(From, elements:id(Cortex)) || From <- get_outputs(Compiled_Layers)],
+	elements:id(Cortex).
 
 elements(_, LayerInfo) ->
 	element(2, LayerInfo).
@@ -374,8 +374,8 @@ handle_start_nn() ->
 	Neurons = [{start_nn_element(NNSup_PId, TId_IdPIds, N_Id), nndb:read(N_Id)} || N_Id <- nn_elements:neurons(Cortex)],
 	[PId ! {continue_init, TId_IdPIds} || {PId, _} <- Neurons],
 	put(neurons, maps:from_list(Neurons)),
-	put(inputs, [#input{pid = cortex:nn_id2pid(Id, TId_IdPIds)} || {Id, _} <- Cortex#cortex.inputs_idps]),
-	put(outputs, [#output{pid = cortex:nn_id2pid(Id, TId_IdPIds)} || Id <- Cortex#cortex.outputs_ids]).
+	put(inputs, [#input{pid = cortex:nn_id2pid(Id, TId_IdPIds)} || {Id, _} <- elements:inputs_idps(Cortex)]),
+	put(outputs, [#output{pid = cortex:nn_id2pid(Id, TId_IdPIds)} || Id <- elements:outputs_ids(Cortex)]).
 
 start_nn_element(NNSup_PId, TId_IdPIds, Neuron_Id) ->
 	case nn_sup:start_neuron(NNSup_PId, Neuron_Id) of

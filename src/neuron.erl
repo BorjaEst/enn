@@ -45,7 +45,7 @@
 
 -define(LEARNING_FACTOR, 0.00).  % TODO: Make it modifiable according to the error and by the eevo module
 -define(MOMENTUM_FACTOR, 0.00).
--define(SAT_LIMIT, 3.0 ?PI).
+-define(SAT_LIMIT, 3.0 * ?PI).
 -define(R2(Val), round(Val * 100.0) / 100.0).
 
 
@@ -102,12 +102,12 @@ init(Neuron_Id, Parent) ->
 		aggrf   = elements:aggrf(Neuron),
 		bias    = elements:bias(Neuron),
 		inputs  = maps:from_list(
-			[{cortex:nn_id2pid(Id, TId), #input{id = Id, w = W, r = false}} || {Id, W} <- Neuron#neuron.inputs_idps] ++
-			[{cortex:nn_id2pid(Id, TId), #input{id = Id, w = W, r = true}} || {Id, W} <- Neuron#neuron.rcc_inputs_idps]
+			[{cortex:nn_id2pid(Id, TId), #input{id = Id, w = W, r = false}} || {Id, W} <- elements:inputs_idps(Neuron)] ++
+			[{cortex:nn_id2pid(Id, TId), #input{id = Id, w = W, r = true}} || {Id, W} <- elements:rcc_inputs_idps(Neuron)]
 		),
 		outputs = maps:from_list(
-			[{cortex:nn_id2pid(Id, TId), #output{id = Id, r = false}} || Id <- Neuron#neuron.outputs_ids] ++
-			[{cortex:nn_id2pid(Id, TId), #output{id = Id, r = true}} || Id <- Neuron#neuron.rcc_outputs_ids]
+			[{cortex:nn_id2pid(Id, TId), #output{id = Id, r = false}} || Id <- elements:outputs_ids(Neuron)] ++
+			[{cortex:nn_id2pid(Id, TId), #output{id = Id, r = true}} || Id <- elements:rcc_outputs_ids(Neuron)]
 		),
 		error   = 0.0
 	}).
@@ -234,20 +234,19 @@ weights_restore(State) ->
 terminate(State, Reason) ->
 	% TODO: When saving the new state, those links with weights ~= 0, must be deleted (both neurons)
 	% TODO: If the neuron has not at least 1 input or 1 output, it must be deleted (and bias forwarded)
-	
-	% ideal would be to get from this function the neuron passing State as options
-	Neuron = elements:create_neuron(Layer, AF, AggrF, Options),
-	
-	nndb:write(#neuron{
-		id              = State#state.id,
-		af              = State#state.af,
-		aggrf           = State#state.aggrf,
-		bias            = State#state.bias,
-		inputs_idps     = [{I#input.id, I#input.w} || {_, #input{r = false} = I} <- maps:to_list(State#state.inputs)],
-		outputs_ids     = [O#output.id || {_, #output{r = false} = O} <- maps:to_list(State#state.outputs)],
-		rcc_inputs_idps = [{I#input.id, I#input.w} || {_, #input{r = true} = I} <- maps:to_list(State#state.inputs)],
-		rcc_outputs_ids = [O#output.id || {_, #output{r = true} = O} <- maps:to_list(State#state.outputs)]
-	}),
+	Neuron = elements:edit(
+		elements:neuron(),
+		[
+			{id, State#state.id},
+			{af, State#state.af},
+			{aggrf, State#state.aggrf},
+			{bias, State#state.bias},
+			{inputs_idps, [{I#input.id, I#input.w} || {_, #input{r = false} = I} <- maps:to_list(State#state.inputs)]},
+			{outputs_ids, [O#output.id || {_, #output{r = false} = O} <- maps:to_list(State#state.outputs)]},
+			{rcc_inputs_idps, [{I#input.id, I#input.w} || {_, #input{r = true} = I} <- maps:to_list(State#state.inputs)]},
+			{rcc_outputs_ids, [O#output.id || {_, #output{r = true} = O} <- maps:to_list(State#state.outputs)]}
+		]),
+	nndb:write(Neuron),
 	exit(Reason).
 
 
@@ -258,7 +257,7 @@ terminate(State, Reason) ->
 % ......................................................................................................................
 check_neuron(Neuron) ->
 	try
-		#neuron{} = Neuron,
+		true = elements:is_neuron(Neuron),
 		false = [] == elements:inputs_idps(Neuron),
 		false = [] == elements:outputs_ids(Neuron)
 	catch
@@ -358,7 +357,7 @@ perturb_f(MP) ->
 		(bias, Bias) -> perturb(MP, rand:uniform(), Bias)
 	end.
 
-perturb(MP, Rand, W) when Rand < MP -> sat((rand:uniform() - 0.5) * ?DELTA_MULTIPLIER + W, -?SAT_LIMIT, ?SAT_LIMIT);
+perturb(MP, Rand, W) when Rand < MP -> sat((rand:uniform() - 0.5) * 6 + W, -?SAT_LIMIT, ?SAT_LIMIT);
 perturb(_, _, W)                    -> W.
 
 % ......................................................................................................................

@@ -77,12 +77,53 @@ fields(cortex) ->
 %% @end
 %%--------------------------------------------------------------------
 %TODO: Correct specs
-create_neuron(Layer, AF, AggrF, Options) ->
-	Neuron = #neuron{id = ?NEW_NEURON_ID(Layer), af = AF, aggrf = AggrF},
-	write_neuron_options(Neuron, Options).
+neuron() ->
+	neuron(0.0, direct, dotprod).
 
-edit_neuron(Neuron, Options) ->
-	write_neuron_options(Neuron, Options).
+neuron(Layer, AF, AggrF) ->
+	#neuron{id = ?NEW_NEURON_ID(Layer), af = AF, aggrf = AggrF}.
+
+neuron(Layer, AF, AggrF, Options) ->
+	Neuron = neuron(Layer, AF, AggrF),
+	edit(Neuron, Options).
+
+is_neuron(Neuron) when is_record(Neuron, neuron) ->
+	true;
+is_neuron(_NotNeuron) ->
+	false.	
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%%
+%% @end
+%%--------------------------------------------------------------------
+%TODO: Correct specs
+cortex(Name, CompiledLayers) ->
+	#cortex{id = ?NEW_CORTEX_ID(Name), layers = CompiledLayers}.
+	
+cortex(Name, CompiledLayers, Options) ->
+	Cortex = cortex(Name, CompiledLayers),
+	edit(Cortex, Options).
+
+is_cortex(Cortex) when is_record(Cortex, cortex) ->
+	true;
+is_cortex(_NotCortex) ->
+	false.	
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%%
+%% @end
+%%--------------------------------------------------------------------
+%TODO: Correct specs
+edit(Element, Options) when is_record(Element, neuron) ->
+	write_neuron_options(Element, Options);
+edit(Element, Options) when is_record(Element, cortex) ->
+	write_cortex_options(Element, Options).
 
 write_neuron_options(Neuron, [{id, Value} | Options]) ->
 	write_neuron_options(Neuron#neuron{id = Value}, Options);
@@ -103,19 +144,17 @@ write_neuron_options(Neuron, [{rcc_outputs_ids, Value} | Options]) ->
 write_neuron_options(Neuron, []) ->
 	Neuron.
 
-%%--------------------------------------------------------------------
-%% @doc
-%%
-%%
-%% @end
-%%--------------------------------------------------------------------
-%TODO: Correct specs
-create_cortex(Name, CompiledLayers, Options) ->
-	Cortex = #cortex{id = ?NEW_CORTEX_ID(Name), layers = CompiledLayers},
-	write_cortex_options(Cortex, Options).
-
+write_cortex_options(Cortex, [{id, Value} | Options]) ->
+	write_cortex_options(Cortex#cortex{id = Value}, Options);
+write_cortex_options(Cortex, [{layers, Value} | Options]) ->
+	write_cortex_options(Cortex#cortex{layers = Value}, Options);
+write_cortex_options(Cortex, [{outputs_ids, Value} | Options]) ->
+	write_cortex_options(Cortex#cortex{outputs_ids = Value}, Options);
+write_cortex_options(Cortex, [{inputs_idps, Value} | Options]) ->
+	write_cortex_options(Cortex#cortex{inputs_idps = Value}, Options);
 write_cortex_options(Cortex, []) ->
 	Cortex.
+
 
 %%--------------------------------------------------------------------
 %% @doc

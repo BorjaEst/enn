@@ -46,7 +46,7 @@ edit_link(FromElement_Id, {_, neuron} = ToNeuron_Id, NewWeight) ->
 % TODO: Define specs
 edit_bias({_, neuron} = Neuron_Id, NewValue) ->
 	Neuron = nndb:read(Neuron_Id),
-	NewNeuron = elements:edit_neuron(Neuron, [{bias, NewValue}]),
+	NewNeuron = elements:edit(Neuron, [{bias, NewValue}]),
 	nndb:write(NewNeuron).
 
 
@@ -134,11 +134,11 @@ change_aggrf({_, neuron} = Neuron_Id, NewAggrFun) ->
 % TODO: Define specs
 insert_neuron(Layer, AFun, AggrFun, Cortex_Id) ->
 	Cortex = nndb:read(Cortex_Id),
-	Neurons_Ids = maps:get(Layer, Cortex#cortex.layers, []),
+	Neurons_Ids = maps:get(Layer, elements:layers(Cortex), []),
 	Neuron_Id = neuron:new(Layer, AFun, AggrFun, _Options = []),
-	nndb:write(Cortex#cortex{
-		layers = maps:put(Layer, [Neuron_Id | Neurons_Ids], Cortex#cortex.layers)
-	}).
+	NewLayer = maps:put(Layer, [Neuron_Id | Neurons_Ids], elements:layers(Cortex)),
+	NewCortex = elements:edit(Cortex, [{layers,NewLayer}]),
+	nndb:write(NewCortex).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -149,16 +149,19 @@ insert_neuron(Layer, AFun, AggrFun, Cortex_Id) ->
 % TODO: Define specs
 remove_neuron({{Layer, _}, neuron} = Neuron_Id, Cortex_Id) ->
 	Cortex = nndb:read(Cortex_Id),
-	Neurons_Ids = maps:get(Layer, Cortex#cortex.layers),
+	Neurons_Ids = maps:get(Layer, elements:layers(Cortex)),
 	Neuron = nndb:read(Neuron_Id),
 	[remove_link(E_Id, Neuron_Id) || E_Id <- nn_elements:inputs_ids(Neuron)],
 	[remove_link(Neuron_Id, E_Id) || E_Id <- nn_elements:outputs_ids(Neuron)],
-	case lists:delete(Neuron_Id, Neurons_Ids) of
+	NewCortex = case lists:delete(Neuron_Id, Neurons_Ids) of
 		[] ->
-			nndb:write(Cortex#cortex{layers = maps:remove(Layer, Cortex#cortex.layers)});
+			NewLayer = maps:remove(Layer, elements:layers(Cortex)),
+			elements:edit(Cortex, [{layer, NewLayer}]);
 		Neurons ->
-			nndb:write(Cortex#cortex{layers = maps:update(Layer, Neurons, Cortex#cortex.layers)})
-	end.
+			NewLayer = maps:update(Layer, Neurons, elements:layers(Cortex)),
+			elements:edit(Cortex, [{layer, NewLayer}])
+	end,
+	nndb:write(NewCortex).
 
 
 %%====================================================================
