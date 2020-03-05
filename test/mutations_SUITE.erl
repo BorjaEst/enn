@@ -9,7 +9,6 @@
 -compile([export_all, nowarn_export_all]).
 
 -include_lib("common_test/include/ct.hrl").
--include_lib("nnelements.hrl").
 
 -define(INFO(Info), ct:log(?LOW_IMPORTANCE, "Info report: ~p", [Info])).
 -define(ERROR(Error), ct:pal(?HI_IMPORTANCE, "Error report: ~p", [Error])).
@@ -158,24 +157,24 @@ test_for_level_1_mutations_neurons(Config) ->
 test_for_level_1_edit_link_neuron(Neuron_Id) ->
 	?INFO("Correct weigth neuron mutations ......................................................"),
 	N_0 = nndb:read(Neuron_Id),
-	{LinkedInput_Id, _W_0} = randomElement(N_0#neuron.inputs_idps),
+	{LinkedInput_Id, _W_0} = randomElement(elements:inputs_idps(N_0)),
 	mutation:edit_link(LinkedInput_Id, Neuron_Id, W_1 = rand:uniform()),
 	N_1 = nndb:read(Neuron_Id),
 	?INFO(lists:flatten(enn:pformat(N_0))),
 	?INFO(lists:flatten(enn:pformat(N_1))),
-	{LinkedInput_Id, W_1} = lists:keyfind(LinkedInput_Id, 1, N_1#neuron.inputs_idps),
+	{LinkedInput_Id, W_1} = lists:keyfind(LinkedInput_Id, 1, elements:inputs_idps(N_1)),
 	?INFO("____________________________________________________________________________________OK"),
 	ok.
 
 test_for_level_1_edit_bias_neuron(Neuron_Id) ->
 	?INFO("Correct bias neuron mutations ........................................................"),
 	N_0 = nndb:read(Neuron_Id),
-	_Bias_0 = N_0#neuron.bias,
+	_Bias_0 = elements:bias(N_0),
 	mutation:edit_bias(Neuron_Id, Bias_1 = rand:uniform()),
 	N_1 = nndb:read(Neuron_Id),
 	?INFO(lists:flatten(enn:pformat(N_0))),
 	?INFO(lists:flatten(enn:pformat(N_1))),
-	Bias_1 = N_1#neuron.bias,
+	Bias_1 = elements:bias(N_1),
 	?INFO("____________________________________________________________________________________OK"),
 	ok.
 
@@ -209,7 +208,7 @@ test_for_level_2_create_link_neuron(Neuron_Id, Cortex) ->
 	true = lists:member(ToLink_Id, nn_elements:outputs_ids(N_1)),
 	true = lists:member(Neuron_Id, nn_elements:inputs_ids(E_1)),
 	?INFO("Error when link with an already linked random neuron/output ........................"),
-	AlreadyLink_Id = randomElement(N_1#neuron.outputs_ids),
+	AlreadyLink_Id = randomElement(elements:outputs_ids(N_1)),
 	?INFO(lists:flatten(enn:pformat(N_1))),
 	?INFO(AlreadyLink_Id),
 	{'EXIT', _} = (catch mutation:create_link(Neuron_Id, AlreadyLink_Id)),
@@ -219,7 +218,7 @@ test_for_level_2_create_link_neuron(Neuron_Id, Cortex) ->
 test_for_level_2_remove_link_neuron(Neuron_Id, Cortex) ->
 	?INFO("Correct unlink from random neurons (linked already) .................................."),
 	N_0 = nndb:read(Neuron_Id),
-	ToUnlink_Id = randomElement(N_0#neuron.outputs_ids),
+	ToUnlink_Id = randomElement(elements:outputs_ids(N_0)),
 	E_0 = nndb:read(ToUnlink_Id),
 	true = lists:member(Neuron_Id, nn_elements:inputs_ids(E_0)),
 	mutation:remove_link(Neuron_Id, ToUnlink_Id),
@@ -229,7 +228,7 @@ test_for_level_2_remove_link_neuron(Neuron_Id, Cortex) ->
 	?INFO(lists:flatten(enn:pformat(N_1))),
 	?INFO(lists:flatten(enn:pformat(E_0))),
 	?INFO(lists:flatten(enn:pformat(E_1))),
-	false = lists:member(ToUnlink_Id, N_1#neuron.outputs_ids),
+	false = lists:member(ToUnlink_Id, elements:outputs_ids(N_1)),
 	false = lists:member(Neuron_Id, nn_elements:inputs_ids(E_1)),
 	?INFO("Error when unlink from a non linked random neuron ...................................."),
 	PossibleToLink = nn_elements:neurons(Cortex) -- nn_elements:outputs_ids(N_0),
@@ -244,11 +243,11 @@ test_for_level_2_change_af_neuron(Neuron_Id) ->
 	?INFO("Change neuron activation function ...................................................."),
 	N_0 = nndb:read(Neuron_Id),
 	AFList = [fun activation_function:sigmoid/1, fun activation_function:tanh/1],
-	mutation:change_af(Neuron_Id, RandomAF = randomElement(AFList -- [N_0#neuron.af])),
+	mutation:change_af(Neuron_Id, RandomAF = randomElement(AFList -- [elements:af(N_0)])),
 	N_1 = nndb:read(Neuron_Id),
 	?INFO(lists:flatten(enn:pformat(N_0))),
 	?INFO(lists:flatten(enn:pformat(N_1))),
-	RandomAF = N_1#neuron.af,
+	RandomAF = elements:af(N_1),
 	?INFO("____________________________________________________________________________________OK"),
 	ok.
 
@@ -256,11 +255,11 @@ test_for_level_2_change_aggrf_neuron(Neuron_Id) ->
 	?INFO("Change neuron aggregation function ..................................................."),
 	N_0 = nndb:read(Neuron_Id),
 	AggrFList = [fun aggregation_function:diff_product/2, fun aggregation_function:dot_power/2],
-	mutation:change_aggrf(Neuron_Id, RandomAggrF = randomElement(AggrFList -- [N_0#neuron.aggrf])),
+	mutation:change_aggrf(Neuron_Id, RandomAggrF = randomElement(AggrFList -- [elements:aggrf(N_0)])),
 	N_1 = nndb:read(Neuron_Id),
 	?INFO(lists:flatten(enn:pformat(N_0))),
 	?INFO(lists:flatten(enn:pformat(N_1))),
-	RandomAggrF = N_1#neuron.aggrf,
+	RandomAggrF = elements:aggrf(N_1),
 	?INFO("____________________________________________________________________________________OK"),
 	ok.
 

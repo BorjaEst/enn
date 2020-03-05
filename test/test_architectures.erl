@@ -10,7 +10,6 @@
 -compile([export_all, nowarn_export_all]). %%TODO: To delete after build
 
 -include_lib("layers.hrl").
--include_lib("nnelements.hrl").
 
 %% Defined agent species
 -export([]).

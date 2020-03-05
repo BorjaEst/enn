@@ -10,7 +10,6 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("layers.hrl").
--include_lib("nnelements.hrl").
 
 -define(INFO(Info), ct:log(?LOW_IMPORTANCE, "Info report: ~p", [Info])).
 -define(ERROR(Error), ct:pal(?HI_IMPORTANCE, "Error report: ~p", [Error])).
@@ -233,7 +232,7 @@ correct_model_compilation(Model) ->
 	?INFO("Correct model compilation ............................................................"),
 	Cortex_Id = enn:compile(Model), ?INFO(Model),
 	Cortex = nndb:read(Cortex_Id), ?INFO(Cortex),
-	true = is_record(Cortex, cortex),
+	true = elements:is_cortex(Cortex),
 	?INFO("____________________________________________________________________________________OK"),
 	{ok, Cortex_Id}.
 
