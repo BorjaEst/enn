@@ -38,75 +38,80 @@ attributes_table() ->
 	].
 
 %%--------------------------------------------------------------------
-%% @doc Compiles and returns a sequential model from the defined 
-%% layers.
+%% @doc Returns a sequential model from the defined layers.
 %% @end
 %%--------------------------------------------------------------------
 -spec sequential([Layer :: layer:specifications()]) -> 
-	Model :: term(). %% TODO: Create model:model and introduce here
+	Model_specifications :: model:specifications().
 sequential(Layers) ->
-	_Model = sequential(Layers, nnref:new()).
+	sequential(Layers, nnref:new()).
 
+-spec sequential(Layers :: [layer:specifications()], 
+                 Name :: atom()) ->
+	Model_specifications :: model:specifications().
 sequential(Layers, Name) ->
-	_Model = model:sequential(Layers, Name).
+	model:sequential(Layers, Name).
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns a recurrent model from the defined layers.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
+-spec recurrent(Layers :: [layer:specifications()],
+			    RLevel :: integer()) ->
+	Model_specifications :: model:specifications().
 recurrent(Layers, RLevel) ->
-	_Model = recurrent(Layers, RLevel, nnref:new()).
+	recurrent(Layers, RLevel, nnref:new()).
 
+-spec recurrent(Layers :: [layer:specifications()], 
+			    RLevel :: integer(), Name :: atom()) ->
+	Model_specifications :: model:specifications().
 recurrent(Layers, RLevel, Name) ->
-	_Model = model:recurrent(Layers, RLevel, Name).
+	model:recurrent(Layers, RLevel, Name).
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Compiles and stores a model in the DB returning its cortex_id.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
+-spec compile(Model :: model:specifications()) -> 
+	Cortex_id :: cortex:id().
 compile(Model) ->
-	_Cortex_Id = model:compile(Model).
+	model:compile(Model).
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Uses a ANN to create a prediction. The ANN is refered by using
+%% the cortex pid.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
+-spec predict(Cortex_PId :: pid(), ExternalInputs :: [float()]) ->
+	[Prediction :: float()].
 predict(Cortex_PId, [_ | _] = ExternalInputs) ->
 	[cortex:predict(Cortex_PId, Inputs) || Inputs <- ExternalInputs];
 predict(_Cortex_PId, []) ->
 	[].
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Supervised ANN training function. Fits the Predictions to the 
+%% OptimalOutputs.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
+-spec fit(Cortex_PId :: pid(), ExternalInputs :: [float()], 
+          OptimalOutputs :: [float()]) ->
+	{Loss :: [float()], Predictions :: [float()]}.
 fit(Cortex_PId, ExternalInputs, OptimalOutputs) ->
 	Result = [fit_cycle(Cortex_PId, I, O) || {I, O} <- lists:zip(ExternalInputs, OptimalOutputs)],
 	{_Loss, _Predictions} = lists:unzip(Result).
 
+%% TODO: Implement a real by BatchSize functionality
 fit(Cortex_PId, ExternalInputs, OptimalOutputs, Batch_Size) ->
 	{LossList, Predictions} = fit(Cortex_PId, ExternalInputs, OptimalOutputs),
 	{averageLoss(LossList, Batch_Size), Predictions}.
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns the number of inputs a Model/Cortex expects.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
+-spec inputs(ANN :: model:specifications() | cortex:id()) ->
+	NumberOfInputs :: integer().
 inputs(Model) when is_map(Model) ->
 	#{layers := #{-1.0 := #{units := N_Inputs}}} = Model,
 	N_Inputs;
@@ -115,12 +120,11 @@ inputs({_, cortex} = Cortex_Id) ->
 	length(elements:outputs_ids(Cortex)). % Cortex inputs are the output neurons
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns the number of outputs a Model/Cortex expects.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
+-spec outputs(ANN :: model:specifications() | cortex:id()) ->
+	NumberOfOtputs :: integer().
 outputs(Model) when is_map(Model) ->
 	#{layers := #{1.0 := #{units := N_Outputs}}} = Model,
 	N_Outputs;
