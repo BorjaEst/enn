@@ -12,7 +12,7 @@
 
 %% API
 -export([dense/2, input/2, output/2, compile/2]).
--export_type([type_id/0, specifications/0]).
+-export_type([type_id/0, specifications/0, compiled/0]).
 
 -type type_id() :: dense | input | output.
 -type specifications() :: #{
@@ -20,12 +20,16 @@
 	units := integer(),
 	activation := activation:func(),
 	aggregation := aggregation:func(),
-	options := []}. %% TODO: create neuron:options
-
+	options := [] %% TODO: create neuron:options
+}.
 -type properties() :: #{
 	activation => activation:func(),
-	aggregation => aggregation:func()}.
-
+	aggregation => aggregation:func()
+}.
+-type compiled() :: {
+	Type :: type_id(), 
+	[NId :: neuron:neuron_id()]
+}.
 
 -ifdef(debug_mode).
 -define(LOG(X), io:format("{~p,~p,~p}: ~p~n", [self(), ?MODULE, ?LINE, X])).
@@ -90,7 +94,7 @@ output(Units, Properties) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec compile(Coordinade :: float(), Spec :: specifications()) ->
-	CompiledLayer :: {Type :: type_id(), [NId :: neuron:neuron_id()]}.
+	CompiledLayer :: compiled().
 compile(Coordinade, Spec) ->
 	#{
 		type        := Type,

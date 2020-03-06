@@ -29,7 +29,6 @@
 	options := [Option :: term()]  %% TODO: Define options
 }.
 
-
 -ifdef(debug_mode).
 -define(LOG(X), io:format("{~p,~p,~p}: ~p~n", [self(), ?MODULE, ?LINE, X])).
 -define(STDCALL_TIMEOUT, infinity).

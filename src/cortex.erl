@@ -26,18 +26,14 @@
 -export([init/1, format_status/2, handle_event/4, terminate/3, code_change/4, callback_mode/0]).
 -export([inactive/3, on_feedforward/3, on_backpropagation/3]).
 
--type id() :: {Agent_Reference :: reference(), cortex}.
+-type id() :: {Ref :: reference(), cortex}.
 
 -record(input, {pid :: pid(), s :: float(), loss :: float(), lossB :: float(), acc = [] :: [float()]}).
 -record(output, {pid :: pid(), s :: float(), error :: float()}).
 -record(state, {
-	batch :: integer(),
 	wait :: [term()],
 	from :: gen_statem:from()
 }).
-
--define(DEFAULT_BATCH_SIZE, 08).
--define(MIN_LOSS, 1.0e-2).
 
 
 -ifdef(debug_mode).
@@ -51,89 +47,81 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Creates a new cortex from the compiled layers, stores it on 
+%% the database and returns its cortex id.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: To make description and specs
-new(Name, Compiled_Layers, Options) ->
-	Cortex = elements:cortex(Name, maps:map(fun elements/2, Compiled_Layers), Options),
+-spec new(Name :: atom(), 
+		  CompiledLayers :: #{integer() => layer:compiled()},
+		  Options :: [term()]) ->
+	Cortex_Id :: id().
+new(Name, CompiledLayers, Options) ->
+	Cortex = elements:cortex(Name, maps:map(fun elements/2, CompiledLayers), Options),
 	nndb:write(Cortex),
-	[mutation:create_link(elements:id(Cortex), To) || To <- get_inputs(Compiled_Layers)],
-	[mutation:create_link(From, elements:id(Cortex)) || From <- get_outputs(Compiled_Layers)],
+	[mutation:create_link(elements:id(Cortex), To) || To <- get_inputs(CompiledLayers)],
+	[mutation:create_link(From, elements:id(Cortex)) || From <- get_outputs(CompiledLayers)],
 	elements:id(Cortex).
 
 elements(_, LayerInfo) ->
 	element(2, LayerInfo).
-get_inputs(Compiled_Layers) ->
-	lists:append([ElementsLayer || {Type, ElementsLayer} <- maps:values(Compiled_Layers), Type == input]).
-get_outputs(Compiled_Layers) ->
-	lists:append([ElementsLayer || {Type, ElementsLayer} <- maps:values(Compiled_Layers), Type == output]).
+get_inputs(CompiledLayers) ->
+	lists:append([ElementsLayer || {Type, ElementsLayer} <- maps:values(CompiledLayers), Type == input]).
+get_outputs(CompiledLayers) ->
+	lists:append([ElementsLayer || {Type, ElementsLayer} <- maps:values(CompiledLayers), Type == output]).
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Cortex id start function for supervisor. 
 %% @end
 %%--------------------------------------------------------------------
-% TODO: To make description and specs
-start_link(Cortex_Id, Agent_PId) ->
-	start_link(Cortex_Id, Agent_PId, ?DEFAULT_BATCH_SIZE).
-
-start_link(Cortex_Id, Agent_PId, Batch_Size) ->
+-spec start_link(Cortex_Id :: id()) ->
+	gen_statem:start_ret().
+start_link(Cortex_Id) -> 
 	NNSup_PId = self(),
 	TId_IdPIds = ets:new(nn_idpids, [{read_concurrency, true}, public]),
 	gen_statem:start_link(?MODULE,
 		[
 			{id, Cortex_Id},
-			{agent, Agent_PId},
 			{nn_sup, NNSup_PId},
-			{batch_size, Batch_Size},
 			{tid_idpids, TId_IdPIds}
 		], []).
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Makes a prediction using the external inputs.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: To make description and specs
+-spec predict(Cortex_PId :: pid(), ExternalInputs :: [float()]) ->
+	Predictions :: [float()].
 predict(Cortex_PId, ExternalInputs) ->
-	_Predictions = gen_statem:call(Cortex_PId, {feedforward, ExternalInputs}, ?STDCALL_TIMEOUT).
+	gen_statem:call(Cortex_PId, {feedforward, ExternalInputs}, ?STDCALL_TIMEOUT).
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Performs a single NN training using back propagation.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: To make description and specs
+-spec fit(Cortex_PId :: pid(), OptimalOutputs :: [float()]) ->
+	Errors :: [float()].
 fit(Cortex_PId, OptimalOutputs) ->
-	_Errors = gen_statem:call(Cortex_PId, {backprop, OptimalOutputs}, ?STDCALL_TIMEOUT).
+	gen_statem:call(Cortex_PId, {backprop, OptimalOutputs}, ?STDCALL_TIMEOUT).
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns the pid of a neuron from its id.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: To make description and specs
-nn_id2pid(NNE_Id, TId_IdPIds) ->
-	[{NNE_Id, NNE_PId}] = ets:lookup(TId_IdPIds, NNE_Id),
-	NNE_PId.
+-spec nn_id2pid(Neuron_Id :: neuron:id(), TId_IdPIds :: ets:tid()) ->
+	Neuron_PId :: pid().
+nn_id2pid(Neuron_Id, TId_IdPIds) ->
+	[{Neuron_PId, Neuron_Id}] = ets:lookup(TId_IdPIds, Neuron_Id),
+	Neuron_PId.
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns the id of a neuron from its pid.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: To make description and specs
-nn_pid2id(NNE_PId, TId_IdPIds) ->
-	[{NNE_PId, NNE_Id}] = ets:lookup(TId_IdPIds, NNE_PId),
-	NNE_Id.
+-spec nn_pid2id(Neuron_PId :: pid(), TId_IdPIds :: ets:tid()) ->
+	Neuron_Id :: neuron:id().
+nn_pid2id(Neuron_PId, TId_IdPIds) ->
+	[{Neuron_Id, Neuron_PId}] = ets:lookup(TId_IdPIds, Neuron_PId),
+	Neuron_Id.
 
 
 %%%===================================================================
@@ -155,14 +143,11 @@ nn_pid2id(NNE_PId, TId_IdPIds) ->
 %%--------------------------------------------------------------------
 init(Arguments) ->
 	[put(Key, Value) || {Key, Value} <- Arguments],
-	put(perturbed, []),
 	Id = get(id),
 	ets:insert(get(tid_idpids), [{Id, self()}, {self(), Id}]),
 	process_flag(trap_exit, true), % Mandatory to catch supervisor exits
 	?LOG_INFO("Cortex_Id:~p initiated", [Id]),
-	{ok, inactive, #state{
-		batch = get(batch_size)
-	},
+	{ok, inactive, #state{},
 	 [{next_event, internal, start_nn}]}.
 
 
@@ -218,21 +203,20 @@ format_status(_Opt, [_PDict, _StateName, _State]) ->
 %%                   {keep_state_and_data, Actions}
 %% @end
 %%--------------------------------------------------------------------
-%TODO: To add specs and description
-inactive(enter, _OldState, #state{batch = 0} = State) ->
-	put(inputs, [loss_calc(Input) || Input <- get(inputs)]),
-	network_perturbation(),
-	{keep_state, State#state{
-		batch = get(batch_size)
-	}};
+%% @doc inactive: The cortex is idle waiting to start a feedforward or 
+%% backpropagation wave.  
+%% @end
+%%--------------------------------------------------------------------
 inactive({call, From}, {feedforward, ExtInputs}, State) ->
-	put(outputs, [forward(Output, ExtInput) || {Output, ExtInput} <- lists:zip(get(outputs), ExtInputs)]),
+	UpdatedOutputs = trigger_forward(get(outputs), ExtInputs),
+	put(outputs, UpdatedOutputs),
 	{next_state, on_feedforward, State#state{
 		from = From,
 		wait = [Input#input.pid || Input <- get(inputs)]
 	}};
 inactive({call, From}, {backprop, Optimals}, State) ->
-	put(inputs, [backward(Input, Optm) || {Input, Optm} <- lists:zip(get(inputs), Optimals)]),
+	UpdatedInputs = trigger_backward(get(inputs), Optimals),
+	put(inputs, UpdatedInputs),
 	{next_state, on_backpropagation, State#state{
 		from = From,
 		wait = [Output#output.pid || Output <- get(outputs)]
@@ -247,34 +231,49 @@ inactive(internal, start_nn, State) ->
 	end;
 inactive(EventType, EventContent, State) ->
 	handle_common(EventType, EventContent, State).
-
-%TODO: To add specs and description
+%%--------------------------------------------------------------------
+%% @doc on_feedforward: The cortex is collecting the results of and
+%% signals of the forward wave. When all neurons have propagated their
+%% values, the cortex returns the predictions to the requester.
+%%--------------------------------------------------------------------
 on_feedforward(info, {PId, forward, Signal}, State) ->
 	Input = lists:keyfind(PId, #input.pid, get(inputs)),
-	put(inputs, lists:keyreplace(PId, #input.pid, get(inputs), Input#input{s = Signal})),
+	UpdatedInputs = lists:keyreplace(PId, #input.pid, get(inputs), 
+								     Input#input{s = Signal}),
+	put(inputs, UpdatedInputs),
 	on_feedforward(internal, forward, State#state{
 		wait = lists:delete(PId, State#state.wait)
 	});
 on_feedforward(internal, forward, #state{wait = []} = State) ->
 	{next_state, inactive, State,
-	 [{reply, State#state.from, [Input#input.s || Input <- get(inputs)]}]};
+	 [{reply, State#state.from, 
+	   [Input#input.s || Input <- get(inputs)]}]};
 on_feedforward(EventType, EventContent, State) ->
 	handle_common(EventType, EventContent, State).
-
-%TODO: To add specs and description
-on_backpropagation(info, {PId, backward, BP_Error}, State) ->
+%%--------------------------------------------------------------------
+%% @doc on_backpropagation: The cortex is collecting the results of 
+%% and signals of the backward wave. When all neurons have propagated 
+%% the values, the cortex returns the last correction values from the
+%% inputs to the requester.
+%%--------------------------------------------------------------------
+on_backpropagation(info, {PId, backward, BP_Err}, State) ->
 	Output = lists:keyfind(PId, #output.pid, get(outputs)),
-	put(outputs, lists:keyreplace(PId, #input.pid, get(outputs), Output#output{error = BP_Error})),
+	UpdatedOutputs = lists:keyreplace(PId, #input.pid, get(outputs), 
+									  Output#output{error = BP_Err}),
+	put(outputs, UpdatedOutputs),
 	on_backpropagation(internal, backward, State#state{
 		wait = lists:delete(PId, State#state.wait)
 	});
 on_backpropagation(internal, backward, #state{wait = []} = State) ->
-	{next_state, inactive, State#state{batch = State#state.batch - 1},
-	 [{reply, State#state.from, [hd(Input#input.acc) || Input <- get(inputs)]}]};
+	{next_state, inactive, State,
+	 [{reply, State#state.from, 
+	   [hd(Input#input.acc) || Input <- get(inputs)]}]};
 on_backpropagation(EventType, EventContent, State) ->
 	handle_common(EventType, EventContent, State).
-
-%TODO: To add specs and description
+%%--------------------------------------------------------------------
+%% @doc This function hanldes all the common events and raises an 
+%% exception if the event/call is unknown.
+%%--------------------------------------------------------------------
 handle_common(enter, _OldState, State) ->
 	{keep_state, State};
 handle_common(internal, _EventContent, State) ->
@@ -349,11 +348,19 @@ state_to_cortex(#state{} = _State, _TId_IdPIds) ->
 	error("state_to_cortex fun not developed").
 
 % ......................................................................................................................
+trigger_forward(Outputs, ExtInputs) ->
+	[forward(Output, ExtInput) || 
+	        {Output, ExtInput} <- lists:zip(Outputs, ExtInputs)].
+
 forward(Output, Signal) ->
 	Output#output.pid ! {self(), forward, Signal},
 	Output#output{s = Signal}.
 
 % ......................................................................................................................
+trigger_backward(Inputs, Optimals) -> 
+	[backward(Input, Optm) || 
+	         {Input, Optm} <- lists:zip(Inputs, Optimals)].
+
 backward(Input, Optm) ->
 	Error = Optm - Input#input.s,
 	Input#input.pid ! {self(), backward, Error},
@@ -385,53 +392,6 @@ start_nn_element(NNSup_PId, TId_IdPIds, Neuron_Id) ->
 		{error, Reason} ->
 			exit(Reason)
 	end.
-
-% ......................................................................................................................
-network_perturbation() ->
-	
-	?LOG_NOTICE("LOSS__: ~p", [[{Input#input.loss, Input#input.lossB} || Input <- get(inputs)]]),
-	
-	[do_network_perturbation(Input) || Input <- get(inputs)],
-	ok.
-
-
-% TODO: Improve setting the perturbation only on neurons related with the error
-
-do_network_perturbation(#input{loss = L1, lossB = L2} = _Input) when L1 < L2, L1 > ?MIN_LOSS ->
-	
-	?LOG_NOTICE("----> backup & perturb"),
-	
-	weights_backup(),
-	weights_perturb();
-
-do_network_perturbation(#input{loss = L1, lossB = L2} = _Input) when L1 >= L2, L1 > ?MIN_LOSS ->
-	
-	?LOG_NOTICE("----> restore & perturb"),
-	weights_restore(),
-	weights_perturb();
-
-do_network_perturbation(_Input) ->
-	nothing.
-
-
-% ......................................................................................................................
-weights_backup() ->
-	[NPId ! weights_backup || NPId <- maps:keys(get(neurons))],
-	put(perturbed, []).
-
-
-% ......................................................................................................................
-weights_perturb() ->
-	Neurons = get(neurons),
-	MP = 1 / math:sqrt(maps:size(Neurons)),
-	Perturbed_NPIds = [NPId || NPId <- maps:keys(Neurons), rand:uniform() < MP],
-	[NPId ! weights_perturb || NPId <- Perturbed_NPIds],
-	put(perturbed, Perturbed_NPIds).
-
-% ......................................................................................................................
-weights_restore() ->
-	[NPId ! weights_restore || NPId <- get(perturbed)],
-	put(perturbed, []).
 
 
 %%====================================================================
