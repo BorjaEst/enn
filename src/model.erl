@@ -13,6 +13,22 @@
 
 %% API
 %%-export([]).
+-export_type([specifications/0]).
+
+-type connections() :: {
+	Type :: all, %% TODO: to define more types (half, random, etc)
+	LayerId_From :: float(),
+	LayerIds_To :: [float()]
+}.
+-type specifications() :: #{
+	name := atom() | string(),
+	connections := connections(),
+	layers := #{
+		LayerId :: float() => Specs :: layer:specifications()
+		},
+	options := [Option :: term()]  %% TODO: Define options
+}.
+
 
 -ifdef(debug_mode).
 -define(LOG(X), io:format("{~p,~p,~p}: ~p~n", [self(), ?MODULE, ?LINE, X])).
@@ -27,12 +43,11 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns the specifications for a sequential model from layers.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: To make description and specs
+-spec sequential(Layers :: [layer:specifications()], Name :: atom()) ->
+	Model_specifications :: specifications().
 sequential(Layers, Name) when length(Layers) > 1 ->
 	Sequence = linspace(-1, + 1, length(Layers)),
 	#{
@@ -43,12 +58,13 @@ sequential(Layers, Name) when length(Layers) > 1 ->
 	}.
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns the specifications for a recurrent model from layers.
+%% RLevel indicates the number of lower layers that will be connected. 
 %% @end
 %%--------------------------------------------------------------------
-% TODO: To make description and specs
+-spec recurrent(Layers :: [layer:specifications()], 
+			    RLevel :: integer(), Name :: atom()) ->
+	Model_specifications :: specifications().
 recurrent(Layers, RLevel, Name) when length(Layers) > 1 ->
 	Sequence = linspace(-1, + 1, length(Layers)),
 	#{
@@ -59,12 +75,11 @@ recurrent(Layers, RLevel, Name) when length(Layers) > 1 ->
 	}.
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Compiles and stores a model in the DB returning its cortex_id.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: To make description and specs
+-spec compile(Model :: specifications()) -> 
+	Cortex_id :: cortex:id().
 compile(Model) ->
 	#{
 		name := Name,
