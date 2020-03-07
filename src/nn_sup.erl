@@ -15,9 +15,9 @@
 %% Supervisor callbacks
 -export([init/1]).
 
--define(SPECS_CORTEX(Cortex_Id, Agent_PId), #{
+-define(SPECS_CORTEX(Cortex_Id), #{
 	id       => Cortex_Id,
-	start    => {cortex, start_link, [Cortex_Id, Agent_PId]},
+	start    => {cortex, start_link, [Cortex_Id]},
 	restart  => permanent,
 	shutdown => 1000,
 	modules  => [gen_statem]}).
@@ -53,7 +53,7 @@ start_link() ->
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
 start_cortex(Supervisor, Cortex_Id) ->
-	supervisor:start_child(Supervisor, ?SPECS_CORTEX(Cortex_Id, self())).
+	supervisor:start_child(Supervisor, ?SPECS_CORTEX(Cortex_Id)).
 
 %%--------------------------------------------------------------------
 %% @doc

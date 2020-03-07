@@ -110,7 +110,7 @@ fit(Cortex_PId, OptimalOutputs) ->
 -spec nn_id2pid(Neuron_Id :: neuron:id(), TId_IdPIds :: ets:tid()) ->
 	Neuron_PId :: pid().
 nn_id2pid(Neuron_Id, TId_IdPIds) ->
-	[{Neuron_PId, Neuron_Id}] = ets:lookup(TId_IdPIds, Neuron_Id),
+	[{Neuron_Id, Neuron_PId}] = ets:lookup(TId_IdPIds, Neuron_Id),
 	Neuron_PId.
 
 %%--------------------------------------------------------------------
@@ -120,7 +120,7 @@ nn_id2pid(Neuron_Id, TId_IdPIds) ->
 -spec nn_pid2id(Neuron_PId :: pid(), TId_IdPIds :: ets:tid()) ->
 	Neuron_Id :: neuron:id().
 nn_pid2id(Neuron_PId, TId_IdPIds) ->
-	[{Neuron_Id, Neuron_PId}] = ets:lookup(TId_IdPIds, Neuron_PId),
+	[{Neuron_PId, Neuron_Id}] = ets:lookup(TId_IdPIds, Neuron_PId),
 	Neuron_Id.
 
 
@@ -279,7 +279,7 @@ handle_common(enter, _OldState, State) ->
 handle_common(internal, _EventContent, State) ->
 	{keep_state, State};
 handle_common(EventType, EventContent, _State) ->
-	error({"Cortex received an unknown Event -> ", EventType, EventContent}).
+	error({"Unknown event", EventType, EventContent}).
 
 
 %%--------------------------------------------------------------------
