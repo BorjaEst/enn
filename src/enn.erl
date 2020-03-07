@@ -44,29 +44,17 @@ attributes_table() ->
 -spec sequential([Layer :: layer:specifications()]) -> 
 	Model_specifications :: model:specifications().
 sequential(Layers) ->
-	sequential(Layers, nnref:new()).
-
--spec sequential(Layers :: [layer:specifications()], 
-                 Name :: atom()) ->
-	Model_specifications :: model:specifications().
-sequential(Layers, Name) ->
-	model:sequential(Layers, Name).
+	model:sequential(Layers).
 
 %%--------------------------------------------------------------------
 %% @doc Returns a recurrent model from the defined layers.
 %% @end
 %%--------------------------------------------------------------------
--spec recurrent(Layers :: [layer:specifications()],
+-spec recurrent(Layers :: [layer:specifications()], 
 			    RLevel :: integer()) ->
 	Model_specifications :: model:specifications().
 recurrent(Layers, RLevel) ->
-	recurrent(Layers, RLevel, nnref:new()).
-
--spec recurrent(Layers :: [layer:specifications()], 
-			    RLevel :: integer(), Name :: atom()) ->
-	Model_specifications :: model:specifications().
-recurrent(Layers, RLevel, Name) ->
-	model:recurrent(Layers, RLevel, Name).
+	model:recurrent(Layers, RLevel).
 
 %%--------------------------------------------------------------------
 %% @doc Compiles and stores a model in the DB returning its cortex_id.

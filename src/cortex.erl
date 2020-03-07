@@ -51,12 +51,11 @@
 %% the database and returns its cortex id.
 %% @end
 %%--------------------------------------------------------------------
--spec new(Name :: atom(), 
-		  CompiledLayers :: #{integer() => layer:compiled()},
+-spec new(CompiledLayers :: #{integer() => layer:compiled()},
 		  Options :: [term()]) ->
 	Cortex_Id :: id().
-new(Name, CompiledLayers, Options) ->
-	Cortex = elements:cortex(Name, maps:map(fun elements/2, CompiledLayers), Options),
+new(CompiledLayers, Options) ->
+	Cortex = elements:cortex(maps:map(fun elements/2, CompiledLayers), Options),
 	nndb:write(Cortex),
 	[mutation:create_link(elements:id(Cortex), To) || To <- get_inputs(CompiledLayers)],
 	[mutation:create_link(From, elements:id(Cortex)) || From <- get_outputs(CompiledLayers)],
@@ -322,7 +321,13 @@ handle_event(_EventType, _EventContent, _StateName, State) ->
 %%--------------------------------------------------------------------
 terminate(Reason, _StateName, _State) ->
 	?LOG_INFO("Cortex_Id ~p terminating with reason ~p", [get(id), Reason]),
-%%	ok = state_to_cortex(#state{} = _State, _TId_IdPIds). % TODO: Save changes
+	% Cortex = elements:cortex(CompiledLayers, 
+	% 	[
+	% 		{id, get(id)}
+	% 		{outputs_ids, something}
+	% 		{inputs_idps, something}
+	% 	]),
+	% nndb:write(Cortex),
 	ok.
 
 %%--------------------------------------------------------------------

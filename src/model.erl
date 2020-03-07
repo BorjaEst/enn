@@ -21,7 +21,6 @@
 	LayerIds_To :: [float()]
 }.
 -type specifications() :: #{
-	name := atom() | string(),
 	connections := connections(),
 	layers := #{
 		LayerId :: float() => Specs :: layer:specifications()
@@ -45,12 +44,11 @@
 %% @doc Returns the specifications for a sequential model from layers.
 %% @end
 %%--------------------------------------------------------------------
--spec sequential(Layers :: [layer:specifications()], Name :: atom()) ->
+-spec sequential(Layers :: [layer:specifications()]) ->
 	Model_specifications :: specifications().
-sequential(Layers, Name) when length(Layers) > 1 ->
+sequential(Layers) when length(Layers) > 1 ->
 	Sequence = linspace(-1, + 1, length(Layers)),
 	#{
-		name => Name,
 		connections => sequential_connection(Sequence),
 		layers => maps:from_list(lists:zip(Sequence, Layers)),
 		options => []
@@ -62,12 +60,11 @@ sequential(Layers, Name) when length(Layers) > 1 ->
 %% @end
 %%--------------------------------------------------------------------
 -spec recurrent(Layers :: [layer:specifications()], 
-			    RLevel :: integer(), Name :: atom()) ->
+			    RLevel :: integer()) ->
 	Model_specifications :: specifications().
-recurrent(Layers, RLevel, Name) when length(Layers) > 1 ->
+recurrent(Layers, RLevel) when length(Layers) > 1 ->
 	Sequence = linspace(-1, + 1, length(Layers)),
 	#{
-		name => Name,
 		connections => sequential_connection(Sequence) ++ recurrent_connection(Sequence, RLevel),
 		layers => maps:from_list(lists:zip(Sequence, Layers)),
 		options => []
@@ -81,13 +78,12 @@ recurrent(Layers, RLevel, Name) when length(Layers) > 1 ->
 	Cortex_id :: cortex:id().
 compile(Model) ->
 	#{
-		name := Name,
 		connections := Connections,
 		layers := Layers,
 		options := Options
 	} = Model,
 	Compiled_Layers = maps:map(fun layer:compile/2, Layers),
-	Cortex_Id = cortex:new(Name, Compiled_Layers, Options),
+	Cortex_Id = cortex:new(Compiled_Layers, Options),
 	ok = connect_layers(Connections, Compiled_Layers),
 	Cortex_Id.
 

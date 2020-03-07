@@ -41,7 +41,7 @@
 	rcc_outputs_ids = [] :: [neuron:id() | cortex:id()]}).  % Recurrent outputs Ids,
 -type neuron() :: #neuron{}.
 
--define(NEW_CORTEX_ID(Name), {Name, cortex}).
+-define(NEW_CORTEX_ID, {nnref:new(), cortex}).
 -define(NEW_NEURON_ID(Layer), {{Layer, nnref:new()}, neuron}).
 
 
@@ -100,11 +100,11 @@ is_neuron(_NotNeuron) ->
 %% @end
 %%--------------------------------------------------------------------
 %TODO: Correct specs
-cortex(Name, CompiledLayers) ->
-	#cortex{id = ?NEW_CORTEX_ID(Name), layers = CompiledLayers}.
+cortex(CompiledLayers) ->
+	#cortex{id = ?NEW_CORTEX_ID, layers = CompiledLayers}.
 	
-cortex(Name, CompiledLayers, Options) ->
-	Cortex = cortex(Name, CompiledLayers),
+cortex(CompiledLayers, Options) ->
+	Cortex = cortex(CompiledLayers),
 	edit(Cortex, Options).
 
 is_cortex(Cortex) when is_record(Cortex, cortex) ->
