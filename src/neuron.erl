@@ -144,35 +144,6 @@ loop(#state{forward_wait = [NextF | RForwardWait], backward_wait = [NextB | RBac
 				outputs       = Outputs#{NextB := Output#output{e = BP_Error}},
 				error         = State#state.error + BP_Error
 			});
-		weights_backup ->
-			
-			?LOG_NOTICE("-------- Neuron backup: ~p", [
-				[I#input.w || I <- maps:values(State#state.inputs)]]),
-			
-			
-			loop(weights_backup(State));
-		weights_perturb ->
-			
-			?LOG_NOTICE("-------- Neuron perturb prev: ~p", [
-				[I#input.w || I <- maps:values(State#state.inputs)]]),
-			NewState = weights_perturb(State),
-			?LOG_NOTICE("-------- Neuron perturb aftr: ~p", [
-				[I#input.w || I <- maps:values(NewState#state.inputs)]]),
-			loop(NewState);
-
-
-%%			loop(weights_perturb(State));
-		weights_restore ->
-			
-			?LOG_NOTICE("-------- Neuron restore prev: ~p", [
-				[I#input.w || I <- maps:values(State#state.inputs)]]),
-			NewState = weights_restore(State),
-			?LOG_NOTICE("-------- Neuron restore aftr: ~p", [
-				[I#input.w || I <- maps:values(NewState#state.inputs)]]),
-			loop(NewState);
-
-
-%%			loop(weights_restore(State));
 		{'EXIT', _PId, Reason} ->
 			terminate(State, Reason)
 	after ?STDIDLE_TIMEOUT ->
@@ -200,34 +171,6 @@ backward_error(State) ->
 		inputs        = adjust_weights(Tensor#tensor.in, DTensor#tensor.in, State#state.inputs, B),
 		backward_wait = [PId || PId <- maps:keys(State#state.outputs)],
 		error         = 0.0
-	}.
-
-%TODO: To add specs and description
-weights_backup(State) ->
-	put(weights, #{
-		bias   => State#state.bias,
-		inputs => State#state.inputs
-	}),
-	State.
-
-%TODO: To add specs and description
-weights_perturb(State) ->
-	NewState = weights_backup(State),
-	MPf = perturb_f(1 / math:sqrt(maps:size(NewState#state.inputs))),
-	NewState#state{
-		bias   = MPf(bias, NewState#state.bias),
-		inputs = maps:map(MPf, NewState#state.inputs)
-	}.
-
-%TODO: To add specs and description
-weights_restore(State) ->
-	#{
-		bias   := OldBias,
-		inputs := OldInputs
-	} = get(weights),
-	State#state{
-		bias   = OldBias,
-		inputs = maps:fold(fun replace_weight/3, State#state.inputs, OldInputs)
 	}.
 
 %TODO: To add specs and description
@@ -348,17 +291,6 @@ adjust_bias(Bias, D_Bias, B) ->
 replace_weight(PId, #input{w = Weight}, Inputs) ->
 	#{PId := Input} = Inputs,
 	maps:update(PId, Input#input{w = Weight}, Inputs).
-
-% ......................................................................................................................
-perturb_f(MP) ->
-	fun
-		(_PId, #input{w = cortex} = Input) -> Input;
-		(_PId, #input{w = W} = Input) -> Input#input{w = perturb(MP, rand:uniform(), W)};
-		(bias, Bias) -> perturb(MP, rand:uniform(), Bias)
-	end.
-
-perturb(MP, Rand, W) when Rand < MP -> sat((rand:uniform() - 0.5) * 6 + W, -?SAT_LIMIT, ?SAT_LIMIT);
-perturb(_, _, W)                    -> W.
 
 % ......................................................................................................................
 sat(Val, Min, _) when Val < Min -> Min;
