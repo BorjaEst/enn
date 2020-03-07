@@ -347,12 +347,6 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%%===================================================================
 
 % ......................................................................................................................
-% TODO: Not used for the moment, evaluate if needed with find,all->"state_to_cortex("
-state_to_cortex(#state{} = _State, _TId_IdPIds) ->
-%%	#cortex{},
-	error("state_to_cortex fun not developed").
-
-% ......................................................................................................................
 trigger_forward(Outputs, ExtInputs) ->
 	[forward(Output, ExtInput) || 
 	        {Output, ExtInput} <- lists:zip(Outputs, ExtInputs)].
@@ -370,15 +364,6 @@ backward(Input, Optm) ->
 	Error = Optm - Input#input.s,
 	Input#input.pid ! {self(), backward, Error},
 	Input#input{acc = [Error | Input#input.acc]}.
-
-% ......................................................................................................................
-loss_calc(Input) ->
-	Loss = math:sqrt(lists:sum([math:pow(E, 2) || E <- Input#input.acc])),
-	Input#input{
-		loss  = Loss,
-		lossB = min(Loss, Input#input.lossB),
-		acc   = []
-	}.
 
 % ......................................................................................................................
 handle_start_nn() ->

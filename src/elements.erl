@@ -391,14 +391,11 @@ edit_input_id(Element, FromId, W) when is_record(Element, neuron) ->
 %%--------------------------------------------------------------------
 %TODO: Make specs
 clone_cortex(Cortex) ->
-	clone_cortex(Cortex, nnref:new()).
-
-clone_cortex(Cortex, Name) ->
-	CloneCx_Id = ?NEW_CORTEX_ID(Name), % Preparation for the clonation
+	Clone_Id = ?NEW_CORTEX_ID, % Preparation for the clonation
 	ConversionETS = ets:new(idsNcloneids, [set, private]),
-	ets:insert(ConversionETS, {Cortex#cortex.id, CloneCx_Id}),
-	{  Cortex#cortex{
-		id          = CloneCx_Id,
+	ets:insert(ConversionETS, {Cortex#cortex.id, Clone_Id}),
+	{Cortex#cortex{
+		id          = Clone_Id,
 		layers      = map_layers(Cortex#cortex.layers, ConversionETS),
 		inputs_idps = map_inputs_idps(Cortex#cortex.inputs_idps, ConversionETS),
 		outputs_ids = map_outputs_ids(Cortex#cortex.outputs_ids, ConversionETS)
