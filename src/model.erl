@@ -65,7 +65,8 @@ sequential(Layers) when length(Layers) > 1 ->
 recurrent(Layers, RLevel) when length(Layers) > 1 ->
 	Sequence = linspace(-1, + 1, length(Layers)),
 	#{
-		connections => sequential_connection(Sequence) ++ recurrent_connection(Sequence, RLevel),
+		connections => sequential_connection(Sequence) ++ 
+		               recurrent_connection(Sequence, RLevel),
 		layers => maps:from_list(lists:zip(Sequence, Layers)),
 		options => []
 	}.
@@ -82,9 +83,9 @@ compile(Model) ->
 		layers := Layers,
 		options := Options
 	} = Model,
-	Compiled_Layers = maps:map(fun layer:compile/2, Layers),
-	Cortex_Id = cortex:new(Compiled_Layers, Options),
-	ok = connect_layers(Connections, Compiled_Layers),
+	CompiledLayers = maps:map(fun layer:compile/2, Layers),
+	Cortex_Id = cortex:new(CompiledLayers, Options),
+	ok = connect_layers(Connections, CompiledLayers),
 	Cortex_Id.
 
 
@@ -116,17 +117,13 @@ recurrent_connection_aux([Layer_A | Rest], RLevel) ->
 	[{all, Layer_A, Rest} | recurrent_connection_aux(Rest, RLevel)].
 
 %.......................................................................................................................
-connect_layers([{Type, Layer_A, Layers_To} | Rest], Layers_elements) ->
-	ElementsLayer_A = layer_elements(Layer_A, Layers_elements),
-	Elements_To = lists:append([layer_elements(L_To, Layers_elements) || L_To <- Layers_To]),
-	connect(Type, ElementsLayer_A, Elements_To),
-	connect_layers(Rest, Layers_elements);
-connect_layers([], _Layers_elements) ->
+connect_layers([{Type, Layer_A, Layers_To} | Rest], Elements) ->
+	connect(Type, 
+			maps:get(Layer_A, Elements), % Elements from layer A
+			lists:append([maps:get(L_To, Elements) || L_To <- Layers_To])),
+	connect_layers(Rest, Elements);
+connect_layers([], _Elements) ->
 	ok.
-
-layer_elements(Layer, Layers_elements) ->
-	{_Type, ElementsLayer} = maps:get(Layer, Layers_elements),
-	ElementsLayer.
 
 %.......................................................................................................................
 connect(all, Elements_From, Elements_To) ->

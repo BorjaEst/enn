@@ -55,18 +55,16 @@
 		  Options :: [term()]) ->
 	Cortex_Id :: id().
 new(CompiledLayers, Options) ->
-	Cortex = elements:cortex(maps:map(fun elements/2, CompiledLayers), Options),
-	nndb:write(Cortex),
+	Cortex = elements:cortex(CompiledLayers, Options),
+	nndb:write(Cortex), % Saved before mutations to avoid overwriting
 	[mutation:create_link(elements:id(Cortex), To) || To <- get_inputs(CompiledLayers)],
 	[mutation:create_link(From, elements:id(Cortex)) || From <- get_outputs(CompiledLayers)],
 	elements:id(Cortex).
 
-elements(_, LayerInfo) ->
-	element(2, LayerInfo).
 get_inputs(CompiledLayers) ->
-	lists:append([ElementsLayer || {Type, ElementsLayer} <- maps:values(CompiledLayers), Type == input]).
+	maps:get(-1.0, CompiledLayers).
 get_outputs(CompiledLayers) ->
-	lists:append([ElementsLayer || {Type, ElementsLayer} <- maps:values(CompiledLayers), Type == output]).
+	maps:get(+1.0, CompiledLayers).
 
 %%--------------------------------------------------------------------
 %% @doc Cortex id start function for supervisor. 

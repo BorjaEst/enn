@@ -25,8 +25,8 @@
 -record(cortex, {
 	id :: cortex:id(),
 	layers = #{} :: #{Layer :: float() => [neuron:neuron_id()]},
-	outputs_ids = [] :: [nneuro:neuron_id()], % Output neurons, first network layer usually
-	inputs_idps = [] :: [{nneuro:neuron_id(), Weights :: float()}] % Input neurons, last network layer usually
+	outputs_ids = [] :: [neuron:id()], % Output neurons, first network layer usually
+	inputs_idps = [] :: [{neuron:id(), Weights :: float()}] % Input neurons, last network layer usually
 }).
 -type cortex() :: #cortex{}.
 
@@ -96,7 +96,9 @@ is_neuron(_NotNeuron) ->
 %%--------------------------------------------------------------------
 %% @doc
 %%
-%%
+%% Note that when a cortex is created, all inputs and outputs are 
+%% empty. Those are completed during the connection phase and carried
+%% on in cortex:new by the mutation library.:w
 %% @end
 %%--------------------------------------------------------------------
 %TODO: Correct specs

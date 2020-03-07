@@ -16,7 +16,6 @@
 
 -type type_id() :: dense | input | output.
 -type specifications() :: #{
-	type := type_id(),
 	units := integer(),
 	activation := activation:func(),
 	aggregation := aggregation:func(),
@@ -51,7 +50,6 @@
 	DenseLayer :: specifications().
 dense(Units, Properties) ->
 	#{
-		type        => dense,
 		units       => Units,
 		activation  => maps:get(activation, Properties, sigmoid),
 		aggregation => maps:get(aggregation, Properties, dotprod),
@@ -66,7 +64,6 @@ dense(Units, Properties) ->
 	InputsLayer :: specifications().
 input(Units, Properties) ->
 	#{
-		type        => input,
 		units       => Units,
 		activation  => maps:get(activation, Properties, tanh),
 		aggregation => maps:get(aggregation, Properties, direct),
@@ -81,7 +78,6 @@ input(Units, Properties) ->
 	OutputsLayer :: specifications().
 output(Units, Properties) ->
 	#{
-		type        => output,
 		units       => Units,
 		activation  => maps:get(activation, Properties, tanh),
 		aggregation => maps:get(aggregation, Properties, dotprod),
@@ -97,14 +93,13 @@ output(Units, Properties) ->
 	CompiledLayer :: compiled().
 compile(Coordinade, Spec) ->
 	#{
-		type        := Type,
 		units       := Units,
 		activation  := AF,
 		aggregation := AggrF,
 		options     := Options
 	} = Spec,
-	{Type, [neuron:new(Coordinade, AF, AggrF, Options) || 
-								 _ <- lists:seq(1, Units)]}.
+	[neuron:new(Coordinade, AF, AggrF, Options) || 
+			                                _ <- lists:seq(1, Units)].
 
 
 %%====================================================================
