@@ -108,8 +108,7 @@ groups() ->
 			 addition_random_inputs,
 			 weights_0_network,
 			 sequence_1_input |
-			 [random_dense_random_inputs || _ <- lists:seq(1, ?PARALLEL_NN - 5)] ++
-			 [perturb_and_restore_weights || _ <- lists:seq(1, ?PARALLEL_NN - 5)]
+			 [random_dense_random_inputs || _ <- lists:seq(1, ?PARALLEL_NN - 5)] 
 		 ]},
 		{test_of_error_networks, [parallel],
 		 [test_for_empty_nn,
@@ -125,11 +124,11 @@ groups() ->
 %%--------------------------------------------------------------------
 all() ->
 	[
-%%		addition_static_inputs,
-%%		addition_random_inputs,
-		xor_gate_static_inputs % GROUPS CANNOT BE DEBUGGED
-%%		{group, test_for_multiple_networks}
-%%		{group, test_of_error_networks}
+		% addition_static_inputs,
+		% addition_random_inputs,
+		% xor_gate_static_inputs % GROUPS CANNOT BE DEBUGGED
+		{group, test_for_multiple_networks}
+		% {group, test_of_error_networks}
 	].
 
 %%--------------------------------------------------------------------

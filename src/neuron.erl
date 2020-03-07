@@ -43,7 +43,9 @@
 	error :: float()
 }).
 
--define(LEARNING_FACTOR, 0.00).  % TODO: Make it modifiable according to the error and by the eevo module
+% -define(LEARNING_FACTOR, rand:uniform(10)/20).
+% -define(MOMENTUM_FACTOR, rand:uniform(10)/100)
+-define(LEARNING_FACTOR, 0.20).  
 -define(MOMENTUM_FACTOR, 0.00).
 -define(SAT_LIMIT, 3.0 * ?PI).
 -define(R2(Val), round(Val * 100.0) / 100.0).
