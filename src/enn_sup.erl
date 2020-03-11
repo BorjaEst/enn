@@ -13,6 +13,13 @@
 
 -define(SERVER, ?MODULE).
 
+-define(SPECS_DATALOG, #{
+	id       => datalog,
+	start    => {datalog, start_link, []},
+	restart  => permanent,
+	shutdown => 500,
+	modules  => [gen_server]}).
+
 -define(NN_SUP_ID(Cortex_Id), {element(1, Cortex_Id), nn_sup}).
 -define(SPECS_NN_SUP(Cortex_Id), #{
 	id       => ?NN_SUP_ID(Cortex_Id),
@@ -68,7 +75,9 @@ init([]) ->
 	SupFlags = #{strategy  => one_for_all,
 	             intensity => 10,
 	             period    => 36},
-	ChildSpecs = [],
+    ChildSpecs = [
+        ?SPECS_DATALOG
+    ],
 	{ok, {SupFlags, ChildSpecs}}.
 
 	
