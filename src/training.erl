@@ -17,11 +17,13 @@
 %%-export([start_link/0]).
 
 %% gen_statem callbacks
--export([init/1, predict/3, fit/3, results/3, terminate/3]).
+-export([init/5, predict/3, fit/3, results/3, terminate/1]).
 
 -record(state, {
-	inputsList,
-    optimaList
+	inputsList = [],
+    optimaList = [],
+	calculate_loss = false,
+	logRef = undefined
 }).
 
 
@@ -30,8 +32,7 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @doc Supervised ANN training function. Fits the Predictions to the 
-%% Optima.
+%% @doc Supervised ANN training function. 
 %% @end
 %%--------------------------------------------------------------------
 -spec start_link(Cortex_PId :: pid(), Inputs :: [float()], 
@@ -42,19 +43,10 @@ start_link(Cortex_PId, Inputs, Optima) ->
 	start_link(Cortex_PId, Inputs, Optima, []). 
 
 start_link(Cortex_PId, Inputs, Optima, Options) ->
-	spawn_link()
-			[
-				self(),
-			Cortex_PId, 
-			Inputs, 
-			Optima
-		], []).
-
-
-
-
-
-			
+	spawn_link(?MODULE,init,
+		[self(), Cortex_PId, Inputs, Optima, Options]
+	),
+	receive {training, Returns} -> Returns end.
 
 
 %%%===================================================================
@@ -66,21 +58,24 @@ start_link(Cortex_PId, Inputs, Optima, Options) ->
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
-init(Caller, Cortex_PId, InputsList, OptimaList, [Option | Rest]) ->
-	case Option of
-		loss -> 
-			put(calculate_loss, true);
-		{log, LogName} ->
-			{ok, LogRef} = datalog:new(LogName),
-			put(log_ref, LogRef)
-	end,
-	init(Cortex_PId, InputsList, OptimaList, Rest);
-init(Cortex_PId, InputsList, OptimaList, []) -> 
+init(Caller, Cortex_PId, InputsList, OptimaList, Options) -> 
+	put(caller_pid, Caller),
 	put(cortex_pid, Cortex_PId),
-	predict(enter, init, #state{
+	init(Options, #state{
 		inputsList = InputsList,
     	optimaList = OptimaList
 	}).
+
+init([{return, Returns} | Options], State) ->
+	put(return, Returns),
+	init(Options, State);
+init([loss | Options], State) ->
+	put(loss_list, []),
+	init(Options, State#state{calculate_loss = true});
+init([{log, LogName} | Options], State) ->
+	init(Options, State#state{logRef = datalog:new(LogName)});
+init([], State) -> 
+	predict(enter, init, State).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -91,13 +86,15 @@ init(Cortex_PId, InputsList, OptimaList, []) ->
 %%--------------------------------------------------------------------
 predict(enter, _OldState, #state{inputsList = []} = State) ->
 	terminate(State);
-predict(enter, _OldState, State) -> 
-	reset_data(),
-	predict(internal, State#state.inputsList, State);
-predict(internal, [Inputs | InputsList], State) -> 
-	put_inputs(Inputs),
-	put_prediction(cortex:predict(get(cortex_pid), Inputs)),
-	fit(enter, predict, State#state{inputsList = InputsList}).
+predict(enter, _OldState, State) ->
+	[Inputs | InputsList] = State#state.inputsList,
+	Data = #{inputs => Inputs},
+	predict(internal, Data, State#state{inputsList = InputsList});
+predict(internal, Data, State) -> 
+    Inputs = maps:get(inputs, Data),
+	Cortex = get(cortex_pid),
+	put(data, Data#{prediction => cortex:predict(Cortex, Inputs)}),
+	fit(enter, predict, State).
 
 %%--------------------------------------------------------------------
 %% fit: Trains the model if optima available
@@ -105,23 +102,29 @@ predict(internal, [Inputs | InputsList], State) ->
 fit(enter, _OldState, #state{optimaList = []} = State) ->
 	results(enter, fit, State);
 fit(enter, _OldState, State) -> 
-	fit(internal, State#state.optimaList, State);
-fit(internal, [Optima | OptimaList], State) -> 
-	put_optima(Optima),
-	put_errors(cortex:fit(get(cortex_pid), Optima)),
-	results(enter, fit, State#state{optimaList = OptimaList}).
+	[Optima | OptimaList] = State#state.optimaList,
+	Data = maps:put(optima, Optima, get(data)),
+	fit(internal, Data, State#state{optimaList = OptimaList});
+fit(internal, Data, State) -> 
+    Optima = maps:get(optima, Data),
+	Cortex = get(cortex_pid),
+	put(data, Data#{errors => cortex:fit(Cortex, Optima)}),
+	results(enter, fit, State).
 
 %%--------------------------------------------------------------------
 %% results: Applies the result functions (Loss calculation, log, etc.)
 %%--------------------------------------------------------------------
 results(enter, _OldState, State) ->
-	lists:foldl(
-		fun(F, X) -> F(X) end, 
-		get(data), 
-		[
-			fun loss/1,
-			fun datalog/1
-		]),
+	Data = get(data),
+	results(internal, Data, State);
+results(internal, Data, #state{calculate_loss = true} = State) ->
+	Loss = ?LOSS(maps:get(errors, Data)),
+	put(loss_list, [Loss | get(loss_list)]),
+	results(internal, Data#{loss => Loss}, State);
+results(internal, Data, {logRef = {ok, LogRef}} = State) ->
+	datalog:write(LogRef, Data),
+	results(internal, Data, State);
+results(internal, _Data, State) -> 
 	predict(enter, results, State). 
 %%--------------------------------------------------------------------
 %% @end
@@ -132,17 +135,13 @@ results(enter, _OldState, State) ->
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
-terminate(State, [Option | Rest]) -> 
-	case Option of 
-		{log, LogRef} ->
-			ok = datalog:close(LogRef);
-		_ -> nothing
-	end,
-	terminate(State, Rest);
-terminate(_State, []) ->
-	get(caller) ! {
-		get(prediction_list), 
-		get(errorsLists)
+terminate({logRef = {ok, LogRef}} = State) -> 
+	ok = datalog:close(LogRef),
+	terminate(State#state{logRef = closed});
+terminate(_State) ->
+	get(caller_pid) ! {
+		training,
+		return(get(return))
 	}.
 
 
@@ -150,53 +149,14 @@ terminate(_State, []) ->
 %%% Internal functions
 %%%===================================================================
 
-reset_data() -> 
-	put(data, #{}).
-
-get_data() -> 
-	get(data).
-
-put_inputs(Inputs) -> 
-	Data = get(data),
-	put(data, Data#{inputs => Inputs}).
-
-put_optima(Optima) -> 
-	Data = get(data),
-	put(data, Data#{optima => Optima}).
-	
-put_prediction(Prediction) -> 
-	Data = get(data),
-	put(data, Data#{prediction => Prediction}),
-	PredictionList = get(prediction_list),
-	put(prediction_list, [Prediction | PredictionList]).
-
-put_errors(Errors) ->
-	Data = get(data),
-	put(data, Data#{errors => Errors}),
-	ErrorsList = get(errors_list),
-	put(errors_list, [Errors | ErrorsList]).
-
-
-%%%===================================================================
-%%% Results functions
-%%%===================================================================
-
-% ....................................................................
-loss(#{errors := Errors} = Data) ->
-	case get(calculate_loss) of
-		true -> Data#{loss => ?LOSS(Errors)};
-		_ ->  Data
-	end;
-loss(Data) ->
-	Data.
-
-% ....................................................................
-datalog(Data) ->
-	case get(log_ref) of 
-		undefined -> nothing;
-		LogRef -> datalog:write(LogRef, Data)
-	end,
-	Data.
+return([prediction | Rest]) -> 
+	[get(prediction_list) | return(Rest)];
+return([errors | Rest]) -> 
+	[get(errors_list) | return(Rest)];
+return([loss | Rest]) -> 
+	[get(loss_list) | return(Rest)];
+return([]) -> 
+	[].
 
 
 %%====================================================================
