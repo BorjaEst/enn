@@ -61,6 +61,8 @@ start_link(Cortex_PId, Inputs, Optima, Options) ->
 init(Caller, Cortex_PId, InputsList, OptimaList, Options) -> 
 	put(caller_pid, Caller),
 	put(cortex_pid, Cortex_PId),
+	put(prediction_list, []),
+	put(errors_list, []),
 	init(Options, #state{
 		inputsList = InputsList,
     	optimaList = OptimaList
@@ -93,7 +95,9 @@ predict(enter, _OldState, State) ->
 predict(internal, Data, State) -> 
     Inputs = maps:get(inputs, Data),
 	Cortex = get(cortex_pid),
-	put(data, Data#{prediction => cortex:predict(Cortex, Inputs)}),
+	Prediction = cortex:predict(Cortex, Inputs),
+	put(data, Data#{prediction => Prediction}),
+	put(prediction_list, [Prediction | get(prediction_list)]),
 	fit(enter, predict, State).
 
 %%--------------------------------------------------------------------
@@ -108,7 +112,9 @@ fit(enter, _OldState, State) ->
 fit(internal, Data, State) -> 
     Optima = maps:get(optima, Data),
 	Cortex = get(cortex_pid),
-	put(data, Data#{errors => cortex:fit(Cortex, Optima)}),
+	Errors = cortex:fit(Cortex, Optima),
+	put(data, Data#{errors => Errors}),
+	put(errors_list, [Errors | get(errors_list)]),
 	results(enter, fit, State).
 
 %%--------------------------------------------------------------------
@@ -163,34 +169,57 @@ return([]) ->
 %% Eunit white box tests
 %%====================================================================
 
-% ----------------------------------------------------------------------------------------------------------------------
-% TESTS DESCRIPTIONS ---------------------------------------------------------------------------------------------------
-white_test_() ->
-	% {setup, Where, Setup, Cleanup, Tests | Instantiator}
-	[
-		{"Void example",
-		 {setup, local, fun no_setup/0, fun no_cleanup/1, fun example/1}}
-	].
-
-% ----------------------------------------------------------------------------------------------------------------------
-% SPECIFIC SETUP FUNCTIONS ---------------------------------------------------------------------------------------------
-no_setup() ->
+% --------------------------------------------------------------------
+% SPECIFIC SETUP FUNCTIONS -------------------------------------------
+pred_err_lists() ->
+	put(prediction_list, [random_list(3) || _ <- lists:seq(1, 2)]),
+	put(errors_list, [random_list(3) || _ <- lists:seq(1, 2)]),
 	ok.
+
+with_loss_lists() ->
+	pred_err_lists(),
+	put(loss_list, [random_list(3) || _ <- lists:seq(1, 2)]).
 
 no_cleanup(_) ->
 	ok.
 
-% ----------------------------------------------------------------------------------------------------------------------
-% ACTUAL TESTS ---------------------------------------------------------------------------------------------------------
-example(_) ->
+% --------------------------------------------------------------------
+% TESTS DESCRIPTIONS -------------------------------------------------
+white_test_() ->
+	% {setup, Where, Setup, Cleanup, Tests | Instantiator}
 	[
-		?_assert(true)
+		{"Tests for basic returns (predictions and errors)",
+		 {setup, local, fun pred_err_lists/0, fun no_cleanup/1, 
+		  [
+			?_assert([get(prediction_list)] == return([prediction])),
+			?_assert([undefined] == return([loss_list])),
+			?_assert([get(errors_list), get(prediction_list)] ==
+					  return([errors_list, prediction_list])),
+			?_assert([get(prediction_list), get(errors_list)] ==
+					  return([prediction_list, errors_list]))
+		  ]}},
+		{"Tests for returns with loss",
+		 {setup, local, fun with_loss_lists/0, fun no_cleanup/1, 
+		  [
+			?_assert([get(prediction_list)] == return([prediction])),
+			?_assert([get(loss_list)] == return([loss_list])),
+			?_assert([get(errors_list), get(loss_list)] ==
+					  return([errors_list, loss_list])),
+			?_assert([get(loss_list), get(errors_list)] ==
+					  return([loss_list, errors_list]))
+		  ]}}
+
 	].
 
-% ----------------------------------------------------------------------------------------------------------------------
-% SPECIFIC HELPER FUNCTIONS --------------------------------------------------------------------------------------------
+% --------------------------------------------------------------------
+% ACTUAL TESTS -------------------------------------------------------
 
 
+% --------------------------------------------------------------------
+% SPECIFIC HELPER FUNCTIONS ------------------------------------------
+
+random_list(N) -> 
+	[(rand:uniform(20) - 10) /10 || _ <- list:seq(1, N)].
 
 
 
