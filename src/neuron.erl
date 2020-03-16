@@ -72,7 +72,7 @@
 % TODO: To make description and specs
 new(Layer, AF, AggrF, Options) ->
 	Neuron = elements:neuron(Layer, AF, AggrF, Options),
-	nndb:write(Neuron),
+	edb:write(Neuron),
 	elements:id(Neuron).
 
 %%--------------------------------------------------------------------
@@ -93,7 +93,7 @@ start_link(Neuron_Id) ->
 % ......................................................................................................................
 %TODO: To add specs and description
 init(Neuron_Id, Parent) ->
-	Neuron = nndb:read(Neuron_Id),
+	Neuron = edb:read(Neuron_Id),
 	check_neuron(Neuron),
 	process_flag(trap_exit, true), % Mandatory to catch supervisor exits
 	proc_lib:init_ack(Parent, {ok, self()}),                % Supervisor synchronisation
@@ -191,7 +191,7 @@ terminate(State, Reason) ->
 			{rcc_inputs_idps, [{I#input.id, I#input.w} || {_, #input{r = true} = I} <- maps:to_list(State#state.inputs)]},
 			{rcc_outputs_ids, [O#output.id || {_, #output{r = true} = O} <- maps:to_list(State#state.outputs)]}
 		]),
-	nndb:write(Neuron),
+	edb:write(Neuron),
 	exit(Reason).
 
 

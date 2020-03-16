@@ -110,7 +110,7 @@ inputs(Model) when is_map(Model) ->
 	#{layers := #{-1.0 := #{units := N_Inputs}}} = Model,
 	N_Inputs;
 inputs({_, cortex} = Cortex_Id) ->
-	Cortex = nndb:read(Cortex_Id),
+	Cortex = edb:read(Cortex_Id),
 	length(elements:outputs_ids(Cortex)). % Cortex inputs are the output neurons
 
 %%--------------------------------------------------------------------
@@ -123,7 +123,7 @@ outputs(Model) when is_map(Model) ->
 	#{layers := #{1.0 := #{units := N_Outputs}}} = Model,
 	N_Outputs;
 outputs({_, cortex} = Cortex_Id) ->
-	Cortex = nndb:read(Cortex_Id),
+	Cortex = edb:read(Cortex_Id),
 	length(elements:inputs_idps(Cortex)). % Cortex outputs are the input neurons
 
 %%--------------------------------------------------------------------
@@ -134,12 +134,12 @@ outputs({_, cortex} = Cortex_Id) ->
 %%--------------------------------------------------------------------
 %TODO: Correct specs
 clone({_, cortex} = Cortex_Id) ->
-	Cortex = nndb:read(Cortex_Id),
+	Cortex = edb:read(Cortex_Id),
 	{Clone, ConversionETS} = elements:clone_cortex(Cortex),
 	Neurons_Ids = elements:neurons(Cortex),
-	Neurons = [elements:clone_neuron(Neuron, ConversionETS) || Neuron <- nndb:read(Neurons_Ids)],
+	Neurons = [elements:clone_neuron(Neuron, ConversionETS) || Neuron <- edb:read(Neurons_Ids)],
 	ets:delete(ConversionETS),
-	nndb:write([Clone | Neurons]),
+	edb:write([Clone | Neurons]),
 	elements:id(Clone).
 
 %%--------------------------------------------------------------------
@@ -185,8 +185,8 @@ pformat(Element) ->
 %%--------------------------------------------------------------------
 %TODO: Correct specs
 check_nn(Cortex_Id) ->
-	Cortex = nndb:read(Cortex_Id),
-	Neurons = nndb:read(elements:neurons(Cortex)),
+	Cortex = edb:read(Cortex_Id),
+	Neurons = edb:read(elements:neurons(Cortex)),
 	check_links(Cortex, Neurons),
 	check_inputs(Cortex, Neurons),
 	check_outputs(Cortex, Neurons),

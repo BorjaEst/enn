@@ -149,17 +149,17 @@ test_for_level_1_mutations_neurons() ->
 	[].
 test_for_level_1_mutations_neurons(Config) ->
 	Cortex_Id = ?config(cortex_id, Config),
-	Cortex = nndb:read(Cortex_Id),
+	Cortex = edb:read(Cortex_Id),
 	[test_for_level_1_edit_link_neuron(Neuron_Id) || Neuron_Id <- elements:neurons(Cortex)],
 	[test_for_level_1_edit_bias_neuron(Neuron_Id) || Neuron_Id <- elements:neurons(Cortex)],
 	ok.
 
 test_for_level_1_edit_link_neuron(Neuron_Id) ->
 	?INFO("Correct weigth neuron mutations ......................................................"),
-	N_0 = nndb:read(Neuron_Id),
+	N_0 = edb:read(Neuron_Id),
 	{LinkedInput_Id, _W_0} = randomElement(elements:inputs_idps(N_0) ++ elements:rcc_inputs_idps(N_0)),
 	mutation:edit_link(LinkedInput_Id, Neuron_Id, W_1 = rand:uniform()),
-	N_1 = nndb:read(Neuron_Id),
+	N_1 = edb:read(Neuron_Id),
 	?INFO(lists:flatten(enn:pformat(N_0))),
 	?INFO(lists:flatten(enn:pformat(N_1))),
 	{LinkedInput_Id, W_1} = lists:keyfind(LinkedInput_Id, 1, elements:inputs_idps(N_1) ++ elements:rcc_inputs_idps(N_1)),
@@ -168,10 +168,10 @@ test_for_level_1_edit_link_neuron(Neuron_Id) ->
 
 test_for_level_1_edit_bias_neuron(Neuron_Id) ->
 	?INFO("Correct bias neuron mutations ........................................................"),
-	N_0 = nndb:read(Neuron_Id),
+	N_0 = edb:read(Neuron_Id),
 	_Bias_0 = elements:bias(N_0),
 	mutation:edit_bias(Neuron_Id, Bias_1 = rand:uniform()),
-	N_1 = nndb:read(Neuron_Id),
+	N_1 = edb:read(Neuron_Id),
 	?INFO(lists:flatten(enn:pformat(N_0))),
 	?INFO(lists:flatten(enn:pformat(N_1))),
 	Bias_1 = elements:bias(N_1),
@@ -183,7 +183,7 @@ test_for_level_2_mutations_neurons() ->
 	[].
 test_for_level_2_mutations_neurons(Config) ->
 	Cortex_Id = ?config(cortex_id, Config),
-	Cortex = nndb:read(Cortex_Id),
+	Cortex = edb:read(Cortex_Id),
 	Neurons_Ids = elements:neurons(Cortex),
 	[test_for_level_2_create_link_neuron(Neuron_Id, Cortex) || Neuron_Id <- Neurons_Ids],
 	[test_for_level_2_remove_link_neuron(Neuron_Id, Cortex) || Neuron_Id <- Neurons_Ids],
@@ -193,14 +193,14 @@ test_for_level_2_mutations_neurons(Config) ->
 
 test_for_level_2_create_link_neuron(Neuron_Id, Cortex) ->
 	?INFO("Correct link with random neuron (not linked already) ................................"),
-	N_0 = nndb:read(Neuron_Id),
+	N_0 = edb:read(Neuron_Id),
 	PossibleToLink = elements:neurons(Cortex) -- elements:outputs_ids(N_0) ++ elements:rcc_outputs_ids(N_0),
 	ToLink_Id = randomElement(PossibleToLink),
-	E_0 = nndb:read(ToLink_Id),
+	E_0 = edb:read(ToLink_Id),
 	false = lists:member(Neuron_Id, elements:inputs_ids(E_0) ++ elements:rcc_inputs_ids(E_0)),
 	mutation:create_link(Neuron_Id, ToLink_Id),
-	N_1 = nndb:read(Neuron_Id),
-	E_1 = nndb:read(ToLink_Id),
+	N_1 = edb:read(Neuron_Id),
+	E_1 = edb:read(ToLink_Id),
 	?INFO(lists:flatten(enn:pformat(N_0))),
 	?INFO(lists:flatten(enn:pformat(N_1))),
 	?INFO(lists:flatten(enn:pformat(E_0))),
@@ -217,13 +217,13 @@ test_for_level_2_create_link_neuron(Neuron_Id, Cortex) ->
 
 test_for_level_2_remove_link_neuron(Neuron_Id, Cortex) ->
 	?INFO("Correct unlink from random neurons (linked already) .................................."),
-	N_0 = nndb:read(Neuron_Id),
+	N_0 = edb:read(Neuron_Id),
 	ToUnlink_Id = randomElement(elements:outputs_ids(N_0) ++ elements:rcc_outputs_ids(N_0)),
-	E_0 = nndb:read(ToUnlink_Id),
+	E_0 = edb:read(ToUnlink_Id),
 	true = lists:member(Neuron_Id, elements:inputs_ids(E_0) ++ elements:rcc_inputs_ids(E_0)),
 	mutation:remove_link(Neuron_Id, ToUnlink_Id),
-	N_1 = nndb:read(Neuron_Id),
-	E_1 = nndb:read(ToUnlink_Id),
+	N_1 = edb:read(Neuron_Id),
+	E_1 = edb:read(ToUnlink_Id),
 	?INFO(lists:flatten(enn:pformat(N_0))),
 	?INFO(lists:flatten(enn:pformat(N_1))),
 	?INFO(lists:flatten(enn:pformat(E_0))),
@@ -241,10 +241,10 @@ test_for_level_2_remove_link_neuron(Neuron_Id, Cortex) ->
 
 test_for_level_2_change_af_neuron(Neuron_Id) ->
 	?INFO("Change neuron activation function ...................................................."),
-	N_0 = nndb:read(Neuron_Id),
+	N_0 = edb:read(Neuron_Id),
 	AFList = [fun activation_function:sigmoid/1, fun activation_function:tanh/1],
 	mutation:change_af(Neuron_Id, RandomAF = randomElement(AFList -- [elements:af(N_0)])),
-	N_1 = nndb:read(Neuron_Id),
+	N_1 = edb:read(Neuron_Id),
 	?INFO(lists:flatten(enn:pformat(N_0))),
 	?INFO(lists:flatten(enn:pformat(N_1))),
 	RandomAF = elements:af(N_1),
@@ -253,10 +253,10 @@ test_for_level_2_change_af_neuron(Neuron_Id) ->
 
 test_for_level_2_change_aggrf_neuron(Neuron_Id) ->
 	?INFO("Change neuron aggregation function ..................................................."),
-	N_0 = nndb:read(Neuron_Id),
+	N_0 = edb:read(Neuron_Id),
 	AggrFList = [fun aggregation_function:diff_product/2, fun aggregation_function:dot_power/2],
 	mutation:change_aggrf(Neuron_Id, RandomAggrF = randomElement(AggrFList -- [elements:aggrf(N_0)])),
-	N_1 = nndb:read(Neuron_Id),
+	N_1 = edb:read(Neuron_Id),
 	?INFO(lists:flatten(enn:pformat(N_0))),
 	?INFO(lists:flatten(enn:pformat(N_1))),
 	RandomAggrF = elements:aggrf(N_1),

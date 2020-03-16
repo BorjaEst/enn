@@ -245,7 +245,7 @@ test_model(FileName, Model, Training) ->
 correct_model_compilation(Model) ->
 	?HEAD("Correct model compilation ............................................................"),
 	Cortex_Id = enn:compile(Model), ?INFO("Model", Model),
-	Cortex = nndb:read(Cortex_Id), ?INFO("Cortex", Cortex),
+	Cortex = edb:read(Cortex_Id), ?INFO("Cortex", Cortex),
 	true = elements:is_cortex(Cortex),
 	?END,
 	{ok, Cortex_Id}.
@@ -279,11 +279,11 @@ correct_model_training(FileName, Cortex_Id, Cortex_PId, Training) ->
 % ......................................................................................................................
 correct_model_stop(Cortex_Id, Cortex_PId) ->
 	?HEAD("Correct neural network stop form a cortex id ........................................."),
-	[Neuron_Id | _] = elements:neurons(nndb:read(Cortex_Id)),
-	Neuron_BeforeTraining = nndb:read(Neuron_Id), 
+	[Neuron_Id | _] = elements:neurons(edb:read(Cortex_Id)),
+	Neuron_BeforeTraining = edb:read(Neuron_Id), 
 	enn:stop_nn(Cortex_Id),
 	false = is_process_alive(Cortex_PId),
-	Neuron_AfterTraining = nndb:read(Neuron_Id), 
+	Neuron_AfterTraining = edb:read(Neuron_Id), 
 	?INFO("Neuron before training", Neuron_BeforeTraining),
 	?INFO("Neuron after training", Neuron_AfterTraining),
 	true = Neuron_BeforeTraining /= Neuron_AfterTraining,

@@ -56,7 +56,7 @@
 	Cortex_Id :: id().
 new(CompiledLayers, Options) ->
 	Cortex = elements:cortex(CompiledLayers, Options),
-	nndb:write(Cortex), % Saved before mutations to avoid overwriting
+	edb:write(Cortex), % Saved before mutations to avoid overwriting
 	[mutation:create_link(elements:id(Cortex), To) || To <- get_inputs(CompiledLayers)],
 	[mutation:create_link(From, elements:id(Cortex)) || From <- get_outputs(CompiledLayers)],
 	elements:id(Cortex).
@@ -334,7 +334,7 @@ terminate(Reason, _StateName, _State) ->
 	% 		{outputs_ids, something}
 	% 		{inputs_idps, something}
 	% 	]),
-	% nndb:write(Cortex),
+	% edb:write(Cortex),
 	ok.
 
 %%--------------------------------------------------------------------
@@ -374,8 +374,8 @@ backward(Input, Optm) ->
 
 % ......................................................................................................................
 handle_start_nn() ->
-	Cortex = nndb:read(get(id)), NNSup_PId = get(nn_sup), TId_IdPIds = get(tid_idpids),
-	Neurons = [{start_nn_element(NNSup_PId, TId_IdPIds, N_Id), nndb:read(N_Id)} || N_Id <- elements:neurons(Cortex)],
+	Cortex = edb:read(get(id)), NNSup_PId = get(nn_sup), TId_IdPIds = get(tid_idpids),
+	Neurons = [{start_nn_element(NNSup_PId, TId_IdPIds, N_Id), edb:read(N_Id)} || N_Id <- elements:neurons(Cortex)],
 	[PId ! {continue_init, TId_IdPIds} || {PId, _} <- Neurons],
 	put(neurons, maps:from_list(Neurons)),
 	put(inputs, [#input{pid = cortex:nn_id2pid(Id, TId_IdPIds)} || {Id, _} <- elements:inputs_idps(Cortex)]),

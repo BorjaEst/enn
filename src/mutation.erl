@@ -29,11 +29,11 @@
 %%--------------------------------------------------------------------
 % TODO: Define specs
 edit_link(FromElement_Id, {_, neuron} = ToNeuron_Id, NewWeight) ->
-	ToNeuron = nndb:read(ToNeuron_Id),
+	ToNeuron = edb:read(ToNeuron_Id),
 	ToInputs = elements:inputs_ids(ToNeuron) ++ elements:rcc_inputs_ids(ToNeuron),
 	case lists:member(FromElement_Id, ToInputs) of
 		true ->
-			nndb:write(elements:edit_input_id(ToNeuron, FromElement_Id, NewWeight));
+			edb:write(elements:edit_input_id(ToNeuron, FromElement_Id, NewWeight));
 		false ->
 			exit({not_member, FromElement_Id, ToInputs})
 	end.
@@ -46,9 +46,9 @@ edit_link(FromElement_Id, {_, neuron} = ToNeuron_Id, NewWeight) ->
 %%--------------------------------------------------------------------
 % TODO: Define specs
 edit_bias({_, neuron} = Neuron_Id, NewValue) ->
-	Neuron = nndb:read(Neuron_Id),
+	Neuron = edb:read(Neuron_Id),
 	NewNeuron = elements:edit(Neuron, [{bias, NewValue}]),
-	nndb:write(NewNeuron).
+	edb:write(NewNeuron).
 
 
 %%%===================================================================
@@ -66,15 +66,15 @@ edit_bias({_, neuron} = Neuron_Id, NewValue) ->
 %%--------------------------------------------------------------------
 % TODO: Define specs
 create_link(SameElement_Id, SameElement_Id) ->
-	SameElement = nndb:read(SameElement_Id),
+	SameElement = edb:read(SameElement_Id),
 	U1_SameElement = link_only_From(SameElement, SameElement),
 	U2_SameElement = link_only_To(U1_SameElement, U1_SameElement),
-	nndb:write(U2_SameElement);
+	edb:write(U2_SameElement);
 create_link(FromElement_Id, ToElement_Id) ->
-	[FromElement, ToElement] = nndb:read([FromElement_Id, ToElement_Id]),
+	[FromElement, ToElement] = edb:read([FromElement_Id, ToElement_Id]),
 	U_FromElement = link_only_From(FromElement, ToElement),
 	U_ToElement = link_only_To(U_FromElement, ToElement),
-	nndb:write([U_FromElement, U_ToElement]).
+	edb:write([U_FromElement, U_ToElement]).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -84,15 +84,15 @@ create_link(FromElement_Id, ToElement_Id) ->
 %%--------------------------------------------------------------------
 % TODO: Define specs
 remove_link(SameElement_Id, SameElement_Id) ->
-	SameElement = nndb:read(SameElement_Id),
+	SameElement = edb:read(SameElement_Id),
 	U1_SameElement = unlink_only_From(SameElement, SameElement),
 	U2_SameElement = unlink_only_To(U1_SameElement, U1_SameElement),
-	nndb:write(U2_SameElement);
+	edb:write(U2_SameElement);
 remove_link(FromElement_Id, ToElement_Id) ->
-	[FromElement, ToElement] = nndb:read([FromElement_Id, ToElement_Id]),
+	[FromElement, ToElement] = edb:read([FromElement_Id, ToElement_Id]),
 	U_FromElement = unlink_only_From(FromElement, ToElement),
 	U_ToElement = unlink_only_To(U_FromElement, ToElement),
-	nndb:write([U_FromElement, U_ToElement]).
+	edb:write([U_FromElement, U_ToElement]).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -102,9 +102,9 @@ remove_link(FromElement_Id, ToElement_Id) ->
 %%--------------------------------------------------------------------
 % TODO: Define specs
 change_af({_, neuron} = Neuron_Id, NewAFun) ->
-	Neuron = nndb:read(Neuron_Id),
+	Neuron = edb:read(Neuron_Id),
 	NewNeuron = elements:edit(Neuron, [{af, NewAFun}]),
-	nndb:write(NewNeuron).
+	edb:write(NewNeuron).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -114,9 +114,9 @@ change_af({_, neuron} = Neuron_Id, NewAFun) ->
 %%--------------------------------------------------------------------
 % TODO: Define specs
 change_aggrf({_, neuron} = Neuron_Id, NewAggrFun) ->
-	Neuron = nndb:read(Neuron_Id),
+	Neuron = edb:read(Neuron_Id),
 	NewNeuron = elements:edit(Neuron, [{aggrf, NewAggrFun}]),
-	nndb:write(NewNeuron).
+	edb:write(NewNeuron).
 
 
 %%%===================================================================
@@ -134,12 +134,12 @@ change_aggrf({_, neuron} = Neuron_Id, NewAggrFun) ->
 %%--------------------------------------------------------------------
 % TODO: Define specs
 insert_neuron(Layer, AFun, AggrFun, Cortex_Id) ->
-	Cortex = nndb:read(Cortex_Id),
+	Cortex = edb:read(Cortex_Id),
 	Neurons_Ids = maps:get(Layer, elements:layers(Cortex), []),
 	Neuron_Id = neuron:new(Layer, AFun, AggrFun, _Options = []),
 	NewLayer = maps:put(Layer, [Neuron_Id | Neurons_Ids], elements:layers(Cortex)),
 	NewCortex = elements:edit(Cortex, [{layers,NewLayer}]),
-	nndb:write(NewCortex).
+	edb:write(NewCortex).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -149,9 +149,9 @@ insert_neuron(Layer, AFun, AggrFun, Cortex_Id) ->
 %%--------------------------------------------------------------------
 % TODO: Define specs
 remove_neuron({{Layer, _}, neuron} = Neuron_Id, Cortex_Id) ->
-	Cortex = nndb:read(Cortex_Id),
+	Cortex = edb:read(Cortex_Id),
 	Neurons_Ids = maps:get(Layer, elements:layers(Cortex)),
-	Neuron = nndb:read(Neuron_Id),
+	Neuron = edb:read(Neuron_Id),
 	[remove_link(E_Id, Neuron_Id) || E_Id <- elements:inputs_ids(Neuron) ++ elements:rcc_inputs_ids(Neuron)],
 	[remove_link(Neuron_Id, E_Id) || E_Id <- elements:outputs_ids(Neuron) ++ elements:rcc_outputs_ids(Neuron)],
 	NewCortex = case lists:delete(Neuron_Id, Neurons_Ids) of
@@ -162,7 +162,7 @@ remove_neuron({{Layer, _}, neuron} = Neuron_Id, Cortex_Id) ->
 			NewLayer = maps:update(Layer, Neurons, elements:layers(Cortex)),
 			elements:edit(Cortex, [{layer, NewLayer}])
 	end,
-	nndb:write(NewCortex).
+	edb:write(NewCortex).
 
 
 %%====================================================================
