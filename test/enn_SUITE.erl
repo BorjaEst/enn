@@ -159,7 +159,7 @@ my_test_case_example(_Config) ->
 % --------------------------------------------------------------------
 % TESTS --------------------------------------------------------------
 
-% ......................................................................................................................
+% ....................................................................
 xor_gate_static_inputs() ->
 	[].
 xor_gate_static_inputs(_Config) ->
@@ -261,20 +261,22 @@ correct_model_start(Cortex_Id) ->
 	{ok, Cortex_PId}.
 
 % ......................................................................................................................
-correct_model_training(FileName, Cortex_Id, Cortex_PId, Training) ->
+correct_model_training(_FileName, Cortex_Id, Cortex_PId, Training) ->
 	?HEAD("Correct fit of model using backpropagation ..........................................."),
-	{Inputs, Outputs} = Training(
+	{Inputs, Optimas} = Training(
 		enn:inputs(Cortex_Id), 
 		enn:outputs(Cortex_Id), 
 		?TRAINING_LINES),
-	{Loss, Predictions} = enn:fit(Cortex_PId, Inputs, Outputs, 
-		[{json_log, FileName}]
-	),
-	?INFO("Loss: ", Loss),
+	[Loss] = enn:run(Cortex_PId, Inputs, Optimas, [
+		loss,
+		% {log, FileName},
+		{return, [loss]}
+	]),
+	?INFO("Loss AVG 10: ", {length(Loss), list_n_avg(Loss, round(length(Loss)/10))}),
 	timer:sleep(10),
 	true = is_process_alive(Cortex_PId),
 	?END,
-	{ok, {Inputs, Outputs, Loss, Predictions}}.
+	ok.
 
 % ......................................................................................................................
 correct_model_stop(Cortex_Id, Cortex_PId) ->
@@ -290,4 +292,14 @@ correct_model_stop(Cortex_Id, Cortex_PId) ->
 	?END,
 	ok.
 
+% ....................................................................
 
+list_n_avg(_N, []) ->
+	[];
+list_n_avg(N, List) -> 
+	case (catch list:split(N, List)) of 
+		{'EXIT', {badarg, _}} -> 
+			[lists:sum(List)/length(List)];
+		{TopN, Rest} -> 
+			[lists:sum(TopN)/N | list_n_avg(Rest, N)]
+	end.
