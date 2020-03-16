@@ -41,8 +41,8 @@
 	rcc_outputs_ids = [] :: [neuron:id() | cortex:id()]}).  % Recurrent outputs Ids,
 -type neuron() :: #neuron{}.
 
--define(NEW_CORTEX_ID, {nnref:new(), cortex}).
--define(NEW_NEURON_ID(Layer), {{Layer, nnref:new()}, neuron}).
+-define(NEW_CORTEX_ID, {make_ref(), cortex}).
+-define(NEW_NEURON_ID(Layer), {{Layer, make_ref()}, neuron}).
 
 
 -ifdef(debug_mode).
@@ -453,8 +453,7 @@ map_neurons_ids(Neurons_Ids, ConversionETS) ->
 	[map_neuron_id(Neuron_Id, ConversionETS) || Neuron_Id <- Neurons_Ids].
 
 map_neuron_id(Id, ConversionETS) ->
-	{{LayerIndex, _NumId}, Type} = Id,
-	CloneId = {{LayerIndex, nnref:new()}, Type},
+	CloneId = ?NEW_NEURON_ID(layerIndex(Id)),
 	ets:insert(ConversionETS, {Id, CloneId}),
 	CloneId.
 
