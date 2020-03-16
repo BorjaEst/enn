@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 09. oct 2018 11:40
 %%%-------------------------------------------------------------------
--module(debugger_calls).
+-module(debug).
 -author("Borja").
 
 %% API
