@@ -125,10 +125,12 @@ fit(internal, Data, State) ->
 %%--------------------------------------------------------------------
 %% results: Applies the result functions (Loss calculation, log, etc.)
 %%--------------------------------------------------------------------
+
 results(enter, _OldState, State) ->
 	Data = get(data),
 	results(internal, Data, State);
-results(internal, Data, #state{calculate_loss = true} = State) ->
+results(internal, Data, #state{calculate_loss = true} = State) 
+when not is_map_key(loss, Data) ->
 	Loss = ?LOSS(maps:get(errors, Data)),
 	put(loss_list, [Loss | get(loss_list)]),
 	results(internal, Data#{loss => Loss}, State);
