@@ -42,7 +42,7 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @doc Supervised ANN training function. 
+%% @doc Executes a training (or only prediction) session.
 %% @end
 %%--------------------------------------------------------------------
 -spec start_link(Cortex_PId :: pid(), Inputs :: [float()], 
@@ -61,7 +61,7 @@ start_link(Cortex_PId, Inputs, Optima, Options) ->
 
 %%--------------------------------------------------------------------
 %% @private
-%% @doc
+%% @doc Executes the preparations for the training cycles. 
 %% @end
 %%--------------------------------------------------------------------
 init(Caller, Cortex_PId, InputsList, OptimaList, Options) -> 
@@ -87,8 +87,7 @@ init([], State) ->
 
 %%--------------------------------------------------------------------
 %% @private
-%% @doc
-%% 
+%% @doc Executes the training cycle
 %%--------------------------------------------------------------------
 %% predict: Performs a prediction from the input	
 %%--------------------------------------------------------------------
@@ -144,7 +143,7 @@ results(internal, _Data, State) ->
 
 %%--------------------------------------------------------------------
 %% @private
-%% @doc
+%% @doc Cleans the training and returns the results.
 %% @end
 %%--------------------------------------------------------------------
 terminate(#state{logRef = {ok, LogRef}} = State) -> 
