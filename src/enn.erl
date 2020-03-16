@@ -150,11 +150,8 @@ clone({_, cortex} = Cortex_Id) ->
 %%--------------------------------------------------------------------
 %TODO: Correct specs
 start_nn(Cortex_Id) ->
-	start_nn(Cortex_Id, []).
-
-start_nn(Cortex_Id, Options) ->
 	{ok, NN_PId} = enn_sup:start_nn_supervisor(Cortex_Id),
-	{ok, Cortex_PId} = nn_sup:start_cortex(NN_PId, Cortex_Id, Options),
+	{ok, Cortex_PId} = nn_sup:start_cortex(NN_PId, Cortex_Id),
 	{ok, Cortex_PId}.
 
 %%--------------------------------------------------------------------
