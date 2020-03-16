@@ -79,7 +79,7 @@ start_link(Cortex_Id) ->
 		[
 			{id, Cortex_Id},
 			{nn_sup, NNSup_PId},
-			{tid_idpids, TId_IdPIds}
+			{tid_idpids, TId_IdPIds} 
 		], []).
 
 %%--------------------------------------------------------------------
@@ -138,8 +138,17 @@ nn_pid2id(Neuron_PId, TId_IdPIds) ->
 %%                     {stop, StopReason}
 %% @end
 %%--------------------------------------------------------------------
-init(Arguments) ->
-	[put(Key, Value) || {Key, Value} <- Arguments],
+init([Option | Rest]) ->
+	case Option of
+		{id, Cortex_Id} ->
+			put(id, Cortex_Id);
+		{nn_sup, NNSup_PId} ->
+			 put(nn_sup, NNSup_PId);
+		{tid_idpids, TId_IdPIds} ->
+			 put(tid_idpids, TId_IdPIds)
+	end,
+	init(Rest);
+init([]) -> 
 	Id = get(id),
 	ets:insert(get(tid_idpids), [{Id, self()}, {self(), Id}]),
 	process_flag(trap_exit, true), % Mandatory to catch supervisor exits

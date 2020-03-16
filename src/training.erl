@@ -1,0 +1,200 @@
+%%%-------------------------------------------------------------------
+%%% @author borja
+%%% @copyright (C) 2018, <COMPANY>
+%%% @doc  
+%%%
+%%% @end
+%%% Created : 30. Aug 2018 0:05
+%%%-------------------------------------------------------------------
+-module(training).
+-compile([export_all, nowarn_export_all]). %% TODO: To delete after build
+
+-include_lib("math_constants.hrl").
+-include_lib("kernel/include/logger.hrl").
+-include_lib("eunit/include/eunit.hrl").
+
+%% API
+%%-export([start_link/0]).
+
+%% gen_statem callbacks
+-export([init/5, predict/3, fit/3, results/3, terminate/1]).
+
+-record(state, {
+	inputsList = [],
+    optimaList = [],
+	calculate_loss = false,
+	logRef = undefined
+}).
+
+
+%%%===================================================================
+%%% API
+%%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @doc Supervised ANN training function. 
+%% @end
+%%--------------------------------------------------------------------
+-spec start_link(Cortex_PId :: pid(), Inputs :: [float()], 
+          Optima :: [float()]) ->
+	{Loss :: [float()], Predictions :: [float()]}.
+
+start_link(Cortex_PId, Inputs, Optima) ->
+	start_link(Cortex_PId, Inputs, Optima, []). 
+
+start_link(Cortex_PId, Inputs, Optima, Options) ->
+	spawn_link(?MODULE,init,
+		[self(), Cortex_PId, Inputs, Optima, Options]
+	),
+	receive {training, Returns} -> Returns end.
+
+
+%%%===================================================================
+%%% gen_statem callbacks
+%%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+init(Caller, Cortex_PId, InputsList, OptimaList, Options) -> 
+	put(caller_pid, Caller),
+	put(cortex_pid, Cortex_PId),
+	init(Options, #state{
+		inputsList = InputsList,
+    	optimaList = OptimaList
+	}).
+
+init([{return, Returns} | Options], State) ->
+	put(return, Returns),
+	init(Options, State);
+init([loss | Options], State) ->
+	put(loss_list, []),
+	init(Options, State#state{calculate_loss = true});
+init([{log, LogName} | Options], State) ->
+	init(Options, State#state{logRef = datalog:new(LogName)});
+init([], State) -> 
+	predict(enter, init, State).
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% 
+%%--------------------------------------------------------------------
+%% predict: Performs a prediction from the input	
+%%--------------------------------------------------------------------
+predict(enter, _OldState, #state{inputsList = []} = State) ->
+	terminate(State);
+predict(enter, _OldState, State) ->
+	[Inputs | InputsList] = State#state.inputsList,
+	Data = #{inputs => Inputs},
+	predict(internal, Data, State#state{inputsList = InputsList});
+predict(internal, Data, State) -> 
+    Inputs = maps:get(inputs, Data),
+	Cortex = get(cortex_pid),
+	put(data, Data#{prediction => cortex:predict(Cortex, Inputs)}),
+	fit(enter, predict, State).
+
+%%--------------------------------------------------------------------
+%% fit: Trains the model if optima available
+%%--------------------------------------------------------------------
+fit(enter, _OldState, #state{optimaList = []} = State) ->
+	results(enter, fit, State);
+fit(enter, _OldState, State) -> 
+	[Optima | OptimaList] = State#state.optimaList,
+	Data = maps:put(optima, Optima, get(data)),
+	fit(internal, Data, State#state{optimaList = OptimaList});
+fit(internal, Data, State) -> 
+    Optima = maps:get(optima, Data),
+	Cortex = get(cortex_pid),
+	put(data, Data#{errors => cortex:fit(Cortex, Optima)}),
+	results(enter, fit, State).
+
+%%--------------------------------------------------------------------
+%% results: Applies the result functions (Loss calculation, log, etc.)
+%%--------------------------------------------------------------------
+results(enter, _OldState, State) ->
+	Data = get(data),
+	results(internal, Data, State);
+results(internal, Data, #state{calculate_loss = true} = State) ->
+	Loss = ?LOSS(maps:get(errors, Data)),
+	put(loss_list, [Loss | get(loss_list)]),
+	results(internal, Data#{loss => Loss}, State);
+results(internal, Data, {logRef = {ok, LogRef}} = State) ->
+	datalog:write(LogRef, Data),
+	results(internal, Data, State);
+results(internal, _Data, State) -> 
+	predict(enter, results, State). 
+%%--------------------------------------------------------------------
+%% @end
+%%--------------------------------------------------------------------
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% @end
+%%--------------------------------------------------------------------
+terminate({logRef = {ok, LogRef}} = State) -> 
+	ok = datalog:close(LogRef),
+	terminate(State#state{logRef = closed});
+terminate(_State) ->
+	get(caller_pid) ! {
+		training,
+		return(get(return))
+	}.
+
+
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================
+
+return([prediction | Rest]) -> 
+	[get(prediction_list) | return(Rest)];
+return([errors | Rest]) -> 
+	[get(errors_list) | return(Rest)];
+return([loss | Rest]) -> 
+	[get(loss_list) | return(Rest)];
+return([]) -> 
+	[].
+
+
+%%====================================================================
+%% Eunit white box tests
+%%====================================================================
+
+% ----------------------------------------------------------------------------------------------------------------------
+% TESTS DESCRIPTIONS ---------------------------------------------------------------------------------------------------
+white_test_() ->
+	% {setup, Where, Setup, Cleanup, Tests | Instantiator}
+	[
+		{"Void example",
+		 {setup, local, fun no_setup/0, fun no_cleanup/1, fun example/1}}
+	].
+
+% ----------------------------------------------------------------------------------------------------------------------
+% SPECIFIC SETUP FUNCTIONS ---------------------------------------------------------------------------------------------
+no_setup() ->
+	ok.
+
+no_cleanup(_) ->
+	ok.
+
+% ----------------------------------------------------------------------------------------------------------------------
+% ACTUAL TESTS ---------------------------------------------------------------------------------------------------------
+example(_) ->
+	[
+		?_assert(true)
+	].
+
+% ----------------------------------------------------------------------------------------------------------------------
+% SPECIFIC HELPER FUNCTIONS --------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
