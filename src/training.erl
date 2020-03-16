@@ -133,7 +133,7 @@ results(internal, Data, #state{calculate_loss = true} = State) ->
 	Loss = ?LOSS(maps:get(errors, Data)),
 	put(loss_list, [Loss | get(loss_list)]),
 	results(internal, Data#{loss => Loss}, State);
-results(internal, Data, {logRef = {ok, LogRef}} = State) ->
+results(internal, Data, #state{logRef = {ok, LogRef}} = State) ->
 	datalog:write(LogRef, Data),
 	results(internal, Data, State);
 results(internal, _Data, State) -> 
@@ -147,7 +147,7 @@ results(internal, _Data, State) ->
 %% @doc
 %% @end
 %%--------------------------------------------------------------------
-terminate({logRef = {ok, LogRef}} = State) -> 
+terminate(#state{logRef = {ok, LogRef}} = State) -> 
 	ok = datalog:close(LogRef),
 	terminate(State#state{logRef = closed});
 terminate(_State) ->
@@ -197,22 +197,26 @@ white_test_() ->
 		{"Tests for basic returns (predictions and errors)",
 		 {setup, local, fun pred_err_lists/0, fun no_cleanup/1, 
 		  [
-			?_assert([get(prediction_list)] == return([prediction])),
-			?_assert([undefined] == return([loss_list])),
+			?_assert([get(prediction_list)] == 
+				      return([prediction])),
+			?_assert([undefined] == 
+				      return([loss])),
 			?_assert([get(errors_list), get(prediction_list)] ==
-					  return([errors_list, prediction_list])),
+					  return([errors, prediction])),
 			?_assert([get(prediction_list), get(errors_list)] ==
-					  return([prediction_list, errors_list]))
+					  return([prediction, errors]))
 		  ]}},
 		{"Tests for returns with loss",
 		 {setup, local, fun with_loss_lists/0, fun no_cleanup/1, 
 		  [
-			?_assert([get(prediction_list)] == return([prediction])),
-			?_assert([get(loss_list)] == return([loss_list])),
+			?_assert([get(prediction_list)] == 
+					  return([prediction])),
+			?_assert([get(loss_list)] == 
+				      return([loss])),
 			?_assert([get(errors_list), get(loss_list)] ==
-					  return([errors_list, loss_list])),
+					  return([errors, loss])),
 			?_assert([get(loss_list), get(errors_list)] ==
-					  return([loss_list, errors_list]))
+					  return([loss, errors]))
 		  ]}}
 
 	].
@@ -225,7 +229,7 @@ white_test_() ->
 % SPECIFIC HELPER FUNCTIONS ------------------------------------------
 
 random_list(N) -> 
-	[(rand:uniform(20) - 10) /10 || _ <- list:seq(1, N)].
+	[(rand:uniform(20) - 10) /10 || _ <- lists:seq(1, N)].
 
 
 
