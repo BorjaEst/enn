@@ -20,8 +20,14 @@
 %% gen_statem callbacks
 -export([init/5, predict/3, fit/3, results/3, terminate/1]).
 
--type option() :: term().  % TODO: TBD
--type result() :: term().	% TODO: TBD
+-type option() :: {return, Returns :: [return()]} 
+				| loss
+				| log.
+-type return() :: prediction
+				| errors
+				| loss.
+-type result() :: [float()]
+				| undefined.
 
 -record(state, {
 	inputsList = [],
