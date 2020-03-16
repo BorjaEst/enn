@@ -15,9 +15,13 @@
 
 %% API
 %%-export([start_link/0]).
+-type_export([option/0, result/0]).
 
 %% gen_statem callbacks
 -export([init/5, predict/3, fit/3, results/3, terminate/1]).
+
+-type option() :: term().  % TODO: TBD
+-type result() :: term().	% TODO: TBD
 
 -record(state, {
 	inputsList = [],
@@ -36,12 +40,8 @@
 %% @end
 %%--------------------------------------------------------------------
 -spec start_link(Cortex_PId :: pid(), Inputs :: [float()], 
-          Optima :: [float()]) ->
-	{Loss :: [float()], Predictions :: [float()]}.
-
-start_link(Cortex_PId, Inputs, Optima) ->
-	start_link(Cortex_PId, Inputs, Optima, []). 
-
+                 Optima :: [float()], Options :: [option()]) ->
+	Resutls :: [result()].
 start_link(Cortex_PId, Inputs, Optima, Options) ->
 	spawn_link(?MODULE,init,
 		[self(), Cortex_PId, Inputs, Optima, Options]
