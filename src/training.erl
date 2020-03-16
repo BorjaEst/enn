@@ -163,11 +163,11 @@ terminate(_State) ->
 %%%===================================================================
 
 return([prediction | Rest]) -> 
-	[get(prediction_list) | return(Rest)];
+	[lists:reverse(get(prediction_list)) | return(Rest)];
 return([errors | Rest]) -> 
-	[get(errors_list) | return(Rest)];
+	[lists:reverse(get(errors_list)) | return(Rest)];
 return([loss | Rest]) -> 
-	[get(loss_list) | return(Rest)];
+	[lists:reverse(get(loss_list)) | return(Rest)];
 return([]) -> 
 	[].
 
@@ -198,26 +198,30 @@ white_test_() ->
 		{"Tests for basic returns (predictions and errors)",
 		 {setup, local, fun pred_err_lists/0, fun no_cleanup/1, 
 		  [
-			?_assert([get(prediction_list)] == 
+			?_assert([lists:reverse(get(prediction_list))] == 
 				      return([prediction])),
 			?_assert([undefined] == 
 				      return([loss])),
-			?_assert([get(errors_list), get(prediction_list)] ==
-					  return([errors, prediction])),
-			?_assert([get(prediction_list), get(errors_list)] ==
-					  return([prediction, errors]))
+			?_assert([lists:reverse(get(errors_list)), 
+			          lists:reverse(get(prediction_list))] ==
+					 return([errors, prediction])),
+			?_assert([lists:reverse(get(prediction_list)), 
+					  lists:reverse(get(errors_list))] ==
+					 return([prediction, errors]))
 		  ]}},
 		{"Tests for returns with loss",
 		 {setup, local, fun with_loss_lists/0, fun no_cleanup/1, 
 		  [
-			?_assert([get(prediction_list)] == 
+			?_assert([lists:reverse(get(prediction_list))] == 
 					  return([prediction])),
-			?_assert([get(loss_list)] == 
+			?_assert([lists:reverse(get(loss_list))] == 
 				      return([loss])),
-			?_assert([get(errors_list), get(loss_list)] ==
-					  return([errors, loss])),
-			?_assert([get(loss_list), get(errors_list)] ==
-					  return([loss, errors]))
+			?_assert([lists:reverse(get(errors_list)), 
+					  lists:reverse(get(loss_list))] ==
+					 return([errors, loss])),
+			?_assert([lists:reverse(get(loss_list)), 
+					  lists:reverse(get(errors_list))] ==
+					 return([loss, errors]))
 		  ]}}
 
 	].
