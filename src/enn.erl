@@ -70,58 +70,35 @@ compile(Model) ->
 %% the cortex pid.
 %% @end
 %%--------------------------------------------------------------------
--spec predict(Cortex_PId :: pid(), ExternalInputs :: [float()]) ->
-	[Prediction :: float()].
-predict(Cortex_PId, [_ | _] = ExternalInputs) ->
-	[cortex:predict(Cortex_PId, Inputs) || Inputs <- ExternalInputs];
-predict(_Cortex_PId, []) ->
-	[].
+-spec predict(Cortex_PId :: pid(), InputsList :: [[float()]]) ->
+	[Prediction :: [float()]].
+predict(Cortex_PId, InputsList) ->
+	Options = [{return, [prediction]}],
+	[Prediction] = run(Cortex_PId, InputsList, [], Options),
+	Prediction.
 
 %%--------------------------------------------------------------------
 %% @doc Supervised ANN training function. Fits the Predictions to the 
-%% OptimalOutputs.
+%% OptimalOutputs. Returns the errors between prediction and optima.
 %% @end
 %%--------------------------------------------------------------------
--spec fit(Cortex_PId :: pid(), ExternalInputs :: [float()], 
-          OptimalOutputs :: [float()]) ->
-	{Loss :: [float()], Predictions :: [float()]}.
+-spec fit(Cortex_PId :: pid(), InputsList :: [float()], 
+          OptimaList :: [float()]) ->
+	Errors :: [float()].
+fit(Cortex_PId, InputsList, OptimaList) ->
+	Options = [{return, [errors]}],
+	[Errors] = run(Cortex_PId, InputsList, OptimaList, Options),
+	Errors.
 
-fit(Cortex_PId, ExternalInputs, OptimalOutputs) ->
-	fit(Cortex_PId, ExternalInputs, OptimalOutputs, []). 
-
-fit(Cortex_PId, ExternalInputs, OptimalOutputs, Options) ->
-	start_fit(Cortex_PId, ExternalInputs, OptimalOutputs, Options, []). 
-
-
-start_fit(CxPId, ExtIn, OptOut, [Option | Rest], Config) -> 
-	case Option of
-		{log, FileName} ->
-			LogRef = datalog:new(FileName),
-			UpdtConfig = [{log, LogRef} | Config]
-	end,
-	start_fit(CxPId, ExtIn, OptOut, Rest, UpdtConfig);
-start_fit(CxPId, ExtIn, OptOut,  [], Config) ->
-	do_fit(CxPId, ExtIn, OptOut, Config).
-
-do_fit(CxPId, ExtIn, OptOut, Options) ->
-	Result = [start_fit_cycle(CxPId, I, O, Options, []) || 
-	 		  		          {I, O} <- lists:zip(ExtIn, OptOut)],
-	{Loss, Pred} = lists:unzip(Result),
-	end_fit(ExtIn, OptOut, Loss, Pred, Options).
-
-end_fit(ExtIn, OptOut, Loss, Pred, [Option | Rest]) -> 
-	case Option of 
-		{log, LogRef} ->
-			ok = datalog:close(LogRef)
-	end,
-	end_fit(ExtIn, OptOut, Loss, Pred, Rest);
-end_fit(_ExtIn, _OptOut, Loss, Pred, []) ->
-	{Loss, Pred}.
-
-
-
-
-
+%%--------------------------------------------------------------------
+%% @doc Runs an ANN with the criteria defined at the options.
+%% @end
+%%--------------------------------------------------------------------
+-spec run(Cortex_PId :: pid(), InputsList :: [float()], 
+          OptimaList :: [float()], Options :: [training:option()]) ->
+	Errors :: [float()].
+run(Cortex_PId, InputsList, OptimaList, Options) ->
+	training:start_link(Cortex_PId, InputsList, OptimaList, Options).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the number of inputs a Model/Cortex expects.
@@ -219,47 +196,6 @@ check_nn(Cortex_Id) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-
-% ......................................................................................................................
-
-start_fit_cycle(CxPId, I, O, [], Config) -> 
-	do_fit_cycle(CxPId, I, O, Config).
-
-do_fit_cycle(Cortex_PId, ExternalInputs, OptimalOutputs, Options) ->
-	Prediction = cortex:predict(Cortex_PId, ExternalInputs),
-	Errors = cortex:fit(Cortex_PId, OptimalOutputs),
-	Loss = math:sqrt(lists:sum([math:pow(E, 2) || E <- Errors])),
-	end_fin_cycle(Cortex_PId, ExternalInputs, OptimalOutputs, 
-				  Errors, Loss, Prediction, Options).
-
-
-end_fin_cycle(CxPId, ExternalInputs, OptimalOutputs, Errors, 
-              Loss, Prediction, [Option | Rest])  ->
-	case Option of
-		{log, LogRef} -> 
-			datalog:write(LogRef, #{
-				inputs => ExternalInputs,
-				optimal => OptimalOutputs,
-				pred => Prediction,
-				error => Errors,
-				loss => Loss 
-			})
-	end,
-	end_fin_cycle(CxPId, ExternalInputs, OptimalOutputs, 
-			      Errors, Loss, Prediction, Rest);
-end_fin_cycle(_CxPId, _I, _O, _Errors, Loss, Prediction, []) ->
-	{Loss, Prediction}.
-
-
-% ......................................................................................................................
-averageLoss(LossList, Batch_Size) ->
-	averageLoss(LossList, Batch_Size, length(LossList)).
-
-averageLoss(LossList, Batch_Size, C) when Batch_Size < C ->
-	{Set, Rest} = lists:split(Batch_Size, LossList),
-	[lists:sum(Set) / Batch_Size | averageLoss(Rest, Batch_Size, C - Batch_Size)];
-averageLoss(_LossList, _Batch_Size, _C) ->
-	[].
 
 % ......................................................................................................................
 check_links(Cortex, Neurons) ->
