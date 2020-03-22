@@ -4,12 +4,12 @@ Erlang Neural Networks (enn) is an application to implement artificial inteligen
 
 ## Installation
 Create your own project with rebar3.
- ```
+ ```sh
  $ rebar3 new app yourapp
  ```
 
 Then in your project path find rebar.config file and add enn as dependency under the deps key:
-```
+```erlang
 {deps, 
     [
         {enn, {git, "https://github.com/BorjaEst/enn.git", {tag, "<version>"}}}
@@ -17,12 +17,12 @@ Then in your project path find rebar.config file and add enn as dependency under
 ```
 
 Then using compile command, rebar3 will fetch the defined dependencies and compile them as well for your application.
-```
-rebar3 compile
+``sh
+$ rebar3 compile
 ```
 
 At the end for making a release you first need to create your release structure and then making a release with following commands.
-```
+```sh
 $ rebar3 new release yourrel
 $ rebar3 release
 ```
