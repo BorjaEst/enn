@@ -80,20 +80,18 @@ fields(cortex) ->
 neuron() ->
 	neuron(0.0, direct, dotprod).
 
--spec neuron(Layer, Activation, Aggregation) -> Neuron when
+-spec neuron(Layer, Activation, Aggregation) -> neuron() when
 	Layer :: integer(),
 	Activation :: activation:func(),
-	Aggregation :: aggregation:func(),
-	Neuron :: neuron().
+	Aggregation :: aggregation:func().
 neuron(Layer, AF, AggrF) ->
 	#neuron{id = ?NEW_NEURON_ID(Layer), af = AF, aggrf = AggrF}.
 
--spec neuron(Layer, Activation, Aggregation, Options) -> Neuron when
+-spec neuron(Layer, Activation, Aggregation, Options) -> neuron() when
 	Layer :: integer(),
 	Activation :: activation:func(),
 	Aggregation :: aggregation:func(),
-	Options :: [{neuron_field(), Value :: term()}],
-	Neuron :: neuron().
+	Options :: [{neuron_field(), Value :: term()}].
 neuron(Layer, AF, AggrF, Options) ->
 	Neuron = neuron(Layer, AF, AggrF),
 	edit(Neuron, Options).
@@ -113,14 +111,14 @@ is_neuron(Neuron) -> is_record(Neuron, neuron).
 %% on in cortex:new by the mutation library.
 %% @end
 %%--------------------------------------------------------------------
--spec cortex(CompiledLayers :: #{integer() => layer:compiled()}) ->
-	Cortex :: cortex().
+-spec cortex(CompiledLayers) -> cortex() when
+	CompiledLayers :: #{integer() => layer:compiled()}.
 cortex(CompiledLayers) ->
 	#cortex{id = ?NEW_CORTEX_ID, layers = CompiledLayers}.
 	
--spec cortex(CompiledLayers :: #{integer() => layer:compiled()},
-			 Options :: [{cortex_field(), Value :: term()}]) ->
-	Cortex :: cortex().
+-spec cortex(CompiledLayers, Options) -> cortex() when
+	CompiledLayers :: #{integer() => layer:compiled()},
+	Options :: [{cortex_field(), Value :: term()}].
 cortex(CompiledLayers, Options) ->
 	Cortex = cortex(CompiledLayers),
 	edit(Cortex, Options).

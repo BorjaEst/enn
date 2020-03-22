@@ -64,12 +64,15 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Creates a new neuron from, stores it on the database and 
+%% returns its id.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: To make description and specs
+-spec new(Layer, Activation, Aggregation, Options) -> id() when
+	Layer :: integer(),
+	Activation :: activation:func(),
+	Aggregation :: aggregation:func(),
+	Options :: [{elements:neuron_field(), Value :: term()}].
 new(Layer, AF, AggrF, Options) ->
 	Neuron = elements:neuron(Layer, AF, AggrF, Options),
 	edb:write(Neuron),

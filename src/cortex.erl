@@ -51,9 +51,9 @@
 %% the database and returns its cortex id.
 %% @end
 %%--------------------------------------------------------------------
--spec new(CompiledLayers :: #{integer() => layer:compiled()},
-		  Options :: [term()]) ->
-	Cortex_Id :: id().
+-spec new(CompiledLayers, Options) -> id() when
+	CompiledLayers :: #{integer() => layer:compiled()},
+	Options :: [{elements:cortex_field(), Value :: term()}].
 new(CompiledLayers, Options) ->
 	Cortex = elements:cortex(CompiledLayers, Options),
 	edb:write(Cortex), % Saved before mutations to avoid overwriting
