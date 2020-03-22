@@ -104,7 +104,6 @@ predict(internal, Data, State) ->
 	put(data, Data#{prediction => Prediction}),
 	put(prediction_list, [Prediction | get(prediction_list)]),
 	fit(enter, predict, State).
-
 %%--------------------------------------------------------------------
 %% fit: Trains the model if optima available
 %%--------------------------------------------------------------------
@@ -121,11 +120,9 @@ fit(internal, Data, State) ->
 	put(data, Data#{errors => Errors}),
 	put(errors_list, [Errors | get(errors_list)]),
 	results(enter, fit, State).
-
 %%--------------------------------------------------------------------
 %% results: Applies the result functions (Loss calculation, log, etc.)
 %%--------------------------------------------------------------------
-
 results(enter, _OldState, State) ->
 	Data = get(data),
 	results(internal, Data, State);
