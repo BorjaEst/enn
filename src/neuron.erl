@@ -36,8 +36,8 @@
 	aggrf :: aggregation:func(),
 	bias :: float(), % Last bias value
 	tensor :: #tensor{},
-	inputs :: #{PId :: id() => #input{}},
-	outputs :: #{PId :: id() => #output{}},
+	inputs :: #{Pid :: id() => #input{}},
+	outputs :: #{Pid :: id() => #output{}},
 	forward_wait :: [pid()],
 	backward_wait :: [pid()],
 	error :: float()
@@ -121,8 +121,8 @@ init2(State) ->
 	backward(maps:filter(fun is_recurrent/2, State#state.inputs), B), %Recurrence init
 	loop(State#state{
 		tensor        = Tensor,
-		forward_wait  = [PId || PId <- maps:keys(State#state.inputs)],
-		backward_wait = [PId || PId <- maps:keys(State#state.outputs)]
+		forward_wait  = [Pid || Pid <- maps:keys(State#state.inputs)],
+		backward_wait = [Pid || Pid <- maps:keys(State#state.outputs)]
 	}).
 
 % ......................................................................................................................
@@ -146,7 +146,7 @@ loop(#state{forward_wait = [NextF | RForwardWait], backward_wait = [NextB | RBac
 				outputs       = Outputs#{NextB := Output#output{e = BP_Error}},
 				error         = State#state.error + BP_Error
 			});
-		{'EXIT', _PId, Reason} ->
+		{'EXIT', _Pid, Reason} ->
 			terminate(State, Reason)
 	after ?STDIDLE_TIMEOUT ->
 		#state{id = Neuron_Id} = State,
@@ -159,7 +159,7 @@ forward_signal(State) -> %TODO: save on signals_acc the "Tensor" (modifying tens
 	forward(State#state.outputs, Tensor#tensor.signal),
 	State#state{
 		tensor       = Tensor,
-		forward_wait = [PId || PId <- maps:keys(State#state.inputs)]
+		forward_wait = [Pid || Pid <- maps:keys(State#state.inputs)]
 	}.
 
 %TODO: To add specs and description
@@ -171,7 +171,7 @@ backward_error(State) ->
 	State#state{
 		bias          = adjust_bias(Tensor#tensor.bias, DTensor#tensor.bias, B),
 		inputs        = adjust_weights(Tensor#tensor.in, DTensor#tensor.in, State#state.inputs, B),
-		backward_wait = [PId || PId <- maps:keys(State#state.outputs)],
+		backward_wait = [Pid || Pid <- maps:keys(State#state.outputs)],
 		error         = 0.0
 	}.
 
@@ -220,7 +220,7 @@ is_recurrent(_Key, Value) when is_record(Value, output) ->
 % ......................................................................................................................
 tensor(State) ->
 	Tensor_In = maps:from_list(
-		[{PId, {Input#input.w, Input#input.s}} || {PId, Input} <- maps:to_list(State#state.inputs)]),
+		[{Pid, {Input#input.w, Input#input.s}} || {Pid, Input} <- maps:to_list(State#state.inputs)]),
 	Soma = aggregation:apply(State#state.aggrf, maps:values(Tensor_In), State#state.bias),
 	Signal = activation:apply(State#state.af, Soma),
 	#tensor{
@@ -242,45 +242,45 @@ d_tensor(Tensor) ->
 d_tensor_in(ThisTensor_In, none) ->
 	ThisTensor_In;
 d_tensor_in(ThisTensor_In, Iterator) ->
-	{PId, {W1, V1}, Next_Iterator} = maps:next(Iterator),
-	#{PId := {W2, V2}} = ThisTensor_In,
+	{Pid, {W1, V1}, Next_Iterator} = maps:next(Iterator),
+	#{Pid := {W2, V2}} = ThisTensor_In,
 	DiffW = case {W2, W1} of
 		        {cortex, cortex} -> cortex;
 		        _ -> W2 - W1
 	        end,
-	d_tensor_in(ThisTensor_In#{PId := {DiffW, V2 - V1}}, Next_Iterator).
+	d_tensor_in(ThisTensor_In#{Pid := {DiffW, V2 - V1}}, Next_Iterator).
 
 % ......................................................................................................................
 forward(Outputs, Signal) ->
-	[forward(PId, void, Signal) || {PId, _Output} <- maps:to_list(Outputs)].
+	[forward(Pid, void, Signal) || {Pid, _Output} <- maps:to_list(Outputs)].
 
-forward(Output_PId, _Void, Signal) ->
-	Output_PId ! {self(), forward, Signal},
-	{Output_PId, Signal}.
+forward(Output_Pid, _Void, Signal) ->
+	Output_Pid ! {self(), forward, Signal},
+	{Output_Pid, Signal}.
 
 % ......................................................................................................................
 backward(Inputs, B) ->
-	[backward(PId, Input#input.w, B) || {PId, Input} <- maps:to_list(Inputs)].
+	[backward(Pid, Input#input.w, B) || {Pid, Input} <- maps:to_list(Inputs)].
 
-backward(Input_PId, cortex, B) ->
-	Input_PId ! {self(), backward, BP_Error = B},
-	{Input_PId, BP_Error};
-backward(Input_PId, Weight, B) ->
-	Input_PId ! {self(), backward, BP_Error = Weight * B},
-	{Input_PId, BP_Error}.
+backward(Input_Pid, cortex, B) ->
+	Input_Pid ! {self(), backward, BP_Error = B},
+	{Input_Pid, BP_Error};
+backward(Input_Pid, Weight, B) ->
+	Input_Pid ! {self(), backward, BP_Error = Weight * B},
+	{Input_Pid, BP_Error}.
 
 % ......................................................................................................................
 adjust_weights(TensorIn, OldTensor_In, Inputs, B) ->
 	do_adjust_weights(maps:to_list(TensorIn), OldTensor_In, Inputs, B).
 
-do_adjust_weights([{PId, {_, Signal}} | Signals_Acc], OldTensor_In, Inputs, B) ->
-	case maps:get(PId, Inputs) of
+do_adjust_weights([{Pid, {_, Signal}} | Signals_Acc], OldTensor_In, Inputs, B) ->
+	case maps:get(Pid, Inputs) of
 		#input{w = cortex} = _Input ->
 			do_adjust_weights(Signals_Acc, OldTensor_In, Inputs, B);
 		#input{w = W} = Input ->
-			#{PId := {D_W, _D_S}} = OldTensor_In,
+			#{Pid := {D_W, _D_S}} = OldTensor_In,
 			New_W = sat(W + (?LEARNING_FACTOR * B * Signal) + (?MOMENTUM_FACTOR * D_W), -?SAT_LIMIT, ?SAT_LIMIT),
-			do_adjust_weights(Signals_Acc, OldTensor_In, Inputs#{PId := Input#input{w = New_W}}, B)
+			do_adjust_weights(Signals_Acc, OldTensor_In, Inputs#{Pid := Input#input{w = New_W}}, B)
 	end;
 do_adjust_weights([], _OldTensor_In, Inputs, _B) ->
 	Inputs.
@@ -290,9 +290,9 @@ adjust_bias(Bias, D_Bias, B) ->
 	sat(Bias + (?LEARNING_FACTOR * B) + (?MOMENTUM_FACTOR * D_Bias), -?SAT_LIMIT, ?SAT_LIMIT).
 
 % ......................................................................................................................
-replace_weight(PId, #input{w = Weight}, Inputs) ->
-	#{PId := Input} = Inputs,
-	maps:update(PId, Input#input{w = Weight}, Inputs).
+replace_weight(Pid, #input{w = Weight}, Inputs) ->
+	#{Pid := Input} = Inputs,
+	maps:update(Pid, Input#input{w = Weight}, Inputs).
 
 % ......................................................................................................................
 sat(Val, Min, _) when Val < Min -> Min;

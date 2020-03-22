@@ -2,7 +2,7 @@
 %%% @author borja
 %%% @copyright (C) 2018, <COMPANY>
 %%% @doc The cortex is a NN synchronizing element. It needs to know 
-%%% the PId of every neural network element, so that it will know when
+%%% the Pid of every neural network element, so that it will know when
 %%% all the outputs have received their control inputs, and that it’s
 %%% time for the inputs to again gather and fanout input data to the
 %%% neurons in the input layer. 
@@ -73,51 +73,51 @@ get_outputs(CompiledLayers) ->
 -spec start_link(Cortex_Id :: id()) ->
 	gen_statem:start_ret().
 start_link(Cortex_Id) -> 
-	NNSup_PId = self(),
-	TId_IdPIds = ets:new(nn_idpids, [{read_concurrency, true}, public]),
+	NNSup_Pid = self(),
+	TId_IdPids = ets:new(nn_idpids, [{read_concurrency, true}, public]),
 	gen_statem:start_link(?MODULE,
 		[
 			{id, Cortex_Id},
-			{nn_sup, NNSup_PId},
-			{tid_idpids, TId_IdPIds} 
+			{nn_sup, NNSup_Pid},
+			{tid_idpids, TId_IdPids} 
 		], []).
 
 %%--------------------------------------------------------------------
 %% @doc Makes a prediction using the external inputs.
 %% @end
 %%--------------------------------------------------------------------
--spec predict(Cortex_PId :: pid(), ExternalInputs :: [float()]) ->
+-spec predict(Cortex_Pid :: pid(), ExternalInputs :: [float()]) ->
 	Predictions :: [float()].
-predict(Cortex_PId, ExternalInputs) ->
-	gen_statem:call(Cortex_PId, {feedforward, ExternalInputs}, ?STDCALL_TIMEOUT).
+predict(Cortex_Pid, ExternalInputs) ->
+	gen_statem:call(Cortex_Pid, {feedforward, ExternalInputs}, ?STDCALL_TIMEOUT).
 
 %%--------------------------------------------------------------------
 %% @doc Performs a single NN training using back propagation.
 %% @end
 %%--------------------------------------------------------------------
--spec fit(Cortex_PId :: pid(), OptimalOutputs :: [float()]) ->
+-spec fit(Cortex_Pid :: pid(), OptimalOutputs :: [float()]) ->
 	Errors :: [float()].
-fit(Cortex_PId, OptimalOutputs) ->
-	gen_statem:call(Cortex_PId, {backprop, OptimalOutputs}, ?STDCALL_TIMEOUT).
+fit(Cortex_Pid, OptimalOutputs) ->
+	gen_statem:call(Cortex_Pid, {backprop, OptimalOutputs}, ?STDCALL_TIMEOUT).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the pid of a neuron from its id.
 %% @end
 %%--------------------------------------------------------------------
--spec nn_id2pid(Neuron_Id :: neuron:id(), TId_IdPIds :: ets:tid()) ->
-	Neuron_PId :: pid().
-nn_id2pid(Neuron_Id, TId_IdPIds) ->
-	[{Neuron_Id, Neuron_PId}] = ets:lookup(TId_IdPIds, Neuron_Id),
-	Neuron_PId.
+-spec nn_id2pid(Neuron_Id :: neuron:id(), TId_IdPids :: ets:tid()) ->
+	Neuron_Pid :: pid().
+nn_id2pid(Neuron_Id, TId_IdPids) ->
+	[{Neuron_Id, Neuron_Pid}] = ets:lookup(TId_IdPids, Neuron_Id),
+	Neuron_Pid.
 
 %%--------------------------------------------------------------------
 %% @doc Returns the id of a neuron from its pid.
 %% @end
 %%--------------------------------------------------------------------
--spec nn_pid2id(Neuron_PId :: pid(), TId_IdPIds :: ets:tid()) ->
+-spec nn_pid2id(Neuron_Pid :: pid(), TId_IdPids :: ets:tid()) ->
 	Neuron_Id :: neuron:id().
-nn_pid2id(Neuron_PId, TId_IdPIds) ->
-	[{Neuron_PId, Neuron_Id}] = ets:lookup(TId_IdPIds, Neuron_PId),
+nn_pid2id(Neuron_Pid, TId_IdPids) ->
+	[{Neuron_Pid, Neuron_Id}] = ets:lookup(TId_IdPids, Neuron_Pid),
 	Neuron_Id.
 
 
@@ -142,10 +142,10 @@ init([Option | Rest]) ->
 	case Option of
 		{id, Cortex_Id} ->
 			put(id, Cortex_Id);
-		{nn_sup, NNSup_PId} ->
-			 put(nn_sup, NNSup_PId);
-		{tid_idpids, TId_IdPIds} ->
-			 put(tid_idpids, TId_IdPIds)
+		{nn_sup, NNSup_Pid} ->
+			 put(nn_sup, NNSup_Pid);
+		{tid_idpids, TId_IdPids} ->
+			 put(tid_idpids, TId_IdPids)
 	end,
 	init(Rest);
 init([]) -> 
@@ -242,13 +242,13 @@ inactive(EventType, EventContent, State) ->
 %% signals of the forward wave. When all neurons have propagated their
 %% values, the cortex returns the predictions to the requester.
 %%--------------------------------------------------------------------
-on_feedforward(info, {PId, forward, Signal}, State) ->
-	Input = lists:keyfind(PId, #input.pid, get(inputs)),
-	UpdatedInputs = lists:keyreplace(PId, #input.pid, get(inputs), 
+on_feedforward(info, {Pid, forward, Signal}, State) ->
+	Input = lists:keyfind(Pid, #input.pid, get(inputs)),
+	UpdatedInputs = lists:keyreplace(Pid, #input.pid, get(inputs), 
 								     Input#input{s = Signal}),
 	put(inputs, UpdatedInputs),
 	on_feedforward(internal, forward, State#state{
-		wait = lists:delete(PId, State#state.wait)
+		wait = lists:delete(Pid, State#state.wait)
 	});
 on_feedforward(internal, forward, #state{wait = []} = State) ->
 	{next_state, inactive, State,
@@ -262,13 +262,13 @@ on_feedforward(EventType, EventContent, State) ->
 %% the values, the cortex returns the last correction values from the
 %% inputs to the requester.
 %%--------------------------------------------------------------------
-on_backpropagation(info, {PId, backward, BP_Err}, State) ->
-	Output = lists:keyfind(PId, #output.pid, get(outputs)),
-	UpdatedOutputs = lists:keyreplace(PId, #input.pid, get(outputs), 
+on_backpropagation(info, {Pid, backward, BP_Err}, State) ->
+	Output = lists:keyfind(Pid, #output.pid, get(outputs)),
+	UpdatedOutputs = lists:keyreplace(Pid, #input.pid, get(outputs), 
 									  Output#output{error = BP_Err}),
 	put(outputs, UpdatedOutputs),
 	on_backpropagation(internal, backward, State#state{
-		wait = lists:delete(PId, State#state.wait)
+		wait = lists:delete(Pid, State#state.wait)
 	});
 on_backpropagation(internal, backward, #state{wait = []} = State) ->
 	{next_state, inactive, State,
@@ -374,18 +374,18 @@ backward(Input, Optm) ->
 
 % ......................................................................................................................
 handle_start_nn() ->
-	Cortex = edb:read(get(id)), NNSup_PId = get(nn_sup), TId_IdPIds = get(tid_idpids),
-	Neurons = [{start_nn_element(NNSup_PId, TId_IdPIds, N_Id), edb:read(N_Id)} || N_Id <- elements:neurons(Cortex)],
-	[PId ! {continue_init, TId_IdPIds} || {PId, _} <- Neurons],
+	Cortex = edb:read(get(id)), NNSup_Pid = get(nn_sup), TId_IdPids = get(tid_idpids),
+	Neurons = [{start_nn_element(NNSup_Pid, TId_IdPids, N_Id), edb:read(N_Id)} || N_Id <- elements:neurons(Cortex)],
+	[Pid ! {continue_init, TId_IdPids} || {Pid, _} <- Neurons],
 	put(neurons, maps:from_list(Neurons)),
-	put(inputs, [#input{pid = cortex:nn_id2pid(Id, TId_IdPIds)} || {Id, _} <- elements:inputs_idps(Cortex)]),
-	put(outputs, [#output{pid = cortex:nn_id2pid(Id, TId_IdPIds)} || Id <- elements:outputs_ids(Cortex)]).
+	put(inputs, [#input{pid = cortex:nn_id2pid(Id, TId_IdPids)} || {Id, _} <- elements:inputs_idps(Cortex)]),
+	put(outputs, [#output{pid = cortex:nn_id2pid(Id, TId_IdPids)} || Id <- elements:outputs_ids(Cortex)]).
 
-start_nn_element(NNSup_PId, TId_IdPIds, Neuron_Id) ->
-	case nn_sup:start_neuron(NNSup_PId, Neuron_Id) of
-		{ok, PId} ->
-			ets:insert(TId_IdPIds, [{Neuron_Id, PId}, {PId, Neuron_Id}]),
-			PId;
+start_nn_element(NNSup_Pid, TId_IdPids, Neuron_Id) ->
+	case nn_sup:start_neuron(NNSup_Pid, Neuron_Id) of
+		{ok, Pid} ->
+			ets:insert(TId_IdPids, [{Neuron_Id, Pid}, {Pid, Neuron_Id}]),
+			Pid;
 		{error, Reason} ->
 			exit(Reason)
 	end.

@@ -239,9 +239,9 @@ random_dense_random_inputs(_Config) ->
 % ....................................................................
 test_model(FileName, Model, Training) ->
 	{ok, Cortex_Id} = correct_model_compilation(Model),
-	{ok, Cortex_PId} = correct_model_start(Cortex_Id),
-	ok = correct_model_training(FileName, Cortex_Id, Cortex_PId, Training),
-	ok = correct_model_stop(Cortex_Id, Cortex_PId),
+	{ok, Cortex_Pid} = correct_model_start(Cortex_Id),
+	ok = correct_model_training(FileName, Cortex_Id, Cortex_Pid, Training),
+	ok = correct_model_stop(Cortex_Id, Cortex_Pid),
 	ok.
 
 % ....................................................................
@@ -255,36 +255,36 @@ correct_model_compilation(Model) ->
 % ....................................................................
 correct_model_start(Cortex_Id) ->
 	?HEAD("Correct neural network start form a cortex id .........."),
-	{ok, Cortex_PId} = enn:start_nn(Cortex_Id),
+	{ok, Cortex_Pid} = enn:start_nn(Cortex_Id),
 	SleepTime = 10, timer:sleep(SleepTime),
-	true = is_process_alive(Cortex_PId), 
+	true = is_process_alive(Cortex_Pid), 
 	?INFO("Cortex alive after ms: ", SleepTime),
-	?END({ok, Cortex_PId}).
+	?END({ok, Cortex_Pid}).
 
 % ....................................................................
-correct_model_training(_FileName, Cortex_Id, Cortex_PId, Training) ->
+correct_model_training(_FileName, Cortex_Id, Cortex_Pid, Training) ->
 	?HEAD("Correct fit of model using backpropagation ............."),
 	{Inputs, Optimas} = Training(
 		enn:inputs(Cortex_Id), 
 		enn:outputs(Cortex_Id), 
 		?TRAINING_LINES),
-	[Loss] = enn:run(Cortex_PId, Inputs, Optimas, [
+	[Loss] = enn:run(Cortex_Pid, Inputs, Optimas, [
 		loss,
 		% {log, FileName},
 		{return, [loss]}
 	]),
 	?INFO("Loss AVG 10: ", {length(Loss), average_in_10(Loss)}),
 	timer:sleep(10),
-	true = is_process_alive(Cortex_PId),
+	true = is_process_alive(Cortex_Pid),
 	?END(ok).
 
 % ....................................................................
-correct_model_stop(Cortex_Id, Cortex_PId) ->
+correct_model_stop(Cortex_Id, Cortex_Pid) ->
 	?HEAD("Correct neural network stop form a cortex id ..........."),
 	[Neuron_Id | _] = elements:neurons(edb:read(Cortex_Id)),
 	Neuron_BeforeTraining = edb:read(Neuron_Id), 
 	enn:stop_nn(Cortex_Id),
-	false = is_process_alive(Cortex_PId),
+	false = is_process_alive(Cortex_Pid),
 	Neuron_AfterTraining = edb:read(Neuron_Id), 
 	?INFO("Neuron before training", Neuron_BeforeTraining),
 	?INFO("Neuron after training", Neuron_AfterTraining),

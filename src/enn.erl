@@ -70,11 +70,11 @@ compile(Model) ->
 %% the cortex pid.
 %% @end
 %%--------------------------------------------------------------------
--spec predict(Cortex_PId :: pid(), InputsList :: [[float()]]) ->
+-spec predict(Cortex_Pid :: pid(), InputsList :: [[float()]]) ->
 	[Prediction :: [float()]].
-predict(Cortex_PId, InputsList) ->
+predict(Cortex_Pid, InputsList) ->
 	Options = [{return, [prediction]}],
-	[Prediction] = run(Cortex_PId, InputsList, [], Options),
+	[Prediction] = run(Cortex_Pid, InputsList, [], Options),
 	Prediction.
 
 %%--------------------------------------------------------------------
@@ -82,23 +82,23 @@ predict(Cortex_PId, InputsList) ->
 %% OptimalOutputs. Returns the errors between prediction and optima.
 %% @end
 %%--------------------------------------------------------------------
--spec fit(Cortex_PId :: pid(), InputsList :: [float()], 
+-spec fit(Cortex_Pid :: pid(), InputsList :: [float()], 
           OptimaList :: [float()]) ->
 	Errors :: [float()].
-fit(Cortex_PId, InputsList, OptimaList) ->
+fit(Cortex_Pid, InputsList, OptimaList) ->
 	Options = [{return, [errors]}],
-	[Errors] = run(Cortex_PId, InputsList, OptimaList, Options),
+	[Errors] = run(Cortex_Pid, InputsList, OptimaList, Options),
 	Errors.
 
 %%--------------------------------------------------------------------
 %% @doc Runs an ANN with the criteria defined at the options.
 %% @end
 %%--------------------------------------------------------------------
--spec run(Cortex_PId :: pid(), InputsList :: [float()], 
+-spec run(Cortex_Pid :: pid(), InputsList :: [float()], 
           OptimaList :: [float()], Options :: [training:option()]) ->
 	Errors :: [float()].
-run(Cortex_PId, InputsList, OptimaList, Options) ->
-	training:start_link(Cortex_PId, InputsList, OptimaList, Options).
+run(Cortex_Pid, InputsList, OptimaList, Options) ->
+	training:start_link(Cortex_Pid, InputsList, OptimaList, Options).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the number of inputs a Model/Cortex expects.
@@ -111,7 +111,8 @@ inputs(Model) when is_map(Model) ->
 	N_Inputs;
 inputs({_, cortex} = Cortex_Id) ->
 	Cortex = edb:read(Cortex_Id),
-	length(elements:outputs_ids(Cortex)). % Cortex inputs are the output neurons
+	% Cortex inputs are the output neurons
+	length(elements:outputs_ids(Cortex)). 
 
 %%--------------------------------------------------------------------
 %% @doc Returns the number of outputs a Model/Cortex expects.
@@ -124,35 +125,36 @@ outputs(Model) when is_map(Model) ->
 	N_Outputs;
 outputs({_, cortex} = Cortex_Id) ->
 	Cortex = edb:read(Cortex_Id),
-	length(elements:inputs_idps(Cortex)). % Cortex outputs are the input neurons
+	% Cortex outputs are the input neurons
+	length(elements:inputs_idps(Cortex)). 
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Clones a network. Each element of the newtork is cloned inside
+%% the mnesia database but with a different id.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
+-spec clone(Cortex_Id :: cortex:id()) -> 
+	CortexClone_Id :: cortex:id().
 clone({_, cortex} = Cortex_Id) ->
 	Cortex = edb:read(Cortex_Id),
 	{Clone, ConversionETS} = elements:clone_cortex(Cortex),
 	Neurons_Ids = elements:neurons(Cortex),
-	Neurons = [elements:clone_neuron(Neuron, ConversionETS) || Neuron <- edb:read(Neurons_Ids)],
+	Neurons = [elements:clone_neuron(Neuron, ConversionETS) 
+				|| Neuron <- edb:read(Neurons_Ids)],
 	ets:delete(ConversionETS),
 	edb:write([Clone | Neurons]),
 	elements:id(Clone).
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Start a neural network, ready to receive inputs or training.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
+-spec start_nn(Cortex_Id :: cortex:id()) -> 
+	{ok, Cortex_Pid :: pid()}.
 start_nn(Cortex_Id) ->
-	{ok, NN_PId} = enn_sup:start_nn_supervisor(Cortex_Id),
-	{ok, Cortex_PId} = nn_sup:start_cortex(NN_PId, Cortex_Id),
-	{ok, Cortex_PId}.
+	{ok, NN_Pid} = enn_sup:start_nn_supervisor(Cortex_Id),
+	{ok, Cortex_Pid} = nn_sup:start_cortex(NN_Pid, Cortex_Id),
+	{ok, Cortex_Pid}.
 
 %%--------------------------------------------------------------------
 %% @doc

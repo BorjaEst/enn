@@ -45,12 +45,12 @@
 %% @doc Executes a training (or only prediction) session.
 %% @end
 %%--------------------------------------------------------------------
--spec start_link(Cortex_PId :: pid(), Inputs :: [float()], 
+-spec start_link(Cortex_Pid :: pid(), Inputs :: [float()], 
                  Optima :: [float()], Options :: [option()]) ->
 	Resutls :: [result()].
-start_link(Cortex_PId, Inputs, Optima, Options) ->
+start_link(Cortex_Pid, Inputs, Optima, Options) ->
 	spawn_link(?MODULE,init,
-		[self(), Cortex_PId, Inputs, Optima, Options]
+		[self(), Cortex_Pid, Inputs, Optima, Options]
 	),
 	receive {training, Returns} -> Returns end.
 
@@ -64,9 +64,9 @@ start_link(Cortex_PId, Inputs, Optima, Options) ->
 %% @doc Executes the preparations for the training cycles. 
 %% @end
 %%--------------------------------------------------------------------
-init(Caller, Cortex_PId, InputsList, OptimaList, Options) -> 
+init(Caller, Cortex_Pid, InputsList, OptimaList, Options) -> 
 	put(caller_pid, Caller),
-	put(cortex_pid, Cortex_PId),
+	put(cortex_pid, Cortex_Pid),
 	put(prediction_list, []),
 	put(errors_list, []),
 	init(Options, #state{
