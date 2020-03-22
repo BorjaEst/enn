@@ -70,8 +70,7 @@ get_outputs(CompiledLayers) ->
 %% @doc Cortex id start function for supervisor. 
 %% @end
 %%--------------------------------------------------------------------
--spec start_link(Cortex_Id :: id()) ->
-	gen_statem:start_ret().
+-spec start_link(Cortex_Id :: id()) -> gen_statem:start_ret().
 start_link(Cortex_Id) -> 
 	NNSup_Pid = self(),
 	TId_IdPids = ets:new(nn_idpids, [{read_concurrency, true}, public]),

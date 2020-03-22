@@ -25,7 +25,8 @@
 %%-export([]).
 -export_type([id/0]).
 
--type id() :: {{LayerCoordinate :: float(), Unique_Id :: reference()}, neuron} | [].
+-type id() :: {{LayerCoordinate :: float(), Unique_Id :: reference()}, 
+                neuron}.
 
 -record(input, {id :: id(), w :: float(), r :: boolean(), s = 0.0 :: float()}).
 -record(output, {id :: id(), r :: boolean(), e = 0.0 :: float()}).
@@ -79,12 +80,10 @@ new(Layer, AF, AggrF, Options) ->
 	elements:id(Neuron).
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Neuron id start function for supervisor. 
 %% @end
 %%--------------------------------------------------------------------
-% TODO: To make description and specs
+-spec start_link(Neuron_Id :: id()) -> gen_statem:start_ret().
 start_link(Neuron_Id) ->
 	proc_lib:start_link(?MODULE, init, [Neuron_Id, self()]).
 
@@ -93,14 +92,14 @@ start_link(Neuron_Id) ->
 %%% neuron callbacks
 %%%===================================================================
 
-% ......................................................................................................................
+% ....................................................................
 %TODO: To add specs and description
 init(Neuron_Id, Parent) ->
 	Neuron = edb:read(Neuron_Id),
 	check_neuron(Neuron),
-	process_flag(trap_exit, true), % Mandatory to catch supervisor exits
-	proc_lib:init_ack(Parent, {ok, self()}),                % Supervisor synchronisation
-	TId = receive {continue_init, TableId} -> TableId end,   % Cortex synchronisation
+	process_flag(trap_exit, true), % Catch supervisor exits
+	proc_lib:init_ack(Parent, {ok, self()}),  % Supervisor synch
+	TId = receive {continue_init, Reply} -> Reply end, % Cortex synch
 	init2(#state{
 		id      = elements:id(Neuron),
 		af      = elements:af(Neuron),
