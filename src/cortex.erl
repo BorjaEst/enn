@@ -328,13 +328,6 @@ handle_event(_EventType, _EventContent, _StateName, State) ->
 %%--------------------------------------------------------------------
 terminate(Reason, _StateName, _State) ->
 	?LOG_INFO("Cortex_Id ~p terminating with reason ~p", [get(id), Reason]),
-	% Cortex = elements:cortex(CompiledLayers, 
-	% 	[
-	% 		{id, get(id)}
-	% 		{outputs_ids, something}
-	% 		{inputs_idps, something}
-	% 	]),
-	% edb:write(Cortex),
 	ok.
 
 %%--------------------------------------------------------------------
