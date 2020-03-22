@@ -18,9 +18,9 @@
 %%-export([]).
 -export_type([type/0, cortex/0, neuron/0]).
 
-
 %%% Neuronal networks are composed mostly by 2 types:
 -type type() :: cortex | neuron.
+
 
 -record(cortex, {
 	id :: cortex:id(),
@@ -29,6 +29,7 @@
 	inputs_idps = [] :: [{neuron:id(), Weights :: float()}] % Input neurons, last network layer usually
 }).
 -type cortex() :: #cortex{}.
+-type cortex_field() :: atom().
 
 -record(neuron, {
 	id :: neuron:id(),
@@ -40,16 +41,15 @@
 	rcc_inputs_idps = [] :: [{neuron:id() | cortex:id(), Weights :: [float()]}],  % Recurrent inputs IdPs,
 	rcc_outputs_ids = [] :: [neuron:id() | cortex:id()]}).  % Recurrent outputs Ids,
 -type neuron() :: #neuron{}.
+-type neuron_field() :: atom(). %TODO: After release
 
 -define(NEW_CORTEX_ID, {make_ref(), cortex}).
 -define(NEW_NEURON_ID(Layer), {{Layer, make_ref()}, neuron}).
 
 
 -ifdef(debug_mode).
--define(LOG(X), io:format("{~p,~p,~p}: ~p~n", [self(), ?MODULE, ?LINE, X])).
 -define(STDCALL_TIMEOUT, infinity).
 -else.
--define(LOG(X), true).
 -define(STDCALL_TIMEOUT, 5000).
 -endif.
 
@@ -58,70 +58,88 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns the record fields of an element.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: To make description and specs
+-spec fields(Atom :: neuron | cortex) -> 
+	ListOfFields :: [atom()].
 fields(neuron) ->
 	record_info(fields, neuron);
 fields(cortex) ->
 	record_info(fields, cortex).
 
-
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns a neuron. Defaults are:
+%% - Layer: 0.0 (must be between [-1.0, +1.0])
+%% - Activation function: direct
+%% - Agregation function: dotprod
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
+-spec neuron() -> 
+	Neuron :: neuron().
 neuron() ->
 	neuron(0.0, direct, dotprod).
 
+-spec neuron(Layer, Activation, Aggregation) -> Neuron when
+	Layer :: integer(),
+	Activation :: activation:func(),
+	Aggregation :: aggregation:func(),
+	Neuron :: neuron().
 neuron(Layer, AF, AggrF) ->
 	#neuron{id = ?NEW_NEURON_ID(Layer), af = AF, aggrf = AggrF}.
 
+-spec neuron(Layer, Activation, Aggregation, Options) -> Neuron when
+	Layer :: integer(),
+	Activation :: activation:func(),
+	Aggregation :: aggregation:func(),
+	Options :: [{neuron_field(), Value :: term()}],
+	Neuron :: neuron().
 neuron(Layer, AF, AggrF, Options) ->
 	Neuron = neuron(Layer, AF, AggrF),
 	edit(Neuron, Options).
 
-is_neuron(Neuron) when is_record(Neuron, neuron) ->
-	true;
-is_neuron(_NotNeuron) ->
-	false.	
-
+%%--------------------------------------------------------------------
+%% @doc Evaluates if the input is a neuron.
+%% @end
+%%--------------------------------------------------------------------
+-spec is_neuron(Neuron :: neuron()) -> Bool :: boolean().
+is_neuron(Neuron) -> is_record(Neuron, neuron).
 
 %%--------------------------------------------------------------------
 %% @doc
 %%
 %% Note that when a cortex is created, all inputs and outputs are 
 %% empty. Those are completed during the connection phase and carried
-%% on in cortex:new by the mutation library.:w
+%% on in cortex:new by the mutation library.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
+-spec cortex(CompiledLayers :: #{integer() => layer:compiled()}) ->
+	Cortex :: cortex().
 cortex(CompiledLayers) ->
 	#cortex{id = ?NEW_CORTEX_ID, layers = CompiledLayers}.
 	
+-spec cortex(CompiledLayers :: #{integer() => layer:compiled()},
+			 Options :: [{cortex_field(), Value :: term()}]) ->
+	Cortex :: cortex().
 cortex(CompiledLayers, Options) ->
 	Cortex = cortex(CompiledLayers),
 	edit(Cortex, Options).
 
-is_cortex(Cortex) when is_record(Cortex, cortex) ->
-	true;
-is_cortex(_NotCortex) ->
-	false.	
-
-
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Evaluates if the input is a cortex.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
+-spec is_cortex(Cortex :: cortex()) -> Bool :: boolean().
+is_cortex(Cortex) -> is_record(Cortex, cortex).
+
+%%--------------------------------------------------------------------
+%% @doc Edits an element using some options.
+%% @end
+%%--------------------------------------------------------------------
+-spec edit(Element, Options) -> EditedElement when
+	Element :: neuron() | cortex(),
+	Options :: [{neuron_field() | cortex_field(), Value :: term()}],
+	EditedElement :: neuron() | cortex().
 edit(Element, Options) when is_record(Element, neuron) ->
 	write_neuron_options(Element, Options);
 edit(Element, Options) when is_record(Element, cortex) ->
