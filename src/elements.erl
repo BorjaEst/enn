@@ -420,14 +420,19 @@ clone_neuron(Neuron, ConversionETS) ->
 	}.
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns a character list that represents the Element formatted
+%% in accordance with Format.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
-pformat(Element) when is_record(Element, neuron) -> pformat(Element, record_info(fields, neuron));
-pformat(Element) when is_record(Element, cortex) -> pformat(Element, record_info(fields, cortex)).
+-spec pformat(Element) -> Chars when 
+	  Element :: neuron() | cortex() | neuron:id() | cortex:id(),
+      Chars :: io_lib:chars().
+pformat(Element) when is_record(Element, neuron) -> 
+	pformat(Element, record_info(fields, neuron));
+pformat(Element) when is_record(Element, cortex) -> 
+	pformat(Element, record_info(fields, cortex));
+pformat(Id) -> 
+	pformat(edb:read(Id)).
 
 pformat(Element, Fields) ->
 	[io_lib:format("Element record: ~w ~n", [element(1, Element)]) |
