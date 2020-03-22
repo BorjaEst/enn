@@ -12,12 +12,13 @@
 -include_lib("layers.hrl").
 
 -define(HEAD, [$- || _ <-lists:seq(1,80)] ++ "\n").
--define(HEAD(Text), ct:log(?LOW_IMPORTANCE, ?HEAD ++ "~p", [Text])).
--define(END, [$_ || _ <-lists:seq(1,78)] ++ "OK").
+-define(HEAD(Text),  ct:log(?LOW_IMPORTANCE, ?HEAD ++ "~p", [Text])).
+-define(END,  [$_ || _ <-lists:seq(1,80)]).
+-define(END(Value), ct:log(?LOW_IMPORTANCE, "~p~n" ++ ?END, [Value]),
+					Value).
 
 -define(INFO(Text, Info), ct:log(?LOW_IMPORTANCE, "~p: ~p", [Text, Info])).
 -define(ERROR(Error), ct:pal(?HI_IMPORTANCE, "Error: ~p", [Error])).
-
 
 -define(MAX_UNITS_PER_LAYER, 20).
 -define(MAX_NUMBER_LAYERS, 4).
@@ -115,7 +116,8 @@ groups() ->
 			 addition_random_inputs,
 			 weights_0_network,
 			 sequence_1_input |
-			 [random_dense_random_inputs || _ <- lists:seq(1, ?PARALLEL_NN - 5)] 
+			 [random_dense_random_inputs 
+			 	|| _ <- lists:seq(1, ?PARALLEL_NN - 5)] 
 		 ]},
 		{test_of_error_networks, [parallel],
 		 [test_for_empty_nn,
@@ -169,7 +171,7 @@ xor_gate_static_inputs(_Config) ->
 		fun test_data_generators:static_xor_of_inputs/3
 	).
 
-% ......................................................................................................................
+% ....................................................................
 xor_gate_random_inputs() ->
 	[].
 xor_gate_random_inputs(_Config) ->
@@ -179,7 +181,7 @@ xor_gate_random_inputs(_Config) ->
 		fun test_data_generators:random_xor_of_inputs/3
 	).
 
-% ......................................................................................................................
+% ....................................................................
 addition_static_inputs() ->
 	[].
 addition_static_inputs(_Config) ->
@@ -189,7 +191,7 @@ addition_static_inputs(_Config) ->
 		fun test_data_generators:static_sum_of_inputs/3
 	).
 
-% ......................................................................................................................
+% ....................................................................
 addition_random_inputs() ->
 	[].
 addition_random_inputs(_Config) ->
@@ -199,7 +201,7 @@ addition_random_inputs(_Config) ->
 		fun test_data_generators:random_sum_of_inputs/3
 	).
 
-% ......................................................................................................................
+% ....................................................................
 sequence_1_input() ->
 	[].
 sequence_1_input(_Config) ->
@@ -209,7 +211,7 @@ sequence_1_input(_Config) ->
 		fun test_data_generators:sequence_of_1_input/3
 	).
 
-% ......................................................................................................................
+% ....................................................................
 weights_0_network() ->
 	[].
 weights_0_network(_Config) ->
@@ -219,21 +221,22 @@ weights_0_network(_Config) ->
 		fun test_data_generators:inputs_always_0/3
 	).
 
-% ......................................................................................................................
+% ....................................................................
 random_dense_random_inputs() ->
 	[].
 random_dense_random_inputs(_Config) ->
 	N = erlang:unique_integer([positive, monotonic]),
 	test_model(
 		"random_dense" ++ integer_to_list(N),
-		test_architectures:random_dense(?MAX_UNITS_PER_LAYER, ?MAX_NUMBER_LAYERS),
+		test_architectures:random_dense(?MAX_UNITS_PER_LAYER, 
+										?MAX_NUMBER_LAYERS),
 		fun test_data_generators:random_sum_of_inputs/3
 	).
 
-% ----------------------------------------------------------------------------------------------------------------------
-% SPECIFIC HELPER FUNCTIONS --------------------------------------------------------------------------------------------
+% --------------------------------------------------------------------
+% SPECIFIC HELPER FUNCTIONS ------------------------------------------
 
-% ......................................................................................................................
+% ....................................................................
 test_model(FileName, Model, Training) ->
 	{ok, Cortex_Id} = correct_model_compilation(Model),
 	{ok, Cortex_PId} = correct_model_start(Cortex_Id),
@@ -241,28 +244,26 @@ test_model(FileName, Model, Training) ->
 	ok = correct_model_stop(Cortex_Id, Cortex_PId),
 	ok.
 
-% ......................................................................................................................
+% ....................................................................
 correct_model_compilation(Model) ->
-	?HEAD("Correct model compilation ............................................................"),
+	?HEAD("Correct model compilation .............................."),
 	Cortex_Id = enn:compile(Model), ?INFO("Model", Model),
 	Cortex = edb:read(Cortex_Id), ?INFO("Cortex", Cortex),
 	true = elements:is_cortex(Cortex),
-	?END,
-	{ok, Cortex_Id}.
+	?END({ok, Cortex_Id}).
 
-% ......................................................................................................................
+% ....................................................................
 correct_model_start(Cortex_Id) ->
-	?HEAD("Correct neural network start form a cortex id ........................................"),
+	?HEAD("Correct neural network start form a cortex id .........."),
 	{ok, Cortex_PId} = enn:start_nn(Cortex_Id),
 	SleepTime = 10, timer:sleep(SleepTime),
 	true = is_process_alive(Cortex_PId), 
 	?INFO("Cortex alive after ms: ", SleepTime),
-	?END,
-	{ok, Cortex_PId}.
+	?END({ok, Cortex_PId}).
 
-% ......................................................................................................................
+% ....................................................................
 correct_model_training(_FileName, Cortex_Id, Cortex_PId, Training) ->
-	?HEAD("Correct fit of model using backpropagation ..........................................."),
+	?HEAD("Correct fit of model using backpropagation ............."),
 	{Inputs, Optimas} = Training(
 		enn:inputs(Cortex_Id), 
 		enn:outputs(Cortex_Id), 
@@ -272,15 +273,14 @@ correct_model_training(_FileName, Cortex_Id, Cortex_PId, Training) ->
 		% {log, FileName},
 		{return, [loss]}
 	]),
-	?INFO("Loss AVG 10: ", {length(Loss), list_n_avg(Loss, round(length(Loss)/10))}),
+	?INFO("Loss AVG 10: ", {length(Loss), average_in_10(Loss)}),
 	timer:sleep(10),
 	true = is_process_alive(Cortex_PId),
-	?END,
-	ok.
+	?END(ok).
 
-% ......................................................................................................................
+% ....................................................................
 correct_model_stop(Cortex_Id, Cortex_PId) ->
-	?HEAD("Correct neural network stop form a cortex id ........................................."),
+	?HEAD("Correct neural network stop form a cortex id ..........."),
 	[Neuron_Id | _] = elements:neurons(edb:read(Cortex_Id)),
 	Neuron_BeforeTraining = edb:read(Neuron_Id), 
 	enn:stop_nn(Cortex_Id),
@@ -289,17 +289,12 @@ correct_model_stop(Cortex_Id, Cortex_PId) ->
 	?INFO("Neuron before training", Neuron_BeforeTraining),
 	?INFO("Neuron after training", Neuron_AfterTraining),
 	true = Neuron_BeforeTraining /= Neuron_AfterTraining,
-	?END,
-	ok.
+	?END(ok).
 
 % ....................................................................
-
-list_n_avg(_N, []) ->
-	[];
-list_n_avg(N, List) -> 
-	case (catch list:split(N, List)) of 
-		{'EXIT', {badarg, _}} -> 
-			[lists:sum(List)/length(List)];
-		{TopN, Rest} -> 
-			[lists:sum(TopN)/N | list_n_avg(Rest, N)]
-	end.
+average_in_10(List) when length(List)>=10 ->
+	NdArray = ndarray:new([length(List)], List),
+	NdAMean = numerl:mean(ndarray:reshape(NdArray, [-1,10]), 0),
+	ndarray:data(NdAMean);
+average_in_10(List) when length(List)>=0 -> 
+	List.
