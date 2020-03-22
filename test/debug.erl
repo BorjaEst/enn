@@ -18,7 +18,7 @@
 
 %% TESTS CALLS
 enn_SUITE() ->
-	ct:run_test([{suite, enn_SUITE} | ?DEFAULT_OPTIONS]).
+    ct:run_test([{suite, enn_SUITE} | ?DEFAULT_OPTIONS]).
 
 mutations_SUITE() ->
-	ct:run_test([{suite, mutations_SUITE} | ?DEFAULT_OPTIONS]).
+    ct:run_test([{suite, mutations_SUITE} | ?DEFAULT_OPTIONS]).

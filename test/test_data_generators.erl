@@ -29,46 +29,46 @@
 % ......................................................................................................................
 % TODO: Define specs and comments
 static_sum_of_inputs(N_Inputs, N_Outputs, N_Loops) ->
-	Static_Inputs = [rand:uniform() - 0.5 || _ <- lists:seq(1, N_Inputs)],
-	Inputs = [Static_Inputs || _ <- lists:seq(1, N_Loops)],
-	Outputs = [lists:duplicate(N_Outputs, lists:sum(InList)) || InList <- Inputs],
-	{Inputs, Outputs}.
+    Static_Inputs = [rand:uniform() - 0.5 || _ <- lists:seq(1, N_Inputs)],
+    Inputs = [Static_Inputs || _ <- lists:seq(1, N_Loops)],
+    Outputs = [lists:duplicate(N_Outputs, lists:sum(InList)) || InList <- Inputs],
+    {Inputs, Outputs}.
 
 % ......................................................................................................................
 % TODO: Define specs and comments
 random_sum_of_inputs(N_Inputs, N_Outputs, N_Loops) ->
-	Inputs = [[rand:uniform() - 0.5 || _ <- lists:seq(1, N_Inputs)] || _ <- lists:seq(1, N_Loops)],
-	Outputs = [lists:duplicate(N_Outputs, lists:sum(InList)) || InList <- Inputs],
-	{Inputs, Outputs}.
+    Inputs = [[rand:uniform() - 0.5 || _ <- lists:seq(1, N_Inputs)] || _ <- lists:seq(1, N_Loops)],
+    Outputs = [lists:duplicate(N_Outputs, lists:sum(InList)) || InList <- Inputs],
+    {Inputs, Outputs}.
 
 % ......................................................................................................................
 % TODO: Define specs and comments
 static_xor_of_inputs(2, 1, N_Loops) ->
-	In = [[-1, -1], [-1, 1], [1, -1], [1, 1]],
-	Inputs = lists:append(lists:duplicate(N_Loops div 4, In)) ++ element(1, lists:split(N_Loops rem 4, In)),
-	Outputs = [[do_xor(In1, In2)] || [In1, In2] <- Inputs],
-	{Inputs, Outputs}.
+    In = [[-1, -1], [-1, 1], [1, -1], [1, 1]],
+    Inputs = lists:append(lists:duplicate(N_Loops div 4, In)) ++ element(1, lists:split(N_Loops rem 4, In)),
+    Outputs = [[do_xor(In1, In2)] || [In1, In2] <- Inputs],
+    {Inputs, Outputs}.
 
 % ......................................................................................................................
 % TODO: Define specs and comments
 random_xor_of_inputs(2, 1, N_Loops) ->
-	Inputs = [[rand:uniform(2) * 2 - 3, rand:uniform(2) * 2 - 3] || _ <- lists:seq(1, N_Loops)],
-	Outputs = [[do_xor(In1, In2)] || [In1, In2] <- Inputs],
-	{Inputs, Outputs}.
+    Inputs = [[rand:uniform(2) * 2 - 3, rand:uniform(2) * 2 - 3] || _ <- lists:seq(1, N_Loops)],
+    Outputs = [[do_xor(In1, In2)] || [In1, In2] <- Inputs],
+    {Inputs, Outputs}.
 
 % ......................................................................................................................
 % TODO: Define specs and comments
 inputs_always_0(N_Inputs, N_Outputs, N_Loops) ->
-	Inputs = [[0.0 || _ <- lists:seq(1, N_Inputs)] || _ <- lists:seq(1, N_Loops)],
-	Outputs = [[(rand:uniform() - 0.5) * 2 || _ <- lists:seq(1, N_Outputs)] || _ <- Inputs],
-	{Inputs, Outputs}.
+    Inputs = [[0.0 || _ <- lists:seq(1, N_Inputs)] || _ <- lists:seq(1, N_Loops)],
+    Outputs = [[(rand:uniform() - 0.5) * 2 || _ <- lists:seq(1, N_Outputs)] || _ <- Inputs],
+    {Inputs, Outputs}.
 
 % ......................................................................................................................
 % TODO: Define specs and comments
 sequence_of_1_input(1, 1, N_Loops) ->
-	Inputs = [[rand:uniform(10) / 10.0] || _ <- lists:seq(1, N_Loops)],
-	Outputs = [[0.0] | lists:droplast(Inputs)],
-	{Inputs, Outputs}.
+    Inputs = [[rand:uniform(10) / 10.0] || _ <- lists:seq(1, N_Loops)],
+    Outputs = [[0.0] | lists:droplast(Inputs)],
+    {Inputs, Outputs}.
 
 
 %%%===================================================================

@@ -29,65 +29,65 @@
 % ......................................................................................................................
 % TODO: Define specs and comments
 random_dense(Max_Units, Max_Layers) ->
-	_Model = enn:sequential(
-		[?input(rand:uniform(Max_Units))] ++
-		[?dense(rand:uniform(Max_Units)) || _ <- lists:seq(1, rand:uniform(Max_Layers - 1))] ++
-		[?output(rand:uniform(Max_Units))]
-	).
+    _Model = enn:sequential(
+        [?input(rand:uniform(Max_Units))] ++
+        [?dense(rand:uniform(Max_Units)) || _ <- lists:seq(1, rand:uniform(Max_Layers - 1))] ++
+        [?output(rand:uniform(Max_Units))]
+    ).
 
 % ......................................................................................................................
 % TODO: Define specs and comments
 example() ->
-	_Model = enn:sequential([
-		                        ?input(10),
-		                        ?dense(10, #{activation => sigmoid}),
-		                        ?output(1)
-	                        ]).
+    _Model = enn:sequential([
+                                ?input(10),
+                                ?dense(10, #{activation => sigmoid}),
+                                ?output(1)
+                            ]).
 
 % ......................................................................................................................
 % TODO: Define specs and comments
 xor_gate() ->
-	_Model = enn:sequential([
-		                        ?input(2, #{activation => tanh}),
-		                        ?dense(2, #{activation => tanh}),
-		                        ?output(1, #{activation => tanh})
-	                        ]).
+    _Model = enn:sequential([
+                                ?input(2, #{activation => tanh}),
+                                ?dense(2, #{activation => tanh}),
+                                ?output(1, #{activation => tanh})
+                            ]).
 
 % ......................................................................................................................
 % TODO: Define specs and comments
 addition() ->
-	_Model = enn:sequential([
-		                        ?input(2),
-		                        ?dense(2, #{activation => tanh}),
-		                        ?output(1)
-	                        ]).
+    _Model = enn:sequential([
+                                ?input(2),
+                                ?dense(2, #{activation => tanh}),
+                                ?output(1)
+                            ]).
 
 % ......................................................................................................................
 % TODO: Define specs and comments
 multiplication() ->
-	_Model = ok.
+    _Model = ok.
 
 % ......................................................................................................................
 % TODO: Define specs and comments
 network_0_weights() ->
-	_Model = enn:sequential([
-		                        ?input(1),
-		                        ?dense(2, #{activation => tanh}),
-		                        ?output(1)
-	                        ]).
+    _Model = enn:sequential([
+                                ?input(1),
+                                ?dense(2, #{activation => tanh}),
+                                ?output(1)
+                            ]).
 
 % ......................................................................................................................
 % TODO: Define specs and comments
 sequence() ->
-	_Model = enn:recurrent([
-		                       ?input(1, #{activation => sigmoid}),
-		                       ?dense(2, #{activation => sigmoid}),
-		                       ?output(1, #{activation => tanh})
-	                       ], 2).
+    _Model = enn:recurrent([
+                               ?input(1, #{activation => sigmoid}),
+                               ?dense(2, #{activation => sigmoid}),
+                               ?output(1, #{activation => tanh})
+                           ], 2).
 
 % ......................................................................................................................
 % TODO: Define specs and comments
 classification() ->
-	_Model = ok.
+    _Model = ok.
 
 

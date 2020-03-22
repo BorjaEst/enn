@@ -16,19 +16,19 @@
 -export([init/1]).
 
 -define(SPECS_CORTEX(Cortex_Id), #{
-	id       => Cortex_Id,
-	start    => {cortex, start_link, [Cortex_Id]},
-	restart  => permanent,
-	shutdown => 1000,
-	modules  => [gen_statem]}).
+    id       => Cortex_Id,
+    start    => {cortex, start_link, [Cortex_Id]},
+    restart  => permanent,
+    shutdown => 1000,
+    modules  => [gen_statem]}).
 
 
 -define(SPECS_NEURON(Neuron_Id), #{
-	id       => Neuron_Id,
-	start    => {neuron, start_link, [Neuron_Id]},
-	restart  => permanent,
-	shutdown => 500,
-	modules  => [neuron]}).
+    id       => Neuron_Id,
+    start    => {neuron, start_link, [Neuron_Id]},
+    restart  => permanent,
+    shutdown => 500,
+    modules  => [neuron]}).
 
 
 %%%===================================================================
@@ -43,7 +43,7 @@
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
 start_link() ->
-	supervisor:start_link(?MODULE, []).
+    supervisor:start_link(?MODULE, []).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -53,7 +53,7 @@ start_link() ->
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
 start_cortex(Supervisor, Cortex_Id) ->
-	supervisor:start_child(Supervisor, ?SPECS_CORTEX(Cortex_Id)).
+    supervisor:start_child(Supervisor, ?SPECS_CORTEX(Cortex_Id)).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -63,7 +63,7 @@ start_cortex(Supervisor, Cortex_Id) ->
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
 start_neuron(Supervisor, Neuron_Id) ->
-	supervisor:start_child(Supervisor, ?SPECS_NEURON(Neuron_Id)).
+    supervisor:start_child(Supervisor, ?SPECS_NEURON(Neuron_Id)).
 
 
 %%====================================================================
@@ -75,11 +75,11 @@ start_neuron(Supervisor, Neuron_Id) ->
 %% Before OTP 18 tuples must be used to specify a child. e.g.
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init([]) ->
-	SupFlags = #{strategy => one_for_all, %% If an element dies, all must shutdown
-	             intensity => 0, %% Restart is not allowed
-	             period => 10}, %% Any as intensity = 0
-	ChildSpecs = [],
-	{ok, {SupFlags, ChildSpecs}}.
+    SupFlags = #{strategy => one_for_all, %% If an element dies, all must shutdown
+                 intensity => 0, %% Restart is not allowed
+                 period => 10}, %% Any as intensity = 0
+    ChildSpecs = [],
+    {ok, {SupFlags, ChildSpecs}}.
 
 %%%===================================================================
 %%% Internal functions

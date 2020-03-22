@@ -18,7 +18,7 @@
 -export_type([func/0]).
 
 -type func() :: direct | sigmoid | tanh | softplus | softsign 
-			  | elu | selu | relu | crelu | relu_x | dropout.
+              | elu | selu | relu | crelu | relu_x | dropout.
 
 
 %%%===================================================================
@@ -54,12 +54,12 @@ beta(dropout, _Err, _Soma) -> error(not_defined); %% TODO: To implement
 beta(_Ref, _Err, _Soma)    -> error(not_defined).
 
 do_beta(Error, Soma, DerF) when Error =< 0 ->
-	if
-		Soma =< 0 -> DerF(Soma) * Error;
-		true -> Error
-	end;
+    if
+        Soma =< 0 -> DerF(Soma) * Error;
+        true -> Error
+    end;
 do_beta(Error, Soma, DerF) ->
-	- do_beta(-Error, -Soma, DerF).
+    - do_beta(-Error, -Soma, DerF).
 
 
 %%====================================================================
@@ -71,78 +71,78 @@ do_beta(Error, Soma, DerF) ->
 sigmoid(X) when X > 10.0  -> 1.0;
 sigmoid(X) when X < -10.0 -> 0.0;
 sigmoid(X) -> %(0 : 1)--Der:Y*(1-Y) %TODO: To check
-	1 / (1 + math:exp(-X)).
+    1 / (1 + math:exp(-X)).
 
 % TODO: Define specs and comments
 d_sigmoid(X) ->
-	Sig = sigmoid(X),
-	Sig * (1 - Sig).
+    Sig = sigmoid(X),
+    Sig * (1 - Sig).
 
 % ....................................................................
 % TODO: Define specs and comments
 tanh(X) ->
-	math:tanh(X).
+    math:tanh(X).
 
 % TODO: Define specs and comments
 d_tanh(X) ->
-	1 - math:pow(tanh(X), 2).
+    1 - math:pow(tanh(X), 2).
 
 % ....................................................................
 % TODO: Define specs and comments
 softplus(X) ->
-	math:log(1 + math:exp(X)).
+    math:log(1 + math:exp(X)).
 
 % TODO: Define specs and comments
 d_softplus(X) ->
-	1 / (1 + math:exp(X)).
+    1 / (1 + math:exp(X)).
 
 % ....................................................................
 % TODO: Define specs and comments
 softsign(X) ->
-	X / (1 + abs(X)).
+    X / (1 + abs(X)).
 
 % TODO: Define specs and comments
 d_softsign(X) ->
-	1 / math:pow(1 + abs(X), 2).
+    1 / math:pow(1 + abs(X), 2).
 
 % ....................................................................
 % TODO: Define specs and comments
 elu(X) when X =< 0 ->
-	math:exp(X) - 1;
+    math:exp(X) - 1;
 elu(X) when X > 0 ->
-	X.
+    X.
 
 % TODO: Define specs and comments
 d_elu(X) when X =< 0 ->
-	math:exp(X);
+    math:exp(X);
 d_elu(X) when X > 0 ->
-	1.
+    1.
 
 % ....................................................................
 % TODO: Define specs and comments
 selu(X) when X =< 0 ->
-	1.0507 * 1.67326 * elu(X);
+    1.0507 * 1.67326 * elu(X);
 selu(X) when X > 0 ->
-	1.0507 * elu(X).
+    1.0507 * elu(X).
 
 % TODO: Define specs and comments
 d_selu(X) when X =< 0 ->
-	1.0507 * 1.67326 * d_elu(X);
+    1.0507 * 1.67326 * d_elu(X);
 d_selu(X) when X > 0 ->
-	1.0507 * d_elu(X).
+    1.0507 * d_elu(X).
 
 % ....................................................................
 % TODO: Define specs and comments
 relu(X) when X < 0 ->
-	0;
+    0;
 relu(X) when X >= 0 ->
-	X.
+    X.
 
 % TODO: Define specs and comments
 d_relu(X) when X < 0 ->
-	0;
+    0;
 d_relu(X) when X >= 0 ->
-	1.
+    1.
 
 
 %%====================================================================
@@ -152,55 +152,55 @@ d_relu(X) when X >= 0 ->
 % --------------------------------------------------------------------
 % TESTS DESCRIPTIONS -------------------------------------------------
 this_example_test_() ->
-	% {setup, Where, Setup, Cleanup, Tests | Instantiator}
-	[
-		{"Test for the trigonometrical activation functions",
-		 {setup, local, fun no_setup/0, fun no_cleanup/1, 
-		  fun test_trigonometric_functions/1}},
-		{"Test for sigmoid activation functions",
-		 {setup, local, fun no_setup/0, fun no_cleanup/1, 
-		  fun test_sigmoid_functions/1}}
-	].
+    % {setup, Where, Setup, Cleanup, Tests | Instantiator}
+    [
+        {"Test for the trigonometrical activation functions",
+         {setup, local, fun no_setup/0, fun no_cleanup/1, 
+          fun test_trigonometric_functions/1}},
+        {"Test for sigmoid activation functions",
+         {setup, local, fun no_setup/0, fun no_cleanup/1, 
+          fun test_sigmoid_functions/1}}
+    ].
 
 % --------------------------------------------------------------------
 % SPECIFIC SETUP FUNCTIONS -------------------------------------------
 no_setup() ->
-	ok.
+    ok.
 
 no_cleanup(_) ->
-	ok.
+    ok.
 
 % --------------------------------------------------------------------
 % ACTUAL TESTS -------------------------------------------------------
 test_trigonometric_functions(_) ->
-	[
-		?_assert(almost_equal(0.0, tanh(0.0))),
-		?_assert(almost_equal(1.0, tanh(10.0))),
-		?_assert(almost_equal(-1.0, tanh(-10.0)))
-	].
+    [
+        ?_assert(almost_equal(0.0, tanh(0.0))),
+        ?_assert(almost_equal(1.0, tanh(10.0))),
+        ?_assert(almost_equal(-1.0, tanh(-10.0)))
+    ].
 
 test_sigmoid_functions(_) ->
-	[
-		?_assert(almost_equal(0.0, sigmoid(-10.0))),
-		?_assert(almost_equal(0.5, sigmoid(0.0))),
-		?_assert(almost_equal(1.0, sigmoid(10.0)))
-	].
+    [
+        ?_assert(almost_equal(0.0, sigmoid(-10.0))),
+        ?_assert(almost_equal(0.5, sigmoid(0.0))),
+        ?_assert(almost_equal(1.0, sigmoid(10.0)))
+    ].
 
 % --------------------------------------------------------------------
 % SPECIFIC HELPER FUNCTIONS ------------------------------------------
 
 % almost_equal({Ref_Val, Value}) -> 
-% 	almost_equal(Ref_Val, Value);
+%     almost_equal(Ref_Val, Value);
 % almost_equal(RefV_ValList) ->
-% 	lists:all(fun almost_equal/1, RefV_ValList).
+%     lists:all(fun almost_equal/1, RefV_ValList).
 
 almost_equal(Ref_Val, Value) ->
-	Sup = Ref_Val + ?EQUAL_TOLERANCE,
-	Inf = Ref_Val - ?EQUAL_TOLERANCE,
-	if
-		Value > Sup -> false;
-		Value < Inf -> false;
-		true -> true
-	end.
+    Sup = Ref_Val + ?EQUAL_TOLERANCE,
+    Inf = Ref_Val - ?EQUAL_TOLERANCE,
+    if
+        Value > Sup -> false;
+        Value < Inf -> false;
+        true -> true
+    end.
 
 

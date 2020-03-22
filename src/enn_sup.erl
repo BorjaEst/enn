@@ -14,19 +14,19 @@
 -define(SERVER, ?MODULE).
 
 -define(SPECS_DATALOG, #{
-	id       => datalog,
-	start    => {datalog, start_link, []},
-	restart  => permanent,
-	shutdown => 500,
-	modules  => [gen_server]}).
+    id       => datalog,
+    start    => {datalog, start_link, []},
+    restart  => permanent,
+    shutdown => 500,
+    modules  => [gen_server]}).
 
 -define(NN_SUP_ID(Cortex_Id), {element(1, Cortex_Id), nn_sup}).
 -define(SPECS_NN_SUP(Cortex_Id), #{
-	id       => ?NN_SUP_ID(Cortex_Id),
-	start    => {nn_sup, start_link, []},
-	restart  => temporary,
-	type     => supervisor,
-	modules  => [supervisor]}).
+    id       => ?NN_SUP_ID(Cortex_Id),
+    start    => {nn_sup, start_link, []},
+    restart  => temporary,
+    type     => supervisor,
+    modules  => [supervisor]}).
 
 %%====================================================================
 %% API functions
@@ -40,7 +40,7 @@
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
 start_link(StartArgs) ->
-	supervisor:start_link({local, ?SERVER}, ?MODULE, StartArgs).
+    supervisor:start_link({local, ?SERVER}, ?MODULE, StartArgs).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -50,7 +50,7 @@ start_link(StartArgs) ->
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
 start_nn_supervisor(Cortex_Id) ->
-	supervisor:start_child(?SERVER, ?SPECS_NN_SUP(Cortex_Id)).
+    supervisor:start_child(?SERVER, ?SPECS_NN_SUP(Cortex_Id)).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -60,7 +60,7 @@ start_nn_supervisor(Cortex_Id) ->
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
 terminate_nn_supervisor(Cortex_Id) ->
-	supervisor:terminate_child(?SERVER, ?NN_SUP_ID(Cortex_Id)).
+    supervisor:terminate_child(?SERVER, ?NN_SUP_ID(Cortex_Id)).
 
 
 %%====================================================================
@@ -72,15 +72,15 @@ terminate_nn_supervisor(Cortex_Id) ->
 %% Before OTP 18 tuples must be used to specify a child. e.g.
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init([]) ->
-	SupFlags = #{strategy  => one_for_all,
-	             intensity => 10,
-	             period    => 36},
+    SupFlags = #{strategy  => one_for_all,
+                 intensity => 10,
+                 period    => 36},
     ChildSpecs = [
         ?SPECS_DATALOG
     ],
-	{ok, {SupFlags, ChildSpecs}}.
+    {ok, {SupFlags, ChildSpecs}}.
 
-	
+    
 %%====================================================================
 %% Internal functions
 %%====================================================================

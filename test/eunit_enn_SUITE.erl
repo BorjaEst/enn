@@ -18,7 +18,7 @@
 %% Info = [tuple()]
 %%--------------------------------------------------------------------
 suite() ->
-	[{timetrap, {seconds, 30}}].
+    [{timetrap, {seconds, 30}}].
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config0) ->
@@ -27,14 +27,14 @@ suite() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-	Config.
+    Config.
 
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config0) -> term() | {save_config,Config1}
 %% Config0 = Config1 = [tuple()]
 %%--------------------------------------------------------------------
 end_per_suite(_Config) ->
-	ok.
+    ok.
 
 %%--------------------------------------------------------------------
 %% Function: init_per_group(GroupName, Config0) ->
@@ -44,7 +44,7 @@ end_per_suite(_Config) ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 init_per_group(_GroupName, Config) ->
-	Config.
+    Config.
 
 %%--------------------------------------------------------------------
 %% Function: end_per_group(GroupName, Config0) ->
@@ -53,7 +53,7 @@ init_per_group(_GroupName, Config) ->
 %% Config0 = Config1 = [tuple()]
 %%--------------------------------------------------------------------
 end_per_group(_GroupName, _Config) ->
-	ok.
+    ok.
 
 %%--------------------------------------------------------------------
 %% Function: init_per_testcase(TestCase, Config0) ->
@@ -63,7 +63,7 @@ end_per_group(_GroupName, _Config) ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 init_per_testcase(_TestCase, Config) ->
-	Config.
+    Config.
 
 %%--------------------------------------------------------------------
 %% Function: end_per_testcase(TestCase, Config0) ->
@@ -73,7 +73,7 @@ init_per_testcase(_TestCase, Config) ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 end_per_testcase(_TestCase, _Config) ->
-	ok.
+    ok.
 
 %%--------------------------------------------------------------------
 %% Function: groups() -> [Group]
@@ -88,7 +88,7 @@ end_per_testcase(_TestCase, _Config) ->
 %% N = integer() | forever
 %%--------------------------------------------------------------------
 groups() ->
-	[].
+    [].
 
 %%--------------------------------------------------------------------
 %% Function: all() -> GroupsAndTestCases | {skip,Reason}
@@ -98,15 +98,15 @@ groups() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 all() ->
-	[
-		eunit_model,
-		eunit_layer,
-		eunit_elements,
-		eunit_mutation,
-		eunit_activation,
-		eunit_aggregation,
-		eunit_cortex
-		].
+    [
+        eunit_model,
+        eunit_layer,
+        eunit_elements,
+        eunit_mutation,
+        eunit_activation,
+        eunit_aggregation,
+        eunit_cortex
+        ].
 
 %%--------------------------------------------------------------------
 %% Function: TestCase() -> Info

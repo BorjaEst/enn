@@ -14,14 +14,14 @@
 %%====================================================================
 
 start(_StartType, StartArgs) ->
-	Tables = enn:attributes_table(),
-	edb:create_tables(Tables),
-	edb:start(Tables),
-	enn_sup:start_link(StartArgs).
+    Tables = enn:attributes_table(),
+    edb:create_tables(Tables),
+    edb:start(Tables),
+    enn_sup:start_link(StartArgs).
 
 %%--------------------------------------------------------------------
 stop(_State) ->
-	ok.
+    ok.
 
 %%====================================================================
 %% Internal functions
