@@ -28,20 +28,23 @@
 -type id() :: {{LayerCoordinate :: float(), Unique_Id :: reference()}, 
                 neuron}.
 
--record(input, {id :: id(), w :: float(), r :: boolean(), s = 0.0 :: float()}).
--record(output, {id :: id(), r :: boolean(), e = 0.0 :: float()}).
--record(tensor, {bias :: float(), in :: #{pid() => {W :: float(), S :: float()}}, soma :: float(), signal :: float()}).
+-record(input,  {id :: id(),    r       :: boolean(), 
+                 w  :: float(), s = 0.0 :: float()}).
+-record(output, {id :: id(),    r       :: boolean(), 
+                                e = 0.0 :: float()}).
+-record(tensor, {bias :: float(), soma :: float(), signal :: float(),
+                 in   :: #{pid() => {W :: float(), S :: float()}}}).
 -record(state, {
-    id :: id(),
-    af :: activation:func(),
-    aggrf :: aggregation:func(),
-    bias :: float(), % Last bias value
-    tensor :: #tensor{},
-    inputs :: #{Pid :: id() => #input{}},
-    outputs :: #{Pid :: id() => #output{}},
-    forward_wait :: [pid()],
+    id            :: id(),
+    af            :: activation:func(),
+    aggrf         :: aggregation:func(),
+    bias          :: float(), % Last bias value
+    tensor        :: #tensor{},
+    inputs        :: #{Pid :: id() => #input{}},
+    outputs       :: #{Pid :: id() => #output{}},
+    forward_wait  :: [pid()],
     backward_wait :: [pid()],
-    error :: float()
+    error         :: float()
 }).
 
 % -define(LEARNING_FACTOR, rand:uniform(10)/20).

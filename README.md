@@ -59,6 +59,60 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 Please make sure to update tests as appropriate.
 
 
+### Improvement ideas
+In progress:
+- nothing.....
+
+Erlang performance:
+- Replace the usage of keylists by maps on Cortex and neuron modules.
+- To speed up mutations and reduce Mnesia load, create an element (Network) as #{cortex, neurons, actuators, sensors} ¿¿¿??? To check
+- Use binary for long messages to speedup communications.
+
+
+Speed-up training:
+- TBD
+
+Find correct solution:
+- TBD
+
+
+Importants to be clasified:
+- He initialisation using truncated normal Gaussian distribution, with Xavier algorithm.
+- ELU activation function seems by papers to perform better than Sigmoid and ReLU. Leaky ReLU is good as well.
+- Normalisation: Batch normalisation
+- Regularization: dropout
+- Optimizer: Adam
+- Learning rate schedule: None
+- Dropout, every training step (except output neurons) has a probability to be ignored during that training step. The weights have to be multiplied by this factor after training.
+- Play with learning rate:
+    - After some trainings, reduce the value a defined value
+    - Reduce if the error grows / Proportional to error
+    - Exponential reduction
+    - Power scheduling
+- Weights close to 0 must be set to 0, so in the next construction are removed
+- Implement optimisers:
+    -Momentum, not well implemented on enn, review. This helps a lot when not using batch normalisation
+    -Nesterov Accelerated Gradient, performs better than momentum
+    -AdaGrad, good idea but not efficient on the last steps
+    -RMSProp, improvement of AdaGrad
+    -Adam Optimization, adaptative moment estimation. This is the best in almost all cases.
+
+
+Nice to try:
+- Residual Network?, add a transfer function to the activation function to make it time dependent
+- Max-Norm regularisation,.      ||w||2 <= r
+- Training with Kalman filter
+- A DNN can be trained with unlabeled data, it is call unsupervised pertaining.
+- To integrate easily keras, use stochastic gradient descent (SGD) together with eager execution.
+- Nonsaturating activation functions.
+- Gradient Clipping.
+
+Others:
+- Implement reusage of networks for drivers etc. Normally the lower layers are the important.
+- Batch normalisation.
+- OPC UA client to get inputs from industry
+
+
 ## License
 This software is under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html) license.
 
