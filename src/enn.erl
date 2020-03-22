@@ -157,24 +157,25 @@ start_nn(Cortex_Id) ->
 	{ok, Cortex_Pid}.
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Stops a neural network.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
+-spec stop_nn(Cortex_Id :: cortex:id()) -> Result when
+      Result :: 'ok' | {'error', Error},
+      Error :: 'not_found' | 'simple_one_for_one'.
 stop_nn(Cortex_Id) ->
 	enn_sup:terminate_nn_supervisor(Cortex_Id).
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns a character list that represents the element of the Id
+%% formatted in accordance with Format.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
-pformat(Element) ->
-	elements:pformat(Element).
+-spec pformat(Id) -> Chars when 
+	  Id :: neuron:id() | cortex:id(),
+      Chars :: io_lib:chars().
+pformat(Id) ->
+	elements:pformat(Id).
 
 %%--------------------------------------------------------------------
 %% @doc
