@@ -20,17 +20,14 @@
 }.
 -type specifications() :: #{
     connections := connections(),
-    layers := #{
-        LayerId :: float() => Specs :: layer:specifications()
-        },
-    options := [Option :: term()]  %% TODO: Define options
+    layers      := #{
+        Coordinade :: float() => Specs :: layer:specifications()
+    }
 }.
 
 -ifdef(debug_mode).
--define(LOG(X), io:format("{~p,~p,~p}: ~p~n", [self(), ?MODULE, ?LINE, X])).
 -define(STDCALL_TIMEOUT, infinity).
 -else.
--define(LOG(X), true).
 -define(STDCALL_TIMEOUT, 5000).
 -endif.
 
@@ -48,8 +45,7 @@ sequential(Layers) when length(Layers) > 1 ->
     Sequence = linspace(-1, + 1, length(Layers)),
     #{
         connections => sequential_connection(Sequence),
-        layers => maps:from_list(lists:zip(Sequence, Layers)),
-        options => []
+        layers => maps:from_list(lists:zip(Sequence, Layers))
     }.
 
 %%--------------------------------------------------------------------
@@ -65,8 +61,7 @@ recurrent(Layers, RLevel) when length(Layers) > 1 ->
     #{
         connections => sequential_connection(Sequence) ++ 
                        recurrent_connection(Sequence, RLevel),
-        layers => maps:from_list(lists:zip(Sequence, Layers)),
-        options => []
+        layers => maps:from_list(lists:zip(Sequence, Layers))
     }.
 
 %%--------------------------------------------------------------------
@@ -78,11 +73,10 @@ recurrent(Layers, RLevel) when length(Layers) > 1 ->
 compile(Model) ->
     #{
         connections := Connections,
-        layers := Layers,
-        options := Options
+        layers := Layers
     } = Model,
     CompiledLayers = maps:map(fun layer:compile/2, Layers),
-    Cortex_Id = cortex:new(CompiledLayers, Options),
+    Cortex_Id = cortex:new(CompiledLayers, #{}),
     ok = connect_layers(Connections, CompiledLayers),
     Cortex_Id.
 
