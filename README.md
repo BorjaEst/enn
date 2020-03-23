@@ -61,24 +61,20 @@ Please make sure to update tests as appropriate.
 
 ### Improvement ideas
 In progress:
-- nothing.....
+-Momentum, not well implemented on enn, review. This helps a lot when not using batch normalisation.
 
 Erlang performance:
 - Replace the usage of keylists by maps on Cortex and neuron modules.
-- To speed up mutations and reduce Mnesia load, create an element (Network) as #{cortex, neurons, actuators, sensors} ¿¿¿??? To check
 - Use binary for long messages to speedup communications.
 
-
 Speed-up training:
-- TBD
+- ELU activation function seems by papers to perform better than Sigmoid and ReLU. Leaky ReLU is good as well.
 
 Find correct solution:
-- TBD
+- He initialisation using truncated normal Gaussian distribution, with Xavier algorithm.
 
 
 Importants to be clasified:
-- He initialisation using truncated normal Gaussian distribution, with Xavier algorithm.
-- ELU activation function seems by papers to perform better than Sigmoid and ReLU. Leaky ReLU is good as well.
 - Normalisation: Batch normalisation
 - Regularization: dropout
 - Optimizer: Adam
@@ -91,7 +87,7 @@ Importants to be clasified:
     - Power scheduling
 - Weights close to 0 must be set to 0, so in the next construction are removed
 - Implement optimisers:
-    -Momentum, not well implemented on enn, review. This helps a lot when not using batch normalisation
+    
     -Nesterov Accelerated Gradient, performs better than momentum
     -AdaGrad, good idea but not efficient on the last steps
     -RMSProp, improvement of AdaGrad
@@ -106,6 +102,7 @@ Nice to try:
 - To integrate easily keras, use stochastic gradient descent (SGD) together with eager execution.
 - Nonsaturating activation functions.
 - Gradient Clipping.
+
 
 Others:
 - Implement reusage of networks for drivers etc. Normally the lower layers are the important.
