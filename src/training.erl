@@ -30,10 +30,9 @@
                 | undefined.
 
 -record(state, {
-    inputsList = [],
-    optimaList = [],
-    calculate_loss = false,
-    logRef = undefined
+    inputsList = [] :: [[number()]],
+    optimaList = [] :: [[number()]],
+    log             :: undefined | {ok, reference()} | closed
 }).
 
 
@@ -64,25 +63,26 @@ start_link(Cortex_Pid, Inputs, Optima, Options) ->
 %% @doc Executes the preparations for the training cycles. 
 %% @end
 %%--------------------------------------------------------------------
-init(Caller, Cortex_Pid, InputsList, OptimaList, Options) -> 
-    put(caller_pid, Caller),
+init(User_Pid, Cortex_Pid, InputsList, OptimaList, Options) -> 
+    put(  user_pid,   User_Pid),
     put(cortex_pid, Cortex_Pid),
     put(prediction_list, []),
-    put(errors_list, []),
-    init(Options, #state{
+    put(    errors_list, []),
+    init(Options, #{}, #state{
         inputsList = InputsList,
         optimaList = OptimaList
     }).
 
-init([{return, Returns} | Options], State) ->
-    put(return, Returns),
-    init(Options, State);
-init([loss | Options], State) ->
-    put(loss_list, []),
-    init(Options, State#state{calculate_loss = true});
-init([{log, LogName} | Options], State) ->
-    init(Options, State#state{logRef = datalog:new(LogName)});
-init([], State) -> 
+init([{return, Returns} | Options], Map, State) -> 
+    init(Options, Map#{return => Returns}, State);
+init([             loss | Options], Map, State) -> 
+    put(loss_list, []), 
+    init(Options, Map#{loss => true}, State);
+init([{   log, LogName} | Options], Map, State) -> 
+    {ok, LogRef} = LogState = datalog:new(LogName), 
+    init(Options, Map#{log => LogRef}, State#state{log = LogState});
+init([], OptionsMap, State) -> 
+    put(options, OptionsMap), 
     predict(enter, init, State).
 
 %%--------------------------------------------------------------------
@@ -124,17 +124,18 @@ fit(internal, Data, State) ->
 %% results: Applies the result functions (Loss calculation, log, etc.)
 %%--------------------------------------------------------------------
 results(enter, _OldState, State) ->
+    Options = get(options),
     Data = get(data),
-    results(internal, Data, State);
-results(internal, Data, #state{calculate_loss = true} = State) 
-when not is_map_key(loss, Data) ->
+    results(Options, Data, State);
+results(#{loss := true} = Options, Data, State)  ->
     Loss = ?LOSS(maps:get(errors, Data)),
     put(loss_list, [Loss | get(loss_list)]),
-    results(internal, Data#{loss => Loss}, State);
-results(internal, Data, #state{logRef = {ok, LogRef}} = State) ->
+    results(maps:remove(loss, Options), Data#{loss => Loss}, State);
+results(#{log := LogRef} = Options, Data, State) ->
     datalog:write(LogRef, Data),
-    results(internal, Data, State);
-results(internal, _Data, State) -> 
+    results(maps:remove(log, Options), Data, State);
+results(_NotResultOptions, Data, State) -> 
+    put(data, Data),
     predict(enter, results, State). 
 %%--------------------------------------------------------------------
 %% @end
@@ -145,14 +146,13 @@ results(internal, _Data, State) ->
 %% @doc Cleans the training and returns the results.
 %% @end
 %%--------------------------------------------------------------------
-terminate(#state{logRef = {ok, LogRef}} = State) -> 
+terminate(#state{log = {ok, LogRef}} = State) -> 
     ok = datalog:close(LogRef),
-    terminate(State#state{logRef = closed});
+    terminate(State#state{log = closed});
 terminate(_State) ->
-    get(caller_pid) ! {
-        training,
-        return(get(return))
-    }.
+    #{return := Returns} = get(options),
+    User_Pid = get(user_pid),
+    User_Pid ! {training, return(Returns)}.
 
 
 %%%===================================================================
