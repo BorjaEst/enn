@@ -20,6 +20,9 @@
 -define(INFO(Text, Info), ct:log(?LOW_IMPORTANCE, "~p: ~p", [Text, Info])).
 -define(ERROR(Error), ct:pal(?HI_IMPORTANCE, "Error: ~p", [Error])).
 
+-define(TEST_MODEL(Model, Training), 
+    test_model(atom_to_list(?FUNCTION_NAME) ++ ".json", Model, Training)).
+
 -define(MAX_UNITS_PER_LAYER, 20).
 -define(MAX_NUMBER_LAYERS, 4).
 -define(TRAINING_LINES, 2000).
@@ -165,8 +168,7 @@ my_test_case_example(_Config) ->
 xor_gate_static_inputs() ->
     [].
 xor_gate_static_inputs(_Config) ->
-    test_model(
-        xor_gate_static_inputs,
+    ?TEST_MODEL(
         test_architectures:xor_gate(),
         fun test_data_generators:static_xor_of_inputs/3
     ).
@@ -175,8 +177,7 @@ xor_gate_static_inputs(_Config) ->
 xor_gate_random_inputs() ->
     [].
 xor_gate_random_inputs(_Config) ->
-    test_model(
-        xor_gate_random_inputs,
+    ?TEST_MODEL(
         test_architectures:xor_gate(),
         fun test_data_generators:random_xor_of_inputs/3
     ).
@@ -185,8 +186,7 @@ xor_gate_random_inputs(_Config) ->
 addition_static_inputs() ->
     [].
 addition_static_inputs(_Config) ->
-    test_model(
-        addition_static_inputs,
+    ?TEST_MODEL(
         test_architectures:addition(),
         fun test_data_generators:static_sum_of_inputs/3
     ).
@@ -195,8 +195,7 @@ addition_static_inputs(_Config) ->
 addition_random_inputs() ->
     [].
 addition_random_inputs(_Config) ->
-    test_model(
-        addition_random_inputs,
+    ?TEST_MODEL(
         test_architectures:addition(),
         fun test_data_generators:random_sum_of_inputs/3
     ).
@@ -205,8 +204,7 @@ addition_random_inputs(_Config) ->
 sequence_1_input() ->
     [].
 sequence_1_input(_Config) ->
-    test_model(
-        sequence_1_input,
+    ?TEST_MODEL(
         test_architectures:sequence(),
         fun test_data_generators:sequence_of_1_input/3
     ).
@@ -215,8 +213,7 @@ sequence_1_input(_Config) ->
 weights_0_network() ->
     [].
 weights_0_network(_Config) ->
-    test_model(
-        weights_0_network,
+    ?TEST_MODEL(
         test_architectures:network_0_weights(),
         fun test_data_generators:inputs_always_0/3
     ).
@@ -227,7 +224,7 @@ random_dense_random_inputs() ->
 random_dense_random_inputs(_Config) ->
     N = erlang:unique_integer([positive, monotonic]),
     test_model(
-        "random_dense" ++ integer_to_list(N),
+        "random_dense" ++ integer_to_list(N) ++ ".json",
         test_architectures:random_dense(?MAX_UNITS_PER_LAYER, 
                                         ?MAX_NUMBER_LAYERS),
         fun test_data_generators:random_sum_of_inputs/3
@@ -262,7 +259,7 @@ correct_model_start(Cortex_Id) ->
     ?END({ok, Cortex_Pid}).
 
 % ....................................................................
-correct_model_training(_FileName, Cortex_Id, Cortex_Pid, Training) ->
+correct_model_training(FileName, Cortex_Id, Cortex_Pid, Training) ->
     ?HEAD("Correct fit of model using backpropagation ............."),
     {Inputs, Optimas} = Training(
         enn:inputs(Cortex_Id), 
@@ -270,7 +267,7 @@ correct_model_training(_FileName, Cortex_Id, Cortex_Pid, Training) ->
         ?TRAINING_LINES),
     [Loss] = enn:run(Cortex_Pid, Inputs, Optimas, [
         loss,
-        % {log, FileName},
+        {log, FileName},
         {return, [loss]}
     ]),
     ?INFO("Loss AVG 10: ", {length(Loss), average_in_10(Loss)}),
