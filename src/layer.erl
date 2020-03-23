@@ -14,14 +14,15 @@
 
 -type type_id() :: dense | input | output.
 -type specifications() :: #{
-    units := integer(),
-    activation := activation:func(),
+    units => integer(),
+    activation  := activation:func(),
     aggregation := aggregation:func(),
-    options := [] %% TODO: create neuron:options
+    initializer := initializer:func()
 }.
 -type properties() :: #{
-    activation => activation:func(),
-    aggregation => aggregation:func()
+    activation  => activation:func(),
+    aggregation => aggregation:func(),
+    initializer => initializer:func()
 }.
 -type compiled() :: {
     Type :: type_id(), 
@@ -44,42 +45,48 @@
 %% @doc Returns the complilation specifications for a dense layer.
 %% @end
 %%--------------------------------------------------------------------
--spec dense(Units :: integer(), Properties :: properties()) ->
+-spec dense(Units, Properties) -> DenseLayer when 
+    Units      :: integer(),
+    Properties :: properties(),
     DenseLayer :: specifications().
-dense(Units, Properties) ->
+dense(Units, Prop) ->
     #{
         units       => Units,
-        activation  => maps:get(activation, Properties, sigmoid),
-        aggregation => maps:get(aggregation, Properties, dotprod),
-        options     => []
+        activation  => maps:get(activation,  Prop, sigmoid),
+        aggregation => maps:get(aggregation, Prop, dotprod),
+        initializer => maps:get(initializer, Prop, glorot_uniform)
     }.
 
 %%--------------------------------------------------------------------
 %% @doc Returns the compilation specifications for an input layer.
 %% @end
 %%--------------------------------------------------------------------
--spec input(Units :: integer(), Properties :: properties()) ->
+-spec input(Units, Properties) -> InputsLayer when 
+    Units      :: integer(),
+    Properties :: properties(),
     InputsLayer :: specifications().
-input(Units, Properties) ->
+input(Units, Prop) ->
     #{
         units       => Units,
-        activation  => maps:get(activation, Properties, tanh),
-        aggregation => maps:get(aggregation, Properties, direct),
-        options     => []
+        activation  => maps:get(activation,  Prop, tanh),
+        aggregation => maps:get(aggregation, Prop, direct),
+        initializer => maps:get(initializer, Prop, glorot_uniform)
     }.
 
 %%--------------------------------------------------------------------
 %% @doc Returns the compilation specifications for an output layer.
 %% @end
 %%--------------------------------------------------------------------
--spec output(Units :: integer(), Properties :: properties()) -> 
+-spec output(Units, Properties) -> OutputsLayer when 
+    Units      :: integer(),
+    Properties :: properties(),
     OutputsLayer :: specifications().
-output(Units, Properties) ->
+output(Units, Prop) ->
     #{
         units       => Units,
-        activation  => maps:get(activation, Properties, tanh),
-        aggregation => maps:get(aggregation, Properties, dotprod),
-        options     => []
+        activation  => maps:get(activation,  Prop, tanh),
+        aggregation => maps:get(aggregation, Prop, dotprod),
+        initializer => maps:get(initializer, Prop, glorot_uniform)
     }.
 
 %%--------------------------------------------------------------------
@@ -87,17 +94,13 @@ output(Units, Properties) ->
 %% together with the ids of all the neuron specifications.
 %% @end
 %%--------------------------------------------------------------------
--spec compile(Coordinade :: float(), Spec :: specifications()) ->
-    CompiledLayer :: compiled().
-compile(Coordinade, Spec) ->
-    #{
-        units       := Units,
-        activation  := AF,
-        aggregation := AggrF,
-        options     := Options
-    } = Spec,
-    [neuron:new(Coordinade, AF, AggrF, Options) || 
-                                            _ <- lists:seq(1, Units)].
+-spec compile(Coordinade, Specifications) -> CompiledLayer when 
+    Coordinade     :: float(),
+    Specifications :: specifications(), 
+    CompiledLayer  :: compiled().
+compile(Coordinade, Specifications) ->
+    {Units, Prop} = maps:take(units, Specifications),
+    [neuron:new(Coordinade, Prop) || _ <- lists:seq(1, Units)].
 
 
 %%====================================================================
