@@ -19,4 +19,5 @@ rebar.lock
 .rebar
 .rebar3
 .erlang.cookie
+.vscode
 Mnesia.*
