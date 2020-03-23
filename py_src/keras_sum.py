@@ -1,20 +1,17 @@
-# TensorFlow and tf.keras
-import tensorflow as tf
-from tensorflow.python.keras import Sequential
-from tensorflow.python.keras.layers import Dense
-
-# Helper libraries
-import random
+from keras.models import Sequential
+from keras.layers.core import Dense
 import numpy as np
-
-print(tf.__version__)
 
 # =============================================================
 # Prepare data set
 # =============================================================
+N_Inputs  = 2
+N_Outputs = 1
+N_Loops   = 2000
 
-Inputs = np.array([[random.uniform(0, 0.5), random.uniform(0, 0.5)] for i in range(200)])
-Outputs = np.array([[I1 + I2] for [I1, I2] in Inputs])
+Inputs  = np.random.rand(N_Loops,N_Inputs) -0.5
+OSum    = np.sum(Inputs, axis=1)
+Outputs = np.repeat(OSum.reshape([-1,1]),N_Outputs,axis=1)
 
 # =============================================================
 # Build the model
@@ -23,21 +20,19 @@ Outputs = np.array([[I1 + I2] for [I1, I2] in Inputs])
 # _____________________________________________________________
 # Setup the layers
 model = Sequential([
-    Dense(4, input_shape=(2,)),
-    Dense(1, activation='relu')
+    Dense(1, activation='elu', input_shape=(N_Inputs,))
 ])
 
 # _____________________________________________________________
 # Compile the model
-model.compile(optimizer='adam',
+model.compile(optimizer='sgd',
               loss='mean_squared_error',
               metrics=['accuracy'])
 
 # =============================================================
 # Train the model
 # =============================================================
-
-model.fit(Inputs, Outputs, epochs=4, batch_size=2)
+model.fit(Inputs, Outputs, epochs=1, batch_size=1)
 
 # =============================================================
 # Make predictions
@@ -53,5 +48,3 @@ for aTuple in Results:
 print("Layers: ")
 for layer in model.layers:
     print(layer.get_weights())
-
-pause = True
