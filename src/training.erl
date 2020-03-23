@@ -1,10 +1,8 @@
 %%%-------------------------------------------------------------------
 %%% @author borja
-%%% @copyright (C) 2018, <COMPANY>
 %%% @doc  
 %%%
 %%% @end
-%%% Created : 30. Aug 2018 0:05
 %%%-------------------------------------------------------------------
 -module(training).
 -compile([export_all, nowarn_export_all]). %% TODO: To delete after build

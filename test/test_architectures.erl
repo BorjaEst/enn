@@ -58,7 +58,6 @@ xor_gate() ->
 addition() ->
     _Model = enn:sequential([
                                 ?input(2),
-                                ?dense(2, #{activation => tanh}),
                                 ?output(1)
                             ]).
 

@@ -1,6 +1,5 @@
 %%%-------------------------------------------------------------------
 %%% @author borja
-%%% @copyright (C) 2018, <COMPANY>
 %%% @doc The neuron is a signal processing element. It accepts
 %%% signals, accumulates them into an ordered vector, then processes
 %%% this input vector to produce an output, and finally passes the
@@ -9,7 +8,6 @@
 %%% The neuron waits until it receives all the input signals, 
 %%% processes those signals, and then passes the output forward.
 %%% @end
-%%% Created : 16. Aug 2018 15:20
 %%%-------------------------------------------------------------------
 -module(neuron).
 -compile([export_all, nowarn_export_all]). %% TODO: To delete after build
@@ -49,7 +47,7 @@
 
 % -define(LEARNING_FACTOR, rand:uniform(10)/20).
 % -define(MOMENTUM_FACTOR, rand:uniform(10)/100)
--define(LEARNING_FACTOR, 0.20).  
+-define(LEARNING_FACTOR, 0.01).  
 -define(MOMENTUM_FACTOR, 0.00).
 -define(SAT_LIMIT, 3.0 * ?PI).
 -define(R2(Val), round(Val * 100.0) / 100.0).
@@ -100,8 +98,8 @@ start_link(Neuron_Id) ->
 init(Neuron_Id, Parent) ->
     Neuron = edb:read(Neuron_Id),
     check_neuron(Neuron),
-    process_flag(trap_exit, true), % Catch supervisor exits
-    proc_lib:init_ack(Parent, {ok, self()}),  % Supervisor synch
+    process_flag(trap_exit, true),           % Catch supervisor exits
+    proc_lib:init_ack(Parent, {ok, self()}),       % Supervisor synch
     TId = receive {continue_init, Reply} -> Reply end, % Cortex synch
     init2(#state{
         id      = elements:id(Neuron),
@@ -208,6 +206,7 @@ terminate(State, Reason) ->
 check_neuron(Neuron) ->
     try
         true = elements:is_neuron(Neuron),
+        % ?assert(elements:is_neuron(Neuron))
         false = [] == elements:inputs_idps(Neuron) ++ elements:rcc_inputs_idps(Neuron),
         false = [] == elements:outputs_ids(Neuron) ++ elements:rcc_outputs_ids(Neuron)
     catch

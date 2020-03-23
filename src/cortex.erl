@@ -1,13 +1,11 @@
 %%%-------------------------------------------------------------------
 %%% @author borja
-%%% @copyright (C) 2018, <COMPANY>
 %%% @doc The cortex is a NN synchronizing element. It needs to know 
 %%% the Pid of every neural network element, so that it will know when
 %%% all the outputs have received their control inputs, and that it’s
 %%% time for the inputs to again gather and fanout input data to the
 %%% neurons in the input layer. 
 %%% @end
-%%% Created : 30. Aug 2018 0:05
 %%%-------------------------------------------------------------------
 -module(cortex).
 -compile([export_all, nowarn_export_all]). %% TODO: To delete after build
