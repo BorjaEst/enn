@@ -243,11 +243,11 @@ test_for_level_2_change_af_neuron(Neuron_Id) ->
     ?INFO("Change neuron activation function ...................................................."),
     N_0 = edb:read(Neuron_Id),
     AFList = [fun activation_function:sigmoid/1, fun activation_function:tanh/1],
-    mutation:change_af(Neuron_Id, RandomAF = randomElement(AFList -- [elements:af(N_0)])),
+    mutation:change_activation(Neuron_Id, RandomAF = randomElement(AFList -- [elements:activation(N_0)])),
     N_1 = edb:read(Neuron_Id),
     ?INFO(lists:flatten(enn:pformat(N_0))),
     ?INFO(lists:flatten(enn:pformat(N_1))),
-    RandomAF = elements:af(N_1),
+    RandomAF = elements:activation(N_1),
     ?INFO("____________________________________________________________________________________OK"),
     ok.
 
@@ -255,11 +255,11 @@ test_for_level_2_change_aggrf_neuron(Neuron_Id) ->
     ?INFO("Change neuron aggregation function ..................................................."),
     N_0 = edb:read(Neuron_Id),
     AggrFList = [fun aggregation_function:diff_product/2, fun aggregation_function:dot_power/2],
-    mutation:change_aggrf(Neuron_Id, RandomAggrF = randomElement(AggrFList -- [elements:aggrf(N_0)])),
+    mutation:change_aggregation(Neuron_Id, RandomAggrF = randomElement(AggrFList -- [elements:aggregation(N_0)])),
     N_1 = edb:read(Neuron_Id),
     ?INFO(lists:flatten(enn:pformat(N_0))),
     ?INFO(lists:flatten(enn:pformat(N_1))),
-    RandomAggrF = elements:aggrf(N_1),
+    RandomAggrF = elements:aggregation(N_1),
     ?INFO("____________________________________________________________________________________OK"),
     ok.
 
