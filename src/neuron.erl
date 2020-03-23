@@ -21,10 +21,14 @@
 
 %% API
 %%-export([]).
--export_type([id/0]).
+-export_type([id/0, property/0, properties/0]).
 
--type id() :: {{LayerCoordinate :: float(), Unique_Id :: reference()}, 
+-type id() :: {{Coordinate :: float(), Unique_Id :: reference()}, 
                 neuron}.
+-type property()   :: id | activation | aggregation | initializer.
+-type properties() :: #{
+    OptionalProperty :: property() => Value :: term()
+}.
 
 -record(input,  {id :: id(),    r       :: boolean(), 
                  w  :: float(), s = 0.0 :: float()}).
@@ -70,13 +74,12 @@
 %% returns its id.
 %% @end
 %%--------------------------------------------------------------------
--spec new(Layer, Activation, Aggregation, Options) -> id() when
-    Layer :: integer(),
-    Activation :: activation:func(),
-    Aggregation :: aggregation:func(),
-    Options :: [{elements:neuron_field(), Value :: term()}].
-new(Layer, AF, AggrF, Options) ->
-    Neuron = elements:neuron(Layer, AF, AggrF, Options),
+-spec new(Coordinade, Properties) -> id() when
+    Coordinade :: float(),
+    Properties :: #{Property => Value :: term()},
+    Property   :: elements:neuron_property().
+new(Coordinade, Properties) ->
+    Neuron = elements:neuron(Coordinade, Properties),
     edb:write(Neuron),
     elements:id(Neuron).
 
@@ -103,8 +106,8 @@ init(Neuron_Id, Parent) ->
     TId = receive {continue_init, Reply} -> Reply end, % Cortex synch
     init2(#state{
         id      = elements:id(Neuron),
-        af      = elements:af(Neuron),
-        aggrf   = elements:aggrf(Neuron),
+        af      = elements:activation(Neuron),
+        aggrf   = elements:aggregation(Neuron),
         bias    = elements:bias(Neuron),
         inputs  = maps:from_list(
             [{cortex:nn_id2pid(Id, TId), #input{id = Id, w = W, r = false}} || {Id, W} <- elements:inputs_idps(Neuron)] ++
