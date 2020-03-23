@@ -1,5 +1,6 @@
 from keras.models import Sequential
 from keras.layers.core import Dense
+from keras.optimizers import SGD
 import numpy as np
 
 # =============================================================
@@ -18,13 +19,25 @@ Outputs = OLogic.reshape(-1,1).astype(float)*2 -1
 # _____________________________________________________________
 # Setup the layers
 model = Sequential([
-    Dense(2, activation='elu', input_shape=(2,)),
-    Dense(1, activation='elu')
+    Dense(2, input_shape=(2,),
+          kernel_initializer='random_uniform',
+        #   bias_initializer='zeros',
+          activation='elu'),
+    Dense(1,
+          kernel_initializer='random_uniform',
+        #   bias_initializer='zeros',
+          activation='elu')
 ])
 
 # _____________________________________________________________
+# Setup the Optimizer
+Optimizer = SGD(learning_rate=0.01, 
+                momentum=0.0, 
+                nesterov=False)
+
+# _____________________________________________________________
 # Compile the model
-model.compile(optimizer='sgd',
+model.compile(optimizer=Optimizer,
               loss='mean_squared_error',
               metrics=['accuracy'])
 
