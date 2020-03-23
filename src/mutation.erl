@@ -99,7 +99,7 @@ remove_link(FromElement_Id, ToElement_Id) ->
 %% @end
 %%--------------------------------------------------------------------
 % TODO: Define specs
-change_af({_, neuron} = Neuron_Id, NewAFun) ->
+change_activation({_, neuron} = Neuron_Id, NewAFun) ->
     Neuron = edb:read(Neuron_Id),
     NewNeuron = elements:edit(Neuron, [{af, NewAFun}]),
     edb:write(NewNeuron).
@@ -111,7 +111,7 @@ change_af({_, neuron} = Neuron_Id, NewAFun) ->
 %% @end
 %%--------------------------------------------------------------------
 % TODO: Define specs
-change_aggrf({_, neuron} = Neuron_Id, NewAggrFun) ->
+change_aggregation({_, neuron} = Neuron_Id, NewAggrFun) ->
     Neuron = edb:read(Neuron_Id),
     NewNeuron = elements:edit(Neuron, [{aggrf, NewAggrFun}]),
     edb:write(NewNeuron).
