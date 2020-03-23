@@ -10,39 +10,37 @@
 -include_lib("math_constants.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
--define(DELTA_MULTIPLIER, ?PI * 2).
-
 %% API
 %%-export([]).
 -export_type([type/0, cortex/0, neuron/0]).
 
 %%% Neuronal networks are composed mostly by 2 types:
--type type() :: cortex | neuron.
-
-
--record(cortex, {
-    id :: cortex:id(),
-    layers = #{} :: #{Layer :: float() => [neuron:neuron_id()]},
-    outputs_ids = [] :: [neuron:id()], % Output neurons, first network layer usually
-    inputs_idps = [] :: [{neuron:id(), Weights :: float()}] % Input neurons, last network layer usually
-}).
--type cortex() :: #cortex{}.
--type cortex_field() :: atom().
-
--record(neuron, {
-    id :: neuron:id(),
-    af :: activation:func(), % Activation function
-    aggrf :: aggregation:func(), % Name of the aggregation function
-    bias = ?DELTA_MULTIPLIER * (rand:uniform() - 0.5) :: float(),
-    inputs_idps = [] :: [{neuron:id() | cortex:id(), Weights :: [float()]}], % Inputs IdPs,
-    outputs_ids = [] :: [neuron:id() | cortex:id()], % Outputs Ids,
-    rcc_inputs_idps = [] :: [{neuron:id() | cortex:id(), Weights :: [float()]}],  % Recurrent inputs IdPs,
-    rcc_outputs_ids = [] :: [neuron:id() | cortex:id()]}).  % Recurrent outputs Ids,
--type neuron() :: #neuron{}.
--type neuron_field() :: atom(). %TODO: After release
+-type type()   :: cortex | neuron.
+-type id()     :: neuron:id() | cortex:id().
+-type weight() :: float() | cortex | undef.
 
 -define(NEW_CORTEX_ID, {make_ref(), cortex}).
--define(NEW_NEURON_ID(Layer), {{Layer, make_ref()}, neuron}).
+-record(cortex, {
+    id               :: cortex:id(),
+    layers = #{}     :: #{Layer :: float() => [neuron:neuron_id()]},
+    outputs_ids = [] :: [neuron:id()], % Output neurons
+    inputs_ids  = [] :: [neuron:id()]  % Input neurons
+}).
+-type cortex() :: #cortex{}.
+
+-define(NEW_NEURON_ID(Coord), {{Coord, make_ref()}, neuron}).
+-record(neuron, {
+    id = ?NEW_NEURON_ID(0.0) :: neuron:id(),
+    activation               :: activation:func(),
+    aggregation              :: aggregation:func(),
+    initializer              :: initializer:func(),
+    outputs_ids     = []     :: [ id()], % Direct outputs & inputs
+    inputs_idps     = []     :: [{id(), Weight :: weight()}],
+    rcc_outputs_ids = []     :: [ id()], % Recurrent outputs & inputs
+    rcc_inputs_idps = []     :: [{id(), Weight :: weight()}],
+    bias                     :: float()
+}).  
+-type neuron() :: #neuron{}.
 
 
 -ifdef(debug_mode).
@@ -59,12 +57,9 @@
 %% @doc Returns the record fields of an element.
 %% @end
 %%--------------------------------------------------------------------
--spec fields(Atom :: neuron | cortex) -> 
-    ListOfFields :: [atom()].
-fields(neuron) ->
-    record_info(fields, neuron);
-fields(cortex) ->
-    record_info(fields, cortex).
+-spec fields(Atom :: neuron | cortex) -> ListOfFields :: [atom()].
+fields(neuron) -> record_info(fields, neuron);
+fields(cortex) -> record_info(fields, cortex).
 
 %%--------------------------------------------------------------------
 %% @doc Returns a neuron. Defaults are:
@@ -73,115 +68,96 @@ fields(cortex) ->
 %% - Agregation function: dotprod
 %% @end
 %%--------------------------------------------------------------------
--spec neuron() -> 
-    Neuron :: neuron().
-neuron() ->
-    neuron(0.0, direct, dotprod).
-
--spec neuron(Layer, Activation, Aggregation) -> neuron() when
-    Layer :: integer(),
-    Activation :: activation:func(),
-    Aggregation :: aggregation:func().
-neuron(Layer, AF, AggrF) ->
-    #neuron{id = ?NEW_NEURON_ID(Layer), af = AF, aggrf = AggrF}.
-
--spec neuron(Layer, Activation, Aggregation, Options) -> neuron() when
-    Layer :: integer(),
-    Activation :: activation:func(),
-    Aggregation :: aggregation:func(),
-    Options :: [{neuron_field(), Value :: term()}].
-neuron(Layer, AF, AggrF, Options) ->
-    Neuron = neuron(Layer, AF, AggrF),
-    edit(Neuron, Options).
+-spec neuron(Coordinade, Properties) -> neuron() when
+    Coordinade :: integer(),
+    Properties :: neuron:properties().
+neuron(Coordinade, Properties) ->
+    edit(#neuron{id = ?NEW_NEURON_ID(Coordinade)}, Properties).
 
 %%--------------------------------------------------------------------
 %% @doc Evaluates if the input is a neuron.
 %% @end
 %%--------------------------------------------------------------------
--spec is_neuron(Neuron :: neuron()) -> Bool :: boolean().
+-spec is_neuron(Term :: term()) -> boolean().
 is_neuron(Neuron) -> is_record(Neuron, neuron).
 
 %%--------------------------------------------------------------------
-%% @doc
+%% @doc Creates a cortex.
 %%
 %% Note that when a cortex is created, all inputs and outputs are 
 %% empty. Those are completed during the connection phase and carried
 %% on in cortex:new by the mutation library.
 %% @end
 %%--------------------------------------------------------------------
--spec cortex(CompiledLayers) -> cortex() when
-    CompiledLayers :: #{integer() => layer:compiled()}.
-cortex(CompiledLayers) ->
-    #cortex{id = ?NEW_CORTEX_ID, layers = CompiledLayers}.
-    
--spec cortex(CompiledLayers, Options) -> cortex() when
+-spec cortex(CompiledLayers, Properties) -> cortex() when
     CompiledLayers :: #{integer() => layer:compiled()},
-    Options :: [{cortex_field(), Value :: term()}].
-cortex(CompiledLayers, Options) ->
-    Cortex = cortex(CompiledLayers),
-    edit(Cortex, Options).
+    Properties     :: cortex:properties().
+cortex(CompiledLayers, Properties) ->
+    Cortex = #cortex{id = ?NEW_CORTEX_ID, layers = CompiledLayers},
+    edit(Cortex, Properties).
 
 %%--------------------------------------------------------------------
 %% @doc Evaluates if the input is a cortex.
 %% @end
 %%--------------------------------------------------------------------
--spec is_cortex(Cortex :: cortex()) -> Bool :: boolean().
+-spec is_cortex(Term :: term()) -> boolean().
 is_cortex(Cortex) -> is_record(Cortex, cortex).
 
 %%--------------------------------------------------------------------
 %% @doc Edits an element using some options.
 %% @end
 %%--------------------------------------------------------------------
--spec edit(Element, Options) -> EditedElement when
-    Element :: neuron() | cortex(),
-    Options :: [{neuron_field() | cortex_field(), Value :: term()}],
+-spec edit(Element, Properties) -> EditedElement when
+    Element       :: neuron() | cortex(),
+    Properties    :: neuron:properties() | cortex:properties(),
     EditedElement :: neuron() | cortex().
-edit(Element, Options) when is_record(Element, neuron) ->
-    write_neuron_options(Element, Options);
-edit(Element, Options) when is_record(Element, cortex) ->
-    write_cortex_options(Element, Options).
+edit(Neuron, Properties) when is_record(Neuron, neuron) ->
+    edit_neuron(Neuron, maps:to_list(Properties));
+edit(Cortex, Properties) when is_record(Cortex, cortex) ->
+    edit_cortex(Cortex, maps:to_list(Properties)).
 
-write_neuron_options(Neuron, [{id, Value} | Options]) ->
-    write_neuron_options(Neuron#neuron{id = Value}, Options);
-write_neuron_options(Neuron, [{af, Value} | Options]) ->
-    write_neuron_options(Neuron#neuron{af = Value}, Options);
-write_neuron_options(Neuron, [{aggrf, Value} | Options]) ->
-    write_neuron_options(Neuron#neuron{aggrf = Value}, Options);
-write_neuron_options(Neuron, [{bias, Value} | Options]) ->
-    write_neuron_options(Neuron#neuron{bias = Value}, Options);
-write_neuron_options(Neuron, [{inputs_idps, Value} | Options]) ->
-    write_neuron_options(Neuron#neuron{inputs_idps = Value}, Options);
-write_neuron_options(Neuron, [{outputs_ids, Value} | Options]) ->
-    write_neuron_options(Neuron#neuron{outputs_ids = Value}, Options);
-write_neuron_options(Neuron, [{rcc_inputs_idps, Value} | Options]) ->
-    write_neuron_options(Neuron#neuron{rcc_inputs_idps = Value}, Options);
-write_neuron_options(Neuron, [{rcc_outputs_ids, Value} | Options]) ->
-    write_neuron_options(Neuron#neuron{rcc_outputs_ids = Value}, Options);
-write_neuron_options(Neuron, []) ->
+edit_neuron(Neuron, [{id,              Value} | Options]) ->
+   edit_neuron(Neuron#neuron{id = Value}, Options);
+edit_neuron(Neuron, [{activation,      Value} | Options]) ->
+    edit_neuron(Neuron#neuron{activation = Value}, Options);
+edit_neuron(Neuron, [{aggregation,     Value} | Options]) ->
+    edit_neuron(Neuron#neuron{aggregation = Value}, Options);
+edit_neuron(Neuron, [{outputs_ids,     Value} | Options]) ->
+    edit_neuron(Neuron#neuron{outputs_ids = Value}, Options);
+edit_neuron(Neuron, [{inputs_idps,     Value} | Options]) ->
+    edit_neuron(Neuron#neuron{inputs_idps = Value}, Options);
+edit_neuron(Neuron, [{rcc_outputs_ids, Value} | Options]) ->
+    edit_neuron(Neuron#neuron{rcc_outputs_ids = Value}, Options);
+edit_neuron(Neuron, [{rcc_inputs_idps, Value} | Options]) ->
+    edit_neuron(Neuron#neuron{rcc_inputs_idps = Value}, Options);
+edit_neuron(Neuron, [{bias,            Value} | Options]) ->
+    edit_neuron(Neuron#neuron{bias = Value}, Options);
+edit_neuron(Neuron, []) -> 
     Neuron.
 
-write_cortex_options(Cortex, [{id, Value} | Options]) ->
-    write_cortex_options(Cortex#cortex{id = Value}, Options);
-write_cortex_options(Cortex, [{layers, Value} | Options]) ->
-    write_cortex_options(Cortex#cortex{layers = Value}, Options);
-write_cortex_options(Cortex, [{outputs_ids, Value} | Options]) ->
-    write_cortex_options(Cortex#cortex{outputs_ids = Value}, Options);
-write_cortex_options(Cortex, [{inputs_idps, Value} | Options]) ->
-    write_cortex_options(Cortex#cortex{inputs_idps = Value}, Options);
-write_cortex_options(Cortex, []) ->
+edit_cortex(Cortex, [{id,          Value} | Options]) -> 
+    edit_cortex(Cortex#cortex{id = Value}, Options);
+edit_cortex(Cortex, [{layers,      Value} | Options]) ->
+    edit_cortex(Cortex#cortex{layers = Value}, Options);
+edit_cortex(Cortex, [{outputs_ids, Value} | Options]) ->
+    edit_cortex(Cortex#cortex{outputs_ids = Value}, Options);
+edit_cortex(Cortex, [{inputs_idps, Value} | Options]) ->
+    edit_cortex(Cortex#cortex{inputs_ids = Value}, Options);
+edit_cortex(Cortex, []) ->
     Cortex.
 
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns all the networks of the Neural Network related to the
+%% cortex.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: To make description and specs
+-spec neurons(Cortex :: cortex()) -> [Neuron_Id :: neuron:id()].
 neurons(Cortex) ->
     lists:append(maps:values(Cortex#cortex.layers)).
 
+-spec neurons(Cortex :: cortex(), Layer :: float() | hidden) -> 
+    [Neuron_Id :: neuron:id()].
 neurons(Cortex, hidden) ->
     [_ | HiddenLayers] = lists:droplast(maps:values(Cortex#cortex.layers)),
     lists:append(HiddenLayers);
@@ -189,22 +165,21 @@ neurons(Cortex, Layer) ->
     maps:get(Layer, Cortex#cortex.layers).
 
 %%-------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns the layers of the Neural Network related to the
+%% cortex.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: To make description and specs
+-spec layers(Cortex :: cortex()) -> [Coordinade :: float()].
 layers(Cortex) ->
     maps:keys(Cortex#cortex.layers).
 
 %%-------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns the inputs links of the specified list of neurons. 
+%% The other side of a link might be a neuron wich is not in the 
+%% listed but listed neuron is connected to.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: To make description and specs
+-spec links(Neurons :: [neuron()]) -> [Links :: link()].
 links([Neuron | Neurons]) ->
     [{In, Neuron#neuron.id} || In <- inputs_ids(Neuron)] ++ links(Neurons);
 links([]) ->
@@ -228,10 +203,10 @@ size(Cortex) ->
 %% @end
 %%--------------------------------------------------------------------
 %TODO: Correct specs
-id(Element) when is_record(Element, neuron) ->
-    Element#neuron.id;
-id(Element) when is_record(Element, cortex) ->
-    Element#cortex.id.
+id(Neuron) when is_record(Neuron, neuron) ->
+    Neuron#neuron.id;
+id(Cortex) when is_record(Cortex, cortex) ->
+    Cortex#cortex.id.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -240,9 +215,9 @@ id(Element) when is_record(Element, cortex) ->
 %% @end
 %%--------------------------------------------------------------------
 %TODO: Correct specs
-layerIndex({{LI, _}, neuron}) -> LI;
-layerIndex({_, cortex})       -> cortex;
-layerIndex(Element)           -> layerIndex(id(Element)).
+coordinade({{LI, _}, neuron}) -> LI;
+coordinade({_, cortex})       -> cortex;
+coordinade(Element)           -> coordinade(id(Element)).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -251,8 +226,8 @@ layerIndex(Element)           -> layerIndex(id(Element)).
 %% @end
 %%--------------------------------------------------------------------
 %TODO: Correct specs
-af(Neuron) ->
-    Neuron#neuron.af.
+activation(Neuron) ->
+    Neuron#neuron.activation.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -260,8 +235,8 @@ af(Neuron) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-aggrf(Neuron) -> 
-    Neuron#neuron.aggrf.
+aggregation(Neuron) -> 
+    Neuron#neuron.aggregation.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -279,16 +254,30 @@ bias(Neuron) ->
 %% @end
 %%--------------------------------------------------------------------
 %TODO: Correct specs
-outputs_ids(Element) when is_record(Element, neuron) ->
-    Element#neuron.outputs_ids;
-outputs_ids(Element) when is_record(Element, cortex) ->
-    Element#cortex.outputs_ids.
+outputs_ids(Neuron) when is_record(Neuron, neuron) ->
+    Neuron#neuron.outputs_ids;
+outputs_ids(Cortex) when is_record(Cortex, cortex) ->
+    Cortex#cortex.outputs_ids.
 
-rcc_outputs_ids(Element) when is_record(Element, neuron) ->
-    Element#neuron.rcc_outputs_ids;
-rcc_outputs_ids(Element) when is_record(Element, cortex) ->
+rcc_outputs_ids(Neuron) when is_record(Neuron, neuron) ->
+    Neuron#neuron.rcc_outputs_ids;
+rcc_outputs_ids(Cortex) when is_record(Cortex, cortex) ->
     [].
 
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%%
+%% @end
+%%--------------------------------------------------------------------
+%TODO: Correct specs
+inputs_ids(Neuron) when is_record(Neuron, neuron) ->
+    [Id || {Id, _W} <- inputs_idps(Neuron)];
+inputs_ids(Cortex) when is_record(Cortex, cortex) ->
+    Cortex#cortex.inputs_ids.
+
+rcc_inputs_ids(Neuron) when is_record(Neuron, neuron) ->
+    [Id || {Id, _W} <- rcc_inputs_idps(Neuron)].
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -297,29 +286,11 @@ rcc_outputs_ids(Element) when is_record(Element, cortex) ->
 %% @end
 %%--------------------------------------------------------------------
 %TODO: Correct specs
-inputs_ids(Element) ->
-    [Id || {Id, _W} <- inputs_idps(Element)].
+inputs_idps(Neuron) when is_record(Neuron, neuron) ->
+    Neuron#neuron.inputs_idps.
 
-rcc_inputs_ids(Element) ->
-    [Id || {Id, _W} <- rcc_inputs_idps(Element)].
-
-%%--------------------------------------------------------------------
-%% @doc
-%%
-%%
-%% @end
-%%--------------------------------------------------------------------
-%TODO: Correct specs
-inputs_idps(Element) when is_record(Element, neuron) ->
-    Element#neuron.inputs_idps;
-inputs_idps(Element) when is_record(Element, cortex) ->
-    Element#cortex.inputs_idps.
-
-rcc_inputs_idps(Element) when is_record(Element, neuron) ->
-    Element#neuron.rcc_inputs_idps;
-rcc_inputs_idps(Element) when is_record(Element, cortex) ->
-    [].
-
+rcc_inputs_idps(Neuron) when is_record(Neuron, neuron) ->
+    Neuron#neuron.rcc_inputs_idps.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -328,52 +299,20 @@ rcc_inputs_idps(Element) when is_record(Element, cortex) ->
 %% @end
 %%--------------------------------------------------------------------
 %TODO: Correct specs
-add_output_id(Element, ToId) when is_record(Element, neuron) ->
-    FromLI = layerIndex(Element),
-    ToLI = layerIndex(ToId),
-    if
-        FromLI >= ToLI ->
-            Element#neuron{rcc_outputs_ids = [ToId | Element#neuron.rcc_outputs_ids]};
-        true ->
-            Element#neuron{outputs_ids = [ToId | Element#neuron.outputs_ids]}
-    end;
-add_output_id(Element, ToId) when is_record(Element, cortex) ->
-    Element#cortex{outputs_ids = [ToId | Element#cortex.outputs_ids]}.
-
-%%--------------------------------------------------------------------
-%% @doc
-%%
-%%
-%% @end
-%%--------------------------------------------------------------------
-%TODO: Correct specs
-remove_output_id(Element, ToId) when is_record(Element, neuron) ->
-    Element#neuron{outputs_ids     = lists:delete(ToId, Element#neuron.outputs_ids),
-                   rcc_outputs_ids = lists:delete(ToId, Element#neuron.rcc_outputs_ids)};
-remove_output_id(Element, ToId) when is_record(Element, cortex) ->
-    Element#cortex{outputs_ids = lists:delete(ToId, Element#cortex.outputs_ids)}.
-
-%%--------------------------------------------------------------------
-%% @doc
-%%
-%%
-%% @end
-%%--------------------------------------------------------------------
-%TODO: Correct specs
-add_input_id(Element, FromId) when is_record(Element, neuron) ->
-    FromLI = layerIndex(FromId),
-    ToLI = layerIndex(Element),
-    W = ?DELTA_MULTIPLIER * (rand:uniform() - 0.5),
+add_output_id(N, ToId) when is_record(N, neuron) ->
+    FromLI = coordinade(N),
+    ToLI = coordinade(ToId),
     if
         FromLI < ToLI ->
-            Element#neuron{inputs_idps = [{FromId, W} | Element#neuron.inputs_idps]};
-        FromLI == cortex ->
-            Element#neuron{inputs_idps = [{FromId, cortex} | Element#neuron.inputs_idps]};
-        true ->
-            Element#neuron{rcc_inputs_idps = [{FromId, W} | Element#neuron.rcc_inputs_idps]}
+            N#neuron{    outputs_ids = 
+                [ToId | N#neuron.outputs_ids]};
+        FromLI >= ToLI ->
+            N#neuron{rcc_outputs_ids = 
+                [ToId | N#neuron.rcc_outputs_ids]}
+
     end;
-add_input_id(Element, FromId) when is_record(Element, cortex) ->
-    Element#cortex{inputs_idps = [{FromId, _Weight = 1.0} | Element#cortex.inputs_idps]}.
+add_output_id(Cortex, ToId) when is_record(Cortex, cortex) ->
+    Cortex#cortex{outputs_ids = [ToId | Cortex#cortex.outputs_ids]}.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -382,11 +321,11 @@ add_input_id(Element, FromId) when is_record(Element, cortex) ->
 %% @end
 %%--------------------------------------------------------------------
 %TODO: Correct specs
-remove_input_id(Element, FromId) when is_record(Element, neuron) ->
-    Element#neuron{inputs_idps     = lists:keydelete(FromId, 1, Element#neuron.inputs_idps),
-                   rcc_inputs_idps = lists:keydelete(FromId, 1, Element#neuron.rcc_inputs_idps)};
-remove_input_id(Element, FromId) when is_record(Element, cortex) ->
-    Element#cortex{inputs_idps = lists:keydelete(FromId, 1, Element#cortex.inputs_idps)}.
+remove_output_id(N, ToId) when is_record(N, neuron) ->
+    N#neuron{outputs_ids     = lists:delete(ToId, N#neuron.outputs_ids),
+                   rcc_outputs_ids = lists:delete(ToId, N#neuron.rcc_outputs_ids)};
+remove_output_id(Cortex, ToId) when is_record(Cortex, cortex) ->
+    Cortex#cortex{outputs_ids = lists:delete(ToId, Cortex#cortex.outputs_ids)}.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -395,9 +334,46 @@ remove_input_id(Element, FromId) when is_record(Element, cortex) ->
 %% @end
 %%--------------------------------------------------------------------
 %TODO: Correct specs
-edit_input_id(Element, FromId, W) when is_record(Element, neuron) ->
-    Element#neuron{inputs_idps     = lists:keyreplace(FromId, 1, Element#neuron.inputs_idps, {FromId, W}),
-                   rcc_inputs_idps = lists:keyreplace(FromId, 1, Element#neuron.rcc_inputs_idps, {FromId, W})}.
+add_input_id(N, FromId) when is_record(N, neuron) ->
+    FromLI = coordinade(FromId),
+    ToLI = coordinade(N),
+    if
+        FromLI == cortex ->
+            N#neuron{     inputs_idps = 
+                [{FromId, cortex} | N#neuron.inputs_idps]};
+        FromLI < ToLI ->
+            N#neuron{     inputs_idps = 
+                [{FromId, undef}  | N#neuron.inputs_idps]};
+        FromLI >= ToLI ->
+            N#neuron{ rcc_inputs_idps = 
+                [{FromId, undef}  | N#neuron.rcc_inputs_idps]}
+    end;
+add_input_id(Cortex, FromId) when is_record(Cortex, cortex) ->
+    Cortex#cortex{inputs_ids = [FromId | Cortex#cortex.inputs_ids]}.
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%%
+%% @end
+%%--------------------------------------------------------------------
+%TODO: Correct specs
+remove_input_id(N, FromId) when is_record(N, neuron) ->
+    N#neuron{inputs_idps     = lists:keydelete(FromId, 1, N#neuron.inputs_idps),
+                   rcc_inputs_idps = lists:keydelete(FromId, 1, N#neuron.rcc_inputs_idps)};
+remove_input_id(Cortex, FromId) when is_record(Cortex, cortex) ->
+    Cortex#cortex{inputs_ids = lists:keydelete(FromId, 1, Cortex#cortex.inputs_ids)}.
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%%
+%% @end
+%%--------------------------------------------------------------------
+%TODO: Correct specs
+edit_input_id(N, FromId, W) when is_record(N, neuron) ->
+    N#neuron{inputs_idps     = lists:keyreplace(FromId, 1, N#neuron.inputs_idps, {FromId, W}),
+                   rcc_inputs_idps = lists:keyreplace(FromId, 1, N#neuron.rcc_inputs_idps, {FromId, W})}.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -413,9 +389,9 @@ clone_cortex(Cortex) ->
     {Cortex#cortex{
         id          = Clone_Id,
         layers      = map_layers(Cortex#cortex.layers, ConversionETS),
-        inputs_idps = map_inputs_idps(Cortex#cortex.inputs_idps, ConversionETS),
+        inputs_ids  = map_inputs_ids( Cortex#cortex.inputs_ids,  ConversionETS),
         outputs_ids = map_outputs_ids(Cortex#cortex.outputs_ids, ConversionETS)
-    }, ConversionETS}. % FIRST map the elements (over IdsNCloneIds) and build the new cortex
+    }, ConversionETS}. % FIRST map the elemenNts (over IdsNCloneIds) and build the new cortex
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -441,10 +417,10 @@ clone_neuron(Neuron, ConversionETS) ->
 -spec pformat(Element) -> Chars when 
       Element :: neuron() | cortex() | neuron:id() | cortex:id(),
       Chars :: io_lib:chars().
-pformat(Element) when is_record(Element, neuron) -> 
-    pformat(Element, record_info(fields, neuron));
-pformat(Element) when is_record(Element, cortex) -> 
-    pformat(Element, record_info(fields, cortex));
+pformat(Neuron) when is_record(Neuron, neuron) -> 
+    pformat(Neuron, record_info(fields, neuron));
+pformat(Cortex) when is_record(Cortex, cortex) -> 
+    pformat(Cortex, record_info(fields, cortex));
 pformat(Id) -> 
     pformat(edb:read(Id)).
 
@@ -472,7 +448,7 @@ map_neurons_ids(Neurons_Ids, ConversionETS) ->
     [map_neuron_id(Neuron_Id, ConversionETS) || Neuron_Id <- Neurons_Ids].
 
 map_neuron_id(Id, ConversionETS) ->
-    CloneId = ?NEW_NEURON_ID(layerIndex(Id)),
+    CloneId = ?NEW_NEURON_ID(coordinade(Id)),
     ets:insert(ConversionETS, {Id, CloneId}),
     CloneId.
 
@@ -512,7 +488,7 @@ no_cleanup(_) ->
 % ----------------------------------------------------------------------------------------------------------------------
 % ACTUAL TESTS ---------------------------------------------------------------------------------------------------------
 test_for_print_neuron(_) ->
-    Element = #neuron{bias = 0.0},
+    Neuron = #neuron{bias = 0.0},
     TestListToPrint = lists:append([
                                        "Element record: neuron \n",
                                        " --> id = undefined \n",
@@ -525,7 +501,7 @@ test_for_print_neuron(_) ->
                                        " --> rcc_outputs_ids = [] \n"
                                    ]),
     {inorder, [
-        ?_assertEqual(TestListToPrint, lists:flatten(pformat(Element)))
+        ?_assertEqual(TestListToPrint, lists:flatten(pformat(Neuron)))
     ]}.
 
 %%test_for_print_all(_) ->
