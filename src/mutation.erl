@@ -1,10 +1,8 @@
 %%%-------------------------------------------------------------------
 %%% @author borja
-%%% @copyright (C) 2018, <COMPANY>
 %%% @doc
 %%%
 %%% @end
-%%% Created : 16. Sep 2018 20:14
 %%%-------------------------------------------------------------------
 -module(mutation).
 -compile([export_all, nowarn_export_all]). %%TODO: To delete after build

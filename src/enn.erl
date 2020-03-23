@@ -1,6 +1,5 @@
 %%%-------------------------------------------------------------------
 %%% @author borja
-%%% @copyright (C) 2018, <COMPANY>
 %%% @doc
 %%% 
 %%% @TODO: Remove concept of layer. In the model might be correct but
@@ -8,7 +7,6 @@
 %%% recurrence and neurons call backs.
 %%%
 %%% @end
-%%% Created : 22. Sep 2018 18:46
 %%%-------------------------------------------------------------------
 -module(enn).
 -author("borja").
