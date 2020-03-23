@@ -18,16 +18,21 @@
 
 %% API
 %%-export([start_link/0]).
--export_type([id/0]).
+-export_type([id/0, property/0, properties/0]).
 
 %% gen_statem callbacks
--export([init/1, format_status/2, handle_event/4, terminate/3, code_change/4, callback_mode/0]).
+-export([init/1, format_status/2, handle_event/4, terminate/3, 
+         code_change/4, callback_mode/0]).
 -export([inactive/3, on_feedforward/3, on_backpropagation/3]).
 
 -type id() :: {Ref :: reference(), cortex}.
+-type property()   :: id | layers | outputs_ids | inputs_idps.
+-type properties() :: #{
+    OptionalProperty :: property() => Value :: term()
+}.
 
--record(input, {pid :: pid(), s :: float(), loss :: float(), lossB :: float(), acc = [] :: [float()]}).
--record(output, {pid :: pid(), s :: float(), error :: float()}).
+-record(output, {pid :: pid(), s :: float(), error    :: float()}).
+-record(input,  {pid :: pid(), s :: float(), acc = [] :: [float()]}).
 -record(state, {
     wait :: [term()],
     from :: gen_statem:from()
@@ -49,13 +54,13 @@
 %% the database and returns its cortex id.
 %% @end
 %%--------------------------------------------------------------------
--spec new(CompiledLayers, Options) -> id() when
+-spec new(CompiledLayers, Properties) -> id() when
     CompiledLayers :: #{integer() => layer:compiled()},
-    Options :: [{elements:cortex_field(), Value :: term()}].
-new(CompiledLayers, Options) ->
-    Cortex = elements:cortex(CompiledLayers, Options),
+    Properties     :: properties().
+new(CompiledLayers, Properties) ->
+    Cortex = elements:cortex(CompiledLayers, Properties),
     edb:write(Cortex), % Saved before mutations to avoid overwriting
-    [mutation:create_link(elements:id(Cortex), To) || To <- get_inputs(CompiledLayers)],
+    [mutation:create_link(  elements:id(Cortex), To) ||   To <- get_inputs( CompiledLayers)],
     [mutation:create_link(From, elements:id(Cortex)) || From <- get_outputs(CompiledLayers)],
     elements:id(Cortex).
 
@@ -368,7 +373,7 @@ handle_start_nn() ->
     Neurons = [{start_nn_element(NNSup_Pid, TId_IdPids, N_Id), edb:read(N_Id)} || N_Id <- elements:neurons(Cortex)],
     [Pid ! {continue_init, TId_IdPids} || {Pid, _} <- Neurons],
     put(neurons, maps:from_list(Neurons)),
-    put(inputs, [#input{pid = cortex:nn_id2pid(Id, TId_IdPids)} || {Id, _} <- elements:inputs_idps(Cortex)]),
+    put(inputs,  [ #input{pid = cortex:nn_id2pid(Id, TId_IdPids)} || Id <- elements:inputs_ids( Cortex)]),
     put(outputs, [#output{pid = cortex:nn_id2pid(Id, TId_IdPids)} || Id <- elements:outputs_ids(Cortex)]).
 
 start_nn_element(NNSup_Pid, TId_IdPids, Neuron_Id) ->
