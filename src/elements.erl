@@ -122,6 +122,8 @@ edit_neuron(Neuron, [{activation,      Value} | Options]) ->
     edit_neuron(Neuron#neuron{activation = Value}, Options);
 edit_neuron(Neuron, [{aggregation,     Value} | Options]) ->
     edit_neuron(Neuron#neuron{aggregation = Value}, Options);
+edit_neuron(Neuron, [{initializer,     Value} | Options]) ->
+    edit_neuron(Neuron#neuron{initializer = Value}, Options);
 edit_neuron(Neuron, [{outputs_ids,     Value} | Options]) ->
     edit_neuron(Neuron#neuron{outputs_ids = Value}, Options);
 edit_neuron(Neuron, [{inputs_idps,     Value} | Options]) ->
