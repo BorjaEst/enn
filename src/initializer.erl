@@ -16,16 +16,14 @@
 -export([apply/2]).
 -export_type([func/0, arguments/0]).
 
--type func() :: zeros | ones | constant | random | 
-                variance_scaling | orthogonal | lecun |
-                glorot | he.
+-type func() :: zeros | ones | constant | random | lecun | glorot |
+                he | variance_scaling.
 
 -define(ARG(Key, Arguments), maps:get(Key, Arguments)).
 -define(ARG(Key, Arg, Def),  maps:get(Key, Arg, Def)).
 -type arguments() :: #{
     fan_in       := integer(),
     fan_out      := integer(),
-    value        => Value :: float(),
     distribution => normal | uniform,
     mode         => fan_in | fan_out | fan_all | fan_avg,
     mean         => Mean   :: float(),
@@ -78,10 +76,10 @@ ones_test() ->
 % ....................................................................
 % TODO: Define specs and comments
 constant(Arg) -> 
-    ?ARG(value, Arg).
+    ?ARG(scale, Arg).
 
 constant_test() -> 
-    F = fun(V) -> {V, #{value => V}} end,
+    F = fun(V) -> {V, #{scale => V}} end,
     L = [F(rand:uniform(10)) || _ <- lists:seq(1, 9)],
     [?assertEqual(V, constant(Arg)) || {V, Arg} <- L].
 
