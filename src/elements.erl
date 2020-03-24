@@ -13,11 +13,13 @@
 %% API
 %%-export([]).
 -export_type([type/0, cortex/0, neuron/0]).
+-export_type([weight/0, link/0]).
 
 %%% Neuronal networks are composed mostly by 2 types:
 -type type()   :: cortex | neuron.
 -type id()     :: neuron:id() | cortex:id().
--type weight() :: float() | cortex | undef.
+-type weight() :: float() | undefined.
+-type link()   :: {From :: id(), To :: id()}.
 
 -define(NEW_CORTEX_ID, {make_ref(), cortex}).
 -record(cortex, {
@@ -34,10 +36,8 @@
     activation               :: activation:func(),
     aggregation              :: aggregation:func(),
     initializer              :: initializer:func(),
-    outputs_ids     = []     :: [ id()], % Direct outputs & inputs
-    inputs_idps     = []     :: [{id(), Weight :: weight()}],
-    rcc_outputs_ids = []     :: [ id()], % Recurrent outputs & inputs
-    rcc_inputs_idps = []     :: [{id(), Weight :: weight()}],
+    outputs_ids = []         :: [ id()  ], 
+    inputs_idps = []         :: [{id(), Weight :: weight()}],
     bias                     :: float()
 }).  
 -type neuron() :: #neuron{}.
@@ -126,10 +126,6 @@ edit_neuron(Neuron, [{outputs_ids,     Value} | Options]) ->
     edit_neuron(Neuron#neuron{outputs_ids = Value}, Options);
 edit_neuron(Neuron, [{inputs_idps,     Value} | Options]) ->
     edit_neuron(Neuron#neuron{inputs_idps = Value}, Options);
-edit_neuron(Neuron, [{rcc_outputs_ids, Value} | Options]) ->
-    edit_neuron(Neuron#neuron{rcc_outputs_ids = Value}, Options);
-edit_neuron(Neuron, [{rcc_inputs_idps, Value} | Options]) ->
-    edit_neuron(Neuron#neuron{rcc_inputs_idps = Value}, Options);
 edit_neuron(Neuron, [{bias,            Value} | Options]) ->
     edit_neuron(Neuron#neuron{bias = Value}, Options);
 edit_neuron(Neuron, []) -> 
@@ -187,201 +183,210 @@ links([]) ->
 
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns the number of neurons inside a network under the scope
+%% of the specified cortex.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: To make description and specs
+-spec size(Cortex :: cortex()) -> Size :: integer().
 size(Cortex) ->
-    lists:sum([length(Neurons) || Neurons <- maps:values(Cortex#cortex.layers)]).
+    Layers = maps:values(Cortex#cortex.layers),
+    Neurons_per_layer = [length(Neurons) || Neurons <- Layers],
+    lists:sum(Neurons_per_layer).
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns the element id.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
+-spec id(Element :: neuron() | cortex()) -> id().
 id(Neuron) when is_record(Neuron, neuron) ->
     Neuron#neuron.id;
 id(Cortex) when is_record(Cortex, cortex) ->
     Cortex#cortex.id.
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Retruns the coordinade form an element (or its id). The 
+%% coordinade of a cortex is 'cortex'. 
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
+-spec coordinade(Element :: id() | neuron() | cortex()) -> 
+    Coordinade :: float() | cortex.
 coordinade({{LI, _}, neuron}) -> LI;
 coordinade({_, cortex})       -> cortex;
 coordinade(Element)           -> coordinade(id(Element)).
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns the activation function of a neuron.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
+-spec activation(Neuron :: neuron()) -> 
+    Activation :: activation:func().
 activation(Neuron) ->
     Neuron#neuron.activation.
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns the activation fuction of a neuron.
 %% @end
 %%--------------------------------------------------------------------
+-spec aggregation(Neuron :: neuron()) -> 
+    Aggregation :: aggregation:func().
 aggregation(Neuron) -> 
     Neuron#neuron.aggregation.
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns a neuron bias.
 %% @end
 %%--------------------------------------------------------------------
+-spec bias(Neuron :: neuron()) -> 
+    Bias :: float().
 bias(Neuron) -> 
     Neuron#neuron.bias.
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns the output ids from an element. 
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
-outputs_ids(Neuron) when is_record(Neuron, neuron) ->
-    Neuron#neuron.outputs_ids;
-outputs_ids(Cortex) when is_record(Cortex, cortex) ->
-    Cortex#cortex.outputs_ids.
+-spec outputs_ids(Element :: neuron() | cortex()) -> 
+    Outputs_Ids :: [id()].
+outputs_ids(Element) -> 
+    outputs_ids(Element, all).
 
-rcc_outputs_ids(Neuron) when is_record(Neuron, neuron) ->
-    Neuron#neuron.rcc_outputs_ids;
-rcc_outputs_ids(Cortex) when is_record(Cortex, cortex) ->
+-spec outputs_ids(Element, Filter) -> Outputs_Ids when 
+    Element :: neuron() | cortex(),
+    Filter  :: all | dir | rcc,
+    Outputs_Ids :: [id()].
+outputs_ids(Neuron, all) when is_record(Neuron, neuron) ->
+    Neuron#neuron.outputs_ids;
+outputs_ids(Neuron, dir) when is_record(Neuron, neuron) ->
+    Filter = fun(X) -> is_dir_output(coordinade(Neuron), X) end,
+    lists:filter(Filter, Neuron#neuron.outputs_ids);
+outputs_ids(Neuron, rcc) when is_record(Neuron, neuron) ->
+    Filter = fun(X) -> not is_dir_output(coordinade(Neuron), X) end,
+    lists:filter(Filter, Neuron#neuron.outputs_ids);
+outputs_ids(Cortex, all) when is_record(Cortex, cortex) ->
+    Cortex#cortex.outputs_ids;
+outputs_ids(Cortex, dir) when is_record(Cortex, cortex) ->
+    outputs_ids(Cortex, all);
+outputs_ids(Cortex, rcc) when is_record(Cortex, cortex) ->
+    [].
+
+
+%%--------------------------------------------------------------------
+%% @doc Return the input ids from an element.
+%% @end
+%%--------------------------------------------------------------------
+-spec inputs_ids(Element :: neuron() | cortex()) -> 
+    Inputs_Ids :: [id()].
+inputs_ids(Element) -> 
+    inputs_ids(Element, all).
+
+-spec inputs_ids(Element, Filter) -> Inputs_Ids when 
+    Element :: neuron() | cortex(),
+    Filter  :: all | dir | rcc,
+    Inputs_Ids :: [id()].
+inputs_ids(Neuron, Filter) when is_record(Neuron, neuron) ->
+    [Id || {Id, _W} <- inputs_idps(Neuron, Filter)];
+inputs_ids(Cortex, all) when is_record(Cortex, cortex) ->
+    Cortex#cortex.inputs_ids;
+inputs_ids(Cortex, dir) when is_record(Cortex, cortex) ->
+    inputs_ids(Cortex, all);
+inputs_ids(Cortex, rcc) when is_record(Cortex, cortex) ->
     [].
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Returns the input ids and weights from a neuron.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
-inputs_ids(Neuron) when is_record(Neuron, neuron) ->
-    [Id || {Id, _W} <- inputs_idps(Neuron)];
-inputs_ids(Cortex) when is_record(Cortex, cortex) ->
-    Cortex#cortex.inputs_ids.
+-spec inputs_idps(Neuron :: neuron()) -> 
+    Inputs_Idps :: [id()].
+inputs_idps(Neuron) -> 
+    inputs_idps(Neuron, all).
 
-rcc_inputs_ids(Neuron) when is_record(Neuron, neuron) ->
-    [Id || {Id, _W} <- rcc_inputs_idps(Neuron)].
+-spec inputs_idps(Neuron, Filter) -> Inputs_Idps when 
+    Neuron  :: neuron(),
+    Filter  :: all | dir | rcc,
+    Inputs_Idps :: [id()].
+inputs_idps(Neuron, all) when is_record(Neuron, neuron) ->
+    Neuron#neuron.inputs_idps;
+inputs_idps(Neuron, dir) when is_record(Neuron, neuron) ->
+    Filter = fun(X) -> is_dir_input(coordinade(Neuron), X) end,
+    lists:filter(Filter, Neuron#neuron.inputs_idps);
+inputs_idps(Neuron, rcc) when is_record(Neuron, neuron) ->
+    Filter = fun(X) -> not is_dir_input(coordinade(Neuron), X) end,
+    lists:filter(Filter, Neuron#neuron.inputs_idps).
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Adds an Id as output of the element.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
-inputs_idps(Neuron) when is_record(Neuron, neuron) ->
-    Neuron#neuron.inputs_idps.
-
-rcc_inputs_idps(Neuron) when is_record(Neuron, neuron) ->
-    Neuron#neuron.rcc_inputs_idps.
+-spec add_output(Neuron :: neuron(), ToId :: id()) -> 
+    EditedNeuron :: neuron().
+add_output(Neuron, ToId) when is_record(Neuron, neuron) ->
+    Outputs_Ids = [ToId | Neuron#neuron.outputs_ids],
+    Neuron#neuron{outputs_ids = Outputs_Ids};
+add_output(Cortex, ToId) when is_record(Cortex, cortex) ->
+    Outputs_Ids = [ToId | Cortex#cortex.outputs_ids],
+    Cortex#cortex{outputs_ids = Outputs_Ids}.
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Removes an Id from an element outputs.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
-add_output_id(N, ToId) when is_record(N, neuron) ->
-    FromLI = coordinade(N),
-    ToLI = coordinade(ToId),
-    if
-        FromLI < ToLI ->
-            N#neuron{    outputs_ids = 
-                [ToId | N#neuron.outputs_ids]};
-        FromLI >= ToLI ->
-            N#neuron{rcc_outputs_ids = 
-                [ToId | N#neuron.rcc_outputs_ids]}
-
-    end;
-add_output_id(Cortex, ToId) when is_record(Cortex, cortex) ->
-    Cortex#cortex{outputs_ids = [ToId | Cortex#cortex.outputs_ids]}.
+-spec remove_output(Neuron :: neuron(), ToId :: id()) -> 
+    EditedNeuron :: neuron().
+remove_output(Neuron, ToId) when is_record(Neuron, neuron) ->
+    Outputs_Ids = lists:delete(ToId, Neuron#neuron.outputs_ids),
+    Neuron#neuron{outputs_ids = Outputs_Ids};
+remove_output(Cortex, ToId) when is_record(Cortex, cortex) ->
+    Outputs_Ids = lists:delete(ToId, Cortex#cortex.outputs_ids),
+    Cortex#cortex{outputs_ids = Outputs_Ids}.
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Adds an Id as input of the element.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
-remove_output_id(N, ToId) when is_record(N, neuron) ->
-    N#neuron{outputs_ids     = lists:delete(ToId, N#neuron.outputs_ids),
-                   rcc_outputs_ids = lists:delete(ToId, N#neuron.rcc_outputs_ids)};
-remove_output_id(Cortex, ToId) when is_record(Cortex, cortex) ->
-    Cortex#cortex{outputs_ids = lists:delete(ToId, Cortex#cortex.outputs_ids)}.
+-spec add_input(Neuron :: neuron(), FromId :: id()) -> 
+    EditedNeuron :: neuron().
+add_input(Neuron, FromId) when is_record(Neuron, neuron) ->
+   Inputs_IdPs = [{FromId, undefined}  | Neuron#neuron.inputs_idps],
+   Neuron#neuron{inputs_idps = Inputs_IdPs};
+add_input(Cortex, FromId) when is_record(Cortex, cortex) ->
+    Inputs_IdPs = [FromId | Cortex#cortex.inputs_ids],
+    Cortex#cortex{inputs_ids = Inputs_IdPs}.
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Removes an Id from an element inputs.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
-add_input_id(N, FromId) when is_record(N, neuron) ->
-    FromLI = coordinade(FromId),
-    ToLI = coordinade(N),
-    if
-        FromLI == cortex ->
-            N#neuron{     inputs_idps = 
-                [{FromId, cortex} | N#neuron.inputs_idps]};
-        FromLI < ToLI ->
-            N#neuron{     inputs_idps = 
-                [{FromId, undef}  | N#neuron.inputs_idps]};
-        FromLI >= ToLI ->
-            N#neuron{ rcc_inputs_idps = 
-                [{FromId, undef}  | N#neuron.rcc_inputs_idps]}
-    end;
-add_input_id(Cortex, FromId) when is_record(Cortex, cortex) ->
-    Cortex#cortex{inputs_ids = [FromId | Cortex#cortex.inputs_ids]}.
+-spec remove_input(Neuron :: neuron(), FromId :: id()) -> 
+    EditedNeuron :: neuron().
+remove_input(Neuron, FromId) when is_record(Neuron, neuron) ->
+    Inputs_IdPs = lists:keydelete(FromId, 1, Neuron#neuron.inputs_idps),
+    Neuron#neuron{inputs_idps = Inputs_IdPs};
+remove_input(Cortex, FromId) when is_record(Cortex, cortex) ->
+    Inputs_IdPs = lists:keydelete(FromId, 1, Cortex#cortex.inputs_ids),
+    Cortex#cortex{inputs_ids = Inputs_IdPs}.
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Edits the input weight of an input.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Correct specs
-remove_input_id(N, FromId) when is_record(N, neuron) ->
-    N#neuron{inputs_idps     = lists:keydelete(FromId, 1, N#neuron.inputs_idps),
-                   rcc_inputs_idps = lists:keydelete(FromId, 1, N#neuron.rcc_inputs_idps)};
-remove_input_id(Cortex, FromId) when is_record(Cortex, cortex) ->
-    Cortex#cortex{inputs_ids = lists:keydelete(FromId, 1, Cortex#cortex.inputs_ids)}.
+-spec edit_input(Neuron :: neuron(), FromId :: id(), W :: weight()) ->
+    EditedNeuron :: neuron().
+edit_input(Neuron, FromId, W) when is_record(Neuron, neuron) ->
+    Inputs_IdPs = lists:keyreplace(
+        FromId, 1, 
+        Neuron#neuron.inputs_idps, {FromId, W}),
+    Neuron#neuron{inputs_idps = Inputs_IdPs}.
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Clones a cortex and generates a map inside using an ETS table 
+%% for the a new id for each neuron and the original neuron id. Note
+%% it does not clone any neuron nor modifies the original cortex and
+%% neurons.
 %% @end
-%%--------------------------------------------------------------------
-%TODO: Correct specs
-edit_input_id(N, FromId, W) when is_record(N, neuron) ->
-    N#neuron{inputs_idps     = lists:keyreplace(FromId, 1, N#neuron.inputs_idps, {FromId, W}),
-                   rcc_inputs_idps = lists:keyreplace(FromId, 1, N#neuron.rcc_inputs_idps, {FromId, W})}.
-
-%%--------------------------------------------------------------------
-%% @doc
-%%
-%%
-%% @end
-%%--------------------------------------------------------------------
-%TODO: Make specs
+%--------------------------------------------------------------------
+-spec clone_cortex(Cortex :: cortex()) -> 
+    {Clone :: cortex(), ConversionETS :: ets:tid()}.
 clone_cortex(Cortex) ->
     Clone_Id = ?NEW_CORTEX_ID, % Preparation for the clonation
     ConversionETS = ets:new(idsNcloneids, [set, private]),
@@ -389,7 +394,7 @@ clone_cortex(Cortex) ->
     {Cortex#cortex{
         id          = Clone_Id,
         layers      = map_layers(Cortex#cortex.layers, ConversionETS),
-        inputs_ids  = map_inputs_ids( Cortex#cortex.inputs_ids,  ConversionETS),
+        inputs_ids  = map_inputs_ids(Cortex#cortex.inputs_ids,   ConversionETS),
         outputs_ids = map_outputs_ids(Cortex#cortex.outputs_ids, ConversionETS)
     }, ConversionETS}. % FIRST map the elemenNts (over IdsNCloneIds) and build the new cortex
 
@@ -404,9 +409,7 @@ clone_neuron(Neuron, ConversionETS) ->
     Neuron#neuron{
         id              = ets:lookup_element(ConversionETS, Neuron#neuron.id, 2),
         inputs_idps     = map_inputs_idps(Neuron#neuron.inputs_idps, ConversionETS),
-        outputs_ids     = map_outputs_ids(Neuron#neuron.outputs_ids, ConversionETS),
-        rcc_inputs_idps = map_inputs_idps(Neuron#neuron.rcc_inputs_idps, ConversionETS),
-        rcc_outputs_ids = map_outputs_ids(Neuron#neuron.rcc_outputs_ids, ConversionETS)
+        outputs_ids     = map_outputs_ids(Neuron#neuron.outputs_ids, ConversionETS)
     }.
 
 %%--------------------------------------------------------------------
@@ -439,6 +442,22 @@ pformat(_Element, [], _Index) ->
 %%====================================================================
 
 %.......................................................................................................................
+is_dir_output(Coordinade, ToId) -> 
+    case coordinade(ToId) of 
+        cortex                 -> true;
+        I when I >  Coordinade -> true;
+        I when I =< Coordinade -> false
+    end.
+
+%.......................................................................................................................
+is_dir_input(Coordinade, FromId) -> 
+    case coordinade(FromId) of 
+        cortex                 -> true;
+        I when I >= Coordinade -> false;
+        I when I <  Coordinade -> true 
+    end.
+
+%.......................................................................................................................
 map_layers(Layers, ConversionETS) ->
     LayersList = maps:to_list(Layers),
     NewLayerList = [{Layer, map_neurons_ids(Neurons_Ids, ConversionETS)} || {Layer, Neurons_Ids} <- LayersList],
@@ -453,12 +472,16 @@ map_neuron_id(Id, ConversionETS) ->
     CloneId.
 
 % ......................................................................................................................
-map_inputs_idps(Inputs_IdPs, ConversionETS) ->
-    [{ets:lookup_element(ConversionETS, I_Id, 2), W} || {I_Id, W} <- Inputs_IdPs].
-
-% ......................................................................................................................
 map_outputs_ids(Outputs_Ids, ConversionETS) ->
     [ets:lookup_element(ConversionETS, O_Id, 2) || O_Id <- Outputs_Ids].
+
+% ......................................................................................................................
+map_inputs_ids(Inputs_Ids, ConversionETS) ->
+    [ets:lookup_element(ConversionETS, I_Id, 2) || I_Id <- Inputs_Ids].
+
+% ......................................................................................................................
+map_inputs_idps(Inputs_IdPs, ConversionETS) ->
+    [{ets:lookup_element(ConversionETS, I_Id, 2), W} || {I_Id, W} <- Inputs_IdPs].
 
 
 %%====================================================================
