@@ -31,7 +31,7 @@ edit_link(FromElement_Id, {_, neuron} = ToNeuron_Id, NewWeight) ->
     ToInputs = elements:inputs_ids(ToNeuron) ++ elements:rcc_inputs_ids(ToNeuron),
     case lists:member(FromElement_Id, ToInputs) of
         true ->
-            edb:write(elements:edit_input_id(ToNeuron, FromElement_Id, NewWeight));
+            edb:write(elements:edit_input(ToNeuron, FromElement_Id, NewWeight));
         false ->
             exit({not_member, FromElement_Id, ToInputs})
     end.
