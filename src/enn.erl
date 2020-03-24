@@ -195,14 +195,14 @@ check_nn(Cortex_Id) ->
 %%% Internal functions
 %%%===================================================================
 
-% ......................................................................................................................
-check_links(Cortex, Neurons) ->
+% ....................................................................
+check_links(Cortex, Neurons) -> %TODO: Check using elements:link
     InL = lists:append(
         [[{In, elements:id(Cortex)} || In <- elements:inputs_ids(Cortex)] |
-         [[{In, neuron:id(N)} || In <- elements:inputs_ids(N) ++ elements:rcc_inputs_ids(N)] || N <- Neurons]]),
+         [[{In, neuron:id(N)} || In <- elements:inputs_ids(N)] || N <- Neurons]]),
     OutL = lists:append(
         [[{elements:id(Cortex), Out} || Out <- elements:outputs_ids(Cortex)] |
-         [[{neuron:id(N), Out} || Out <- elements:outputs_ids(N) ++ elements:rcc_outputs_ids(N)] || N <- Neurons]]),
+         [[{neuron:id(N), Out} || Out <- elements:outputs_ids(N)] || N <- Neurons]]),
     case InL -- OutL of
         [] -> ok;
         Diff ->
@@ -210,7 +210,7 @@ check_links(Cortex, Neurons) ->
             error(broken_nn)
     end.
 
-% ......................................................................................................................
+% ....................................................................
 check_inputs(Cortex, Neurons) ->
     is_broken_at_inputs(Cortex),
     case lists:any(fun is_broken_at_inputs/1, Neurons) of
@@ -221,7 +221,7 @@ check_inputs(Cortex, Neurons) ->
     end.
 
 is_broken_at_inputs(Element) ->
-    Inputs = elements:inputs_idps(Element) ++ elements:rcc_inputs_idps(Element),
+    Inputs = elements:inputs_idps(Element),
     case Inputs of
         [] ->
             ?LOG_ERROR("Broken NN ~p, empty neuron inputs", [elements:id(Element)]),
@@ -230,7 +230,7 @@ is_broken_at_inputs(Element) ->
             false
     end.
 
-% ......................................................................................................................
+% ....................................................................
 check_outputs(Cortex, Neurons) ->
     is_broken_at_outputs(Cortex),
     case lists:any(fun is_broken_at_outputs/1, Neurons) of
@@ -241,7 +241,7 @@ check_outputs(Cortex, Neurons) ->
     end.
 
 is_broken_at_outputs(Element) ->
-    Outputs = elements:outputs_ids(Element) ++ elements:rcc_outputs_ids(Element),
+    Outputs = elements:outputs_ids(Element),
     case Outputs of
         [] ->
             ?LOG_ERROR("Broken NN ~p, empty neuron outputs", [elements:id(Element)]),
