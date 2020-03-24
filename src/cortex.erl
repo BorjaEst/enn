@@ -60,8 +60,10 @@
 new(CompiledLayers, Properties) ->
     Cortex = elements:cortex(CompiledLayers, Properties),
     edb:write(Cortex), % Saved before mutations to avoid overwriting
-    [mutation:create_link(  elements:id(Cortex), To) ||   To <- get_inputs( CompiledLayers)],
-    [mutation:create_link(From, elements:id(Cortex)) || From <- get_outputs(CompiledLayers)],
+    [mutation:create_link(  elements:id(Cortex), To) 
+        ||   To <- get_inputs( CompiledLayers)],
+    [mutation:create_link(From, elements:id(Cortex)) 
+        || From <- get_outputs(CompiledLayers)],
     elements:id(Cortex).
 
 get_inputs(CompiledLayers) ->
@@ -348,7 +350,7 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-% ......................................................................................................................
+% ....................................................................
 trigger_forward(Outputs, ExtInputs) ->
     [forward(Output, ExtInput) || 
             {Output, ExtInput} <- lists:zip(Outputs, ExtInputs)].
@@ -357,7 +359,7 @@ forward(Output, Signal) ->
     Output#output.pid ! {self(), forward, Signal},
     Output#output{s = Signal}.
 
-% ......................................................................................................................
+% ....................................................................
 trigger_backward(Inputs, Optimals) -> 
     [backward(Input, Optm) || 
              {Input, Optm} <- lists:zip(Inputs, Optimals)].
@@ -367,14 +369,19 @@ backward(Input, Optm) ->
     Input#input.pid ! {self(), backward, Error},
     Input#input{acc = [Error | Input#input.acc]}.
 
-% ......................................................................................................................
+% ....................................................................
 handle_start_nn() ->
-    Cortex = edb:read(get(id)), NNSup_Pid = get(nn_sup), TId_IdPids = get(tid_idpids),
-    Neurons = [{start_nn_element(NNSup_Pid, TId_IdPids, N_Id), edb:read(N_Id)} || N_Id <- elements:neurons(Cortex)],
+    Cortex = edb:read(get(id)), 
+    NNSup_Pid = get(nn_sup), 
+    TId_IdPids = get(tid_idpids),
+    Neurons = [{start_nn_element(NNSup_Pid, TId_IdPids, N_Id), edb:read(N_Id)} 
+                  || N_Id <- elements:neurons(Cortex)],
     [Pid ! {continue_init, TId_IdPids} || {Pid, _} <- Neurons],
     put(neurons, maps:from_list(Neurons)),
-    put(inputs,  [ #input{pid = cortex:nn_id2pid(Id, TId_IdPids)} || Id <- elements:inputs_ids( Cortex)]),
-    put(outputs, [#output{pid = cortex:nn_id2pid(Id, TId_IdPids)} || Id <- elements:outputs_ids(Cortex)]).
+    put(inputs,  [ #input{pid = cortex:nn_id2pid(Id, TId_IdPids)} 
+        || Id <- elements:inputs_ids( Cortex)]),
+    put(outputs, [#output{pid = cortex:nn_id2pid(Id, TId_IdPids)} 
+        || Id <- elements:outputs_ids(Cortex)]).
 
 start_nn_element(NNSup_Pid, TId_IdPids, Neuron_Id) ->
     case nn_sup:start_neuron(NNSup_Pid, Neuron_Id) of
@@ -390,8 +397,8 @@ start_nn_element(NNSup_Pid, TId_IdPids, Neuron_Id) ->
 %% Eunit white box tests
 %%====================================================================
 
-% ----------------------------------------------------------------------------------------------------------------------
-% TESTS DESCRIPTIONS ---------------------------------------------------------------------------------------------------
+% --------------------------------------------------------------------
+% TESTS DESCRIPTIONS -------------------------------------------------
 cortex_white_test_() ->
     % {setup, Where, Setup, Cleanup, Tests | Instantiator}
     [
@@ -399,25 +406,23 @@ cortex_white_test_() ->
          {setup, local, fun no_setup/0, fun no_cleanup/1, fun example/1}}
     ].
 
-% ----------------------------------------------------------------------------------------------------------------------
-% SPECIFIC SETUP FUNCTIONS ---------------------------------------------------------------------------------------------
+% --------------------------------------------------------------------
+% SPECIFIC SETUP FUNCTIONS -------------------------------------------
 no_setup() ->
     ok.
 
 no_cleanup(_) ->
     ok.
 
-% ----------------------------------------------------------------------------------------------------------------------
-% ACTUAL TESTS ---------------------------------------------------------------------------------------------------------
+% --------------------------------------------------------------------
+% ACTUAL TESTS -------------------------------------------------------
 example(_) ->
     [
         ?_assert(true)
     ].
 
-% ----------------------------------------------------------------------------------------------------------------------
-% SPECIFIC HELPER FUNCTIONS --------------------------------------------------------------------------------------------
-
-
+% --------------------------------------------------------------------
+% SPECIFIC HELPER FUNCTIONS -----------------------------------------
 
 
 
