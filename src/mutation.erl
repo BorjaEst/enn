@@ -172,7 +172,7 @@ link_only_From(From, To) ->
     ToId = elements:id(To),
     case lists:member(ToId, elements:outputs_ids(From) ++ elements:rcc_outputs_ids(From)) of
         false ->
-            _U_From = elements:add_output_id(From, ToId);
+            _U_From = elements:add_output(From, ToId);
         true ->
             FromId = elements:id(From),
             Error_Text = io_lib:format("[can not add O_Id]: ~w already a member of ~w outputs", [ToId, FromId]),
@@ -184,7 +184,7 @@ link_only_To(From, To) ->
     FromId = elements:id(From),
     case lists:member(FromId, elements:inputs_ids(To) ++ elements:rcc_inputs_ids(To)) of
         false ->
-            _U_To = elements:add_input_id(To, FromId);
+            _U_To = elements:add_input(To, FromId);
         true ->
             ToId = elements:id(To),
             Error_Text = io_lib:format("[can not add I_Id]: ~w already a member of ~w inputs", [FromId, ToId]),
@@ -196,7 +196,7 @@ unlink_only_From(From, To) ->
     ToId = elements:id(To),
     case lists:member(ToId, elements:outputs_ids(From) ++ elements:rcc_outputs_ids(From)) of
         true ->
-            _U_From = elements:remove_output_id(From, ToId);
+            _U_From = elements:remove_output(From, ToId);
         false ->
             FromId = elements:id(From),
             Error_Text = io_lib:format("[can not remove O_Id]: ~w not a member of ~w outputs", [ToId, FromId]),
@@ -208,7 +208,7 @@ unlink_only_To(From, To) ->
     FromId = elements:id(From),
     case lists:member(FromId, elements:inputs_ids(To) ++ elements:rcc_inputs_ids(To)) of
         true ->
-            _U_To = elements:remove_input_id(To, FromId);
+            _U_To = elements:remove_input(To, FromId);
         false ->
             ToId = elements:id(To),
             Error_Text = io_lib:format("[can not remove I_Id]: ~w not a member of ~w intputs", [FromId, ToId]),
