@@ -110,12 +110,16 @@ init(Neuron_Id, Parent) ->
         aggrf   = elements:aggregation(Neuron),
         bias    = elements:bias(Neuron),
         inputs  = maps:from_list(
-            [{cortex:nn_id2pid(Id, TId), #input{id = Id, w = W, r = false}} || {Id, W} <- elements:inputs_idps(Neuron)] ++
-            [{cortex:nn_id2pid(Id, TId), #input{id = Id, w = W, r = true}} || {Id, W} <- elements:rcc_inputs_idps(Neuron)]
+            [{cortex:nn_id2pid(Id, TId), #input{id = Id, w = W, r = false}} 
+                || {Id, W} <- elements:inputs_idps(Neuron, dir)] ++
+            [{cortex:nn_id2pid(Id, TId), #input{id = Id, w = W, r = true}} 
+                || {Id, W} <- elements:inputs_idps(Neuron, rcc)]
         ),
         outputs = maps:from_list(
-            [{cortex:nn_id2pid(Id, TId), #output{id = Id, r = false}} || Id <- elements:outputs_ids(Neuron)] ++
-            [{cortex:nn_id2pid(Id, TId), #output{id = Id, r = true}} || Id <- elements:rcc_outputs_ids(Neuron)]
+            [{cortex:nn_id2pid(Id, TId), #output{id = Id, r = false}} 
+                || Id <- elements:outputs_ids(Neuron, dir)] ++
+            [{cortex:nn_id2pid(Id, TId), #output{id = Id, r = true}}  
+                || Id <- elements:outputs_ids(Neuron, rcc)]
         ),
         error   = 0.0
     }).
@@ -185,19 +189,15 @@ backward_error(State) ->
 terminate(State, Reason) ->
     % TODO: When saving the new state, those links with weights ~= 0, must be deleted (both neurons)
     % TODO: If the neuron has not at least 1 input or 1 output, it must be deleted (and bias forwarded)
-    Neuron = elements:edit(
-        elements:neuron(),
-        [
-            {id, State#state.id},
-            {af, State#state.af},
-            {aggrf, State#state.aggrf},
-            {bias, State#state.bias},
-            {inputs_idps, [{I#input.id, I#input.w} || {_, #input{r = false} = I} <- maps:to_list(State#state.inputs)]},
-            {outputs_ids, [O#output.id || {_, #output{r = false} = O} <- maps:to_list(State#state.outputs)]},
-            {rcc_inputs_idps, [{I#input.id, I#input.w} || {_, #input{r = true} = I} <- maps:to_list(State#state.inputs)]},
-            {rcc_outputs_ids, [O#output.id || {_, #output{r = true} = O} <- maps:to_list(State#state.outputs)]}
-        ]),
-    edb:write(Neuron),
+    Neuron = edb:read(State#state.id),
+    edb:write(elements:edit(Neuron,
+        #{
+            inputs_idps => [{I#input.id, I#input.w} 
+                || {_, I} <- maps:to_list(State#state.inputs)],
+            outputs_ids => [O#output.id             
+                || {_, O} <- maps:to_list(State#state.outputs)],
+            bias        => State#state.bias
+        })),
     exit(Reason).
 
 
@@ -210,8 +210,8 @@ check_neuron(Neuron) ->
     try
         true = elements:is_neuron(Neuron),
         % ?assert(elements:is_neuron(Neuron))
-        false = [] == elements:inputs_idps(Neuron) ++ elements:rcc_inputs_idps(Neuron),
-        false = [] == elements:outputs_ids(Neuron) ++ elements:rcc_outputs_ids(Neuron)
+        false = [] == elements:inputs_idps(Neuron),
+        false = [] == elements:outputs_ids(Neuron)
     catch
         error:{badmatch, _} ->
             ?LOG_NOTICE("broken network on neuron: ~p", [Neuron]),
