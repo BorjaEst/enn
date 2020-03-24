@@ -251,11 +251,7 @@ d_tensor_in(ThisTensor_In, none) ->
 d_tensor_in(ThisTensor_In, Iterator) ->
     {Pid, {W1, V1}, Next_Iterator} = maps:next(Iterator),
     #{Pid := {W2, V2}} = ThisTensor_In,
-    DiffW = case {W2, W1} of
-                {cortex, cortex} -> cortex;
-                _ -> W2 - W1
-            end,
-    d_tensor_in(ThisTensor_In#{Pid := {DiffW, V2 - V1}}, Next_Iterator).
+    d_tensor_in(ThisTensor_In#{Pid := {W2 - W1, V2 - V1}}, Next_Iterator).
 
 % ......................................................................................................................
 forward(Outputs, Signal) ->
@@ -269,9 +265,6 @@ forward(Output_Pid, _Void, Signal) ->
 backward(Inputs, B) ->
     [backward(Pid, Input#input.w, B) || {Pid, Input} <- maps:to_list(Inputs)].
 
-backward(Input_Pid, cortex, B) ->
-    Input_Pid ! {self(), backward, BP_Error = B},
-    {Input_Pid, BP_Error};
 backward(Input_Pid, Weight, B) ->
     Input_Pid ! {self(), backward, BP_Error = Weight * B},
     {Input_Pid, BP_Error}.
@@ -281,14 +274,10 @@ adjust_weights(TensorIn, OldTensor_In, Inputs, B) ->
     do_adjust_weights(maps:to_list(TensorIn), OldTensor_In, Inputs, B).
 
 do_adjust_weights([{Pid, {_, Signal}} | Signals_Acc], OldTensor_In, Inputs, B) ->
-    case maps:get(Pid, Inputs) of
-        #input{w = cortex} = _Input ->
-            do_adjust_weights(Signals_Acc, OldTensor_In, Inputs, B);
-        #input{w = W} = Input ->
-            #{Pid := {D_W, _D_S}} = OldTensor_In,
-            New_W = sat(W + (?LEARNING_FACTOR * B * Signal) + (?MOMENTUM_FACTOR * D_W), -?SAT_LIMIT, ?SAT_LIMIT),
-            do_adjust_weights(Signals_Acc, OldTensor_In, Inputs#{Pid := Input#input{w = New_W}}, B)
-    end;
+    #input{w = W} = Input = maps:get(Pid, Inputs),
+    #{Pid := {D_W, _D_S}} = OldTensor_In,
+    New_W = sat(W + (?LEARNING_FACTOR * B * Signal) + (?MOMENTUM_FACTOR * D_W), -?SAT_LIMIT, ?SAT_LIMIT),
+    do_adjust_weights(Signals_Acc, OldTensor_In, Inputs#{Pid := Input#input{w = New_W}}, B);
 do_adjust_weights([], _OldTensor_In, Inputs, _B) ->
     Inputs.
 
