@@ -515,13 +515,12 @@ test_for_print_neuron(_) ->
     TestListToPrint = lists:append([
                                        "Element record: neuron \n",
                                        " --> id = undefined \n",
-                                       " --> af = undefined \n",
-                                       " --> aggrf = undefined \n",
-                                       " --> bias = 0.0 \n",
-                                       " --> inputs_idps = [] \n",
+                                       " --> activation  = undefined \n",
+                                       " --> aggregation = undefined \n",
+                                       " --> initializer = undefined \n",
                                        " --> outputs_ids = [] \n",
-                                       " --> rcc_inputs_idps = [] \n",
-                                       " --> rcc_outputs_ids = [] \n"
+                                       " --> inputs_idps = [] \n",
+                                       " --> bias = 0.0 \n"
                                    ]),
     {inorder, [
         ?_assertEqual(TestListToPrint, lists:flatten(pformat(Neuron)))

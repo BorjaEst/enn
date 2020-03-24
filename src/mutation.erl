@@ -28,7 +28,7 @@
 % TODO: Define specs
 edit_link(FromElement_Id, {_, neuron} = ToNeuron_Id, NewWeight) ->
     ToNeuron = edb:read(ToNeuron_Id),
-    ToInputs = elements:inputs_ids(ToNeuron) ++ elements:rcc_inputs_ids(ToNeuron),
+    ToInputs = elements:inputs_ids(ToNeuron),
     case lists:member(FromElement_Id, ToInputs) of
         true ->
             edb:write(elements:edit_input(ToNeuron, FromElement_Id, NewWeight));
@@ -150,8 +150,8 @@ remove_neuron({{Layer, _}, neuron} = Neuron_Id, Cortex_Id) ->
     Cortex = edb:read(Cortex_Id),
     Neurons_Ids = maps:get(Layer, elements:layers(Cortex)),
     Neuron = edb:read(Neuron_Id),
-    [remove_link(E_Id, Neuron_Id) || E_Id <- elements:inputs_ids(Neuron) ++ elements:rcc_inputs_ids(Neuron)],
-    [remove_link(Neuron_Id, E_Id) || E_Id <- elements:outputs_ids(Neuron) ++ elements:rcc_outputs_ids(Neuron)],
+    [remove_link(E_Id, Neuron_Id) || E_Id <- elements:inputs_ids(Neuron)],
+    [remove_link(Neuron_Id, E_Id) || E_Id <- elements:outputs_ids(Neuron)],
     NewCortex = case lists:delete(Neuron_Id, Neurons_Ids) of
         [] ->
             NewLayer = maps:remove(Layer, elements:layers(Cortex)),
@@ -170,7 +170,7 @@ remove_neuron({{Layer, _}, neuron} = Neuron_Id, Cortex_Id) ->
 %.......................................................................................................................
 link_only_From(From, To) ->
     ToId = elements:id(To),
-    case lists:member(ToId, elements:outputs_ids(From) ++ elements:rcc_outputs_ids(From)) of
+    case lists:member(ToId, elements:outputs_ids(From)) of
         false ->
             _U_From = elements:add_output(From, ToId);
         true ->
@@ -182,7 +182,7 @@ link_only_From(From, To) ->
 %.......................................................................................................................
 link_only_To(From, To) ->
     FromId = elements:id(From),
-    case lists:member(FromId, elements:inputs_ids(To) ++ elements:rcc_inputs_ids(To)) of
+    case lists:member(FromId, elements:inputs_ids(To)) of
         false ->
             _U_To = elements:add_input(To, FromId);
         true ->
@@ -194,7 +194,7 @@ link_only_To(From, To) ->
 %.......................................................................................................................
 unlink_only_From(From, To) ->
     ToId = elements:id(To),
-    case lists:member(ToId, elements:outputs_ids(From) ++ elements:rcc_outputs_ids(From)) of
+    case lists:member(ToId, elements:outputs_ids(From)) of
         true ->
             _U_From = elements:remove_output(From, ToId);
         false ->
@@ -206,7 +206,7 @@ unlink_only_From(From, To) ->
 %.......................................................................................................................
 unlink_only_To(From, To) ->
     FromId = elements:id(From),
-    case lists:member(FromId, elements:inputs_ids(To) ++ elements:rcc_inputs_ids(To)) of
+    case lists:member(FromId, elements:inputs_ids(To)) of
         true ->
             _U_To = elements:remove_input(To, FromId);
         false ->
