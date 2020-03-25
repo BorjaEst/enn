@@ -160,7 +160,6 @@ init([]) ->
     {ok, inactive, #state{},
      [{next_event, internal, start_nn}]}.
 
-
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -215,7 +214,7 @@ format_status(_Opt, [_PDict, _StateName, _State]) ->
 %%--------------------------------------------------------------------
 %% @doc inactive: The cortex is idle waiting to start a feedforward or 
 %% backpropagation wave.  
-%% @end
+%%
 %%--------------------------------------------------------------------
 inactive({call, From}, {feedforward, ExtInputs}, State) ->
     UpdatedOutputs = trigger_forward(get(outputs), ExtInputs),
@@ -245,6 +244,7 @@ inactive(EventType, EventContent, State) ->
 %% @doc on_feedforward: The cortex is collecting the results of and
 %% signals of the forward wave. When all neurons have propagated their
 %% values, the cortex returns the predictions to the requester.
+%%
 %%--------------------------------------------------------------------
 on_feedforward(info, {Pid, forward, Signal}, State) ->
     Input = lists:keyfind(Pid, #input.pid, get(inputs)),
@@ -265,6 +265,7 @@ on_feedforward(EventType, EventContent, State) ->
 %% and signals of the backward wave. When all neurons have propagated 
 %% the values, the cortex returns the last correction values from the
 %% inputs to the requester.
+%%
 %%--------------------------------------------------------------------
 on_backpropagation(info, {Pid, backward, BP_Err}, State) ->
     Output = lists:keyfind(Pid, #output.pid, get(outputs)),
@@ -283,14 +284,18 @@ on_backpropagation(EventType, EventContent, State) ->
 %%--------------------------------------------------------------------
 %% @doc This function hanldes all the common events and raises an 
 %% exception if the event/call is unknown.
+%%
 %%--------------------------------------------------------------------
 handle_common(enter, _OldState, State) ->
     {keep_state, State};
 handle_common(internal, _EventContent, State) ->
     {keep_state, State};
+
 handle_common(EventType, EventContent, _State) ->
     error({"Unknown event", EventType, EventContent}).
-
+%%--------------------------------------------------------------------
+%% @end
+%%-------------------------------------------------------------------
 
 %%--------------------------------------------------------------------
 %% @private
