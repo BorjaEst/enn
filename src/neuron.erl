@@ -100,8 +100,8 @@ start_link(Id, Cortex) ->
 %%--------------------------------------------------------------------
 init(Id, Cortex, Supervisor) ->
     Neuron = edb:read(Id),
-    [_] = elements:inputs_idps(Neuron),
-    [_] = elements:outputs_ids(Neuron),
+    [_|_] = elements:inputs_idps(Neuron),
+    [_|_] = elements:outputs_ids(Neuron),
     process_flag(trap_exit, true),           % Catch supervisor exits
     proc_lib:init_ack(Supervisor, {ok, self()}),   % Supervisor synch
     receive {continue_init, TId} -> put(tid, TId) end, % Resume synch
