@@ -18,7 +18,7 @@
 %%% Neuronal networks are composed mostly by 2 types:
 -type type()   :: cortex | neuron.
 -type id()     :: neuron:id() | cortex:id().
--type weight() :: float() | undefined.
+-type weight() :: float() | uninitialized.
 -type link()   :: {From :: id(), To :: id()}.
 
 -define(NEW_CORTEX_ID, {make_ref(), cortex}).
@@ -183,7 +183,6 @@ links([Neuron | Neurons]) ->
 links([]) ->
     [].
 
-
 %%--------------------------------------------------------------------
 %% @doc Returns the number of neurons inside a network under the scope
 %% of the specified cortex.
@@ -271,6 +270,20 @@ outputs_ids(Cortex, dir) when is_record(Cortex, cortex) ->
 outputs_ids(Cortex, rcc) when is_record(Cortex, cortex) ->
     [].
 
+%%--------------------------------------------------------------------
+%% @doc Returns true if the output comes from a higher coordinade. 
+%% Note that cortex is considered always in the highest layer for 
+%% outputs. 
+%% @end
+%%--------------------------------------------------------------------
+-spec is_dir_output(Coordinade :: float(), ToId :: id()) -> 
+    boolean().
+is_dir_output(Coordinade, ToId) -> 
+    case coordinade(ToId) of 
+        cortex                 -> true;
+        I when I >  Coordinade -> true;
+        I when I =< Coordinade -> false
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc Return the input ids from an element.
@@ -317,6 +330,20 @@ inputs_idps(Neuron, rcc) when is_record(Neuron, neuron) ->
     lists:filter(Filter, Neuron#neuron.inputs_idps).
 
 %%--------------------------------------------------------------------
+%% @doc Returns true if the input comes from a lower coordinade. Note
+%% that cortex is considered always in the lowest layer for inputs. 
+%% @end
+%%--------------------------------------------------------------------
+-spec is_dir_input(Coordinade :: float(), ToId :: id()) -> 
+    boolean().
+is_dir_input(Coordinade, FromId) -> 
+    case coordinade(FromId) of 
+        cortex                 -> true;
+        I when I >= Coordinade -> false;
+        I when I <  Coordinade -> true 
+    end.
+
+%%--------------------------------------------------------------------
 %% @doc Adds an Id as output of the element.
 %% @end
 %%--------------------------------------------------------------------
@@ -349,7 +376,7 @@ remove_output(Cortex, ToId) when is_record(Cortex, cortex) ->
 -spec add_input(Neuron :: neuron(), FromId :: id()) -> 
     EditedNeuron :: neuron().
 add_input(Neuron, FromId) when is_record(Neuron, neuron) ->
-   Inputs_IdPs = [{FromId, undefined}  | Neuron#neuron.inputs_idps],
+   Inputs_IdPs = [{FromId,uninitialized} | Neuron#neuron.inputs_idps],
    Neuron#neuron{inputs_idps = Inputs_IdPs};
 add_input(Cortex, FromId) when is_record(Cortex, cortex) ->
     Inputs_IdPs = [FromId | Cortex#cortex.inputs_ids],
@@ -401,12 +428,11 @@ clone_cortex(Cortex) ->
     }, ConversionETS}. % FIRST map the elemenNts (over IdsNCloneIds) and build the new cortex
 
 %%--------------------------------------------------------------------
-%% @doc
-%%
-%%
+%% @doc Clones a neuron.
 %% @end
 %%--------------------------------------------------------------------
-%TODO: Make specs
+-spec clone_neuron(Neuron :: neuron(), ConversionETS :: ets:tid()) -> 
+    Clone :: neuron().
 clone_neuron(Neuron, ConversionETS) ->
     Neuron#neuron{
         id              = ets:lookup_element(ConversionETS, Neuron#neuron.id, 2),
@@ -442,22 +468,6 @@ pformat(_Element, [], _Index) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
-
-%.......................................................................................................................
-is_dir_output(Coordinade, ToId) -> 
-    case coordinade(ToId) of 
-        cortex                 -> true;
-        I when I >  Coordinade -> true;
-        I when I =< Coordinade -> false
-    end.
-
-%.......................................................................................................................
-is_dir_input(Coordinade, FromId) -> 
-    case coordinade(FromId) of 
-        cortex                 -> true;
-        I when I >= Coordinade -> false;
-        I when I <  Coordinade -> true 
-    end.
 
 %.......................................................................................................................
 map_layers(Layers, ConversionETS) ->
