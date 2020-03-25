@@ -23,38 +23,34 @@
 %%-export([]).
 -export_type([id/0, property/0, properties/0]).
 
--type id() :: {{Coordinate :: float(), Unique_Id :: reference()}, 
-                neuron}.
+-type id()         :: {{Coordinate :: float(), reference()}, neuron}.
 -type property()   :: id | activation | aggregation | initializer.
 -type properties() :: #{
     OptionalProperty :: property() => Value :: term()
 }.
 
--record(input,  {id :: id(),    r       :: boolean(), 
-                 w  :: float(), s = 0.0 :: float()}).
--record(output, {id :: id(),    r       :: boolean(), 
-                                e = 0.0 :: float()}).
--record(tensor, {bias :: float(), soma :: float(), signal :: float(),
-                 in   :: #{pid() => {W :: float(), S :: float()}}}).
--record(state, {
-    id            :: id(),
-    af            :: activation:func(),
-    aggrf         :: aggregation:func(),
-    bias          :: float(), % Last bias value
-    tensor        :: #tensor{},
-    inputs        :: #{Pid :: id() => #input{}},
-    outputs       :: #{Pid :: id() => #output{}},
-    forward_wait  :: [pid()],
-    backward_wait :: [pid()],
-    error         :: float()
+-define(PID(Id), cortex:nn_id2pid(Id, get(tid))).
+-record(input,  {
+    id      :: id(),        % Neuron id (input)
+    r       :: boolean(),   % Is_recurrent
+    w       :: float(),     % Weight
+    m       :: float(),     % Momentum
+    s = 0.0 :: float()      % Signal value (Xi)
+}).
+-record(output, {
+    id      :: id(),        % Neuron id (output)
+    r       :: boolean(),   % Is_recurrent
+    e = 0.0 :: float()      % Output error (Ei)
 }).
 
-% -define(LEARNING_FACTOR, rand:uniform(10)/20).
-% -define(MOMENTUM_FACTOR, rand:uniform(10)/100)
+-record(state, {
+    forward_wait  :: [pid()],
+    backward_wait :: [pid()]
+}).
+
 -define(LEARNING_FACTOR, 0.01).  
 -define(MOMENTUM_FACTOR, 0.00).
--define(SAT_LIMIT, 3.0 * ?PI).
--define(R2(Val), round(Val * 100.0) / 100.0).
+-define(INITIAL_ERROR, 0.0).
 
 
 -ifdef(debug_mode).
@@ -89,212 +85,276 @@ new(Coordinade, Properties) ->
 %%--------------------------------------------------------------------
 -spec start_link(Neuron_Id :: id()) -> gen_statem:start_ret().
 start_link(Neuron_Id) ->
-    proc_lib:start_link(?MODULE, init, [Neuron_Id, self()]).
+    proc_lib:start_link(?MODULE, init, [Neuron_Id, Cortex, self()]).
 
 
 %%%===================================================================
 %%% neuron callbacks
 %%%===================================================================
 
-% ....................................................................
-%TODO: To add specs and description
-init(Neuron_Id, Parent) ->
+%%--------------------------------------------------------------------
+%% @doc The neuron initialization.  
+%% @end
+%%--------------------------------------------------------------------
+init(Neuron_Id, Cortex, Supervisor) ->
     Neuron = edb:read(Neuron_Id),
-    check_neuron(Neuron),
+    [_] = elements:inputs_idps(Neuron),
+    [_] = elements:outputs_ids(Neuron),
     process_flag(trap_exit, true),           % Catch supervisor exits
-    proc_lib:init_ack(Parent, {ok, self()}),       % Supervisor synch
-    TId = receive {continue_init, Reply} -> Reply end, % Cortex synch
-    init2(#state{
-        id      = elements:id(Neuron),
-        af      = elements:activation(Neuron),
-        aggrf   = elements:aggregation(Neuron),
-        bias    = elements:bias(Neuron),
-        inputs  = maps:from_list(
-            [{cortex:nn_id2pid(Id, TId), #input{id = Id, w = W, r = false}} 
-                || {Id, W} <- elements:inputs_idps(Neuron, dir)] ++
-            [{cortex:nn_id2pid(Id, TId), #input{id = Id, w = W, r = true}} 
-                || {Id, W} <- elements:inputs_idps(Neuron, rcc)]
-        ),
-        outputs = maps:from_list(
-            [{cortex:nn_id2pid(Id, TId), #output{id = Id, r = false}} 
-                || Id <- elements:outputs_ids(Neuron, dir)] ++
-            [{cortex:nn_id2pid(Id, TId), #output{id = Id, r = true}}  
-                || Id <- elements:outputs_ids(Neuron, rcc)]
-        ),
-        error   = 0.0
+    proc_lib:init_ack(Supervisor, {ok, self()}),   % Supervisor synch
+    receive {continue_init, TId} -> put(tid, TId) end, % Resume synch
+    put(cortex,      Cortex),
+    put(id,          elements:id(Neuron)),
+    put(activation,  elements:activation(Neuron)),
+    put(aggregation, elements:aggregation(Neuron)),
+    put(initializer, elements:initializer(Neuron)),
+    put(bias,        elements:bias(Neuron)),
+    put(outputs,     init_outputs(Neuron)),
+    put(inputs,      init_inputs(Neuron)),
+    put(error,       ?INITIAL_ERROR),
+    calculate_tensor(),
+    calculate_soma(), 
+    calculate_signal(),
+    calculate_beta(),
+    propagate_recurrent(), 
+    loop(internal, #state{
+        forward_wait  = [Pid || Pid <- maps:keys(get(inputs ))],
+        backward_wait = [Pid || Pid <- maps:keys(get(outputs))]
     }).
 
-init2(State) ->
-    Tensor = tensor(State), put(tensor, Tensor),
-    B = activation:beta(State#state.af, State#state.error, Tensor#tensor.soma),
-    forward(maps:filter(fun is_recurrent/2, State#state.outputs), Tensor#tensor.signal), %Recurrence init
-    backward(maps:filter(fun is_recurrent/2, State#state.inputs), B), %Recurrence init
-    loop(State#state{
-        tensor        = Tensor,
-        forward_wait  = [Pid || Pid <- maps:keys(State#state.inputs)],
-        backward_wait = [Pid || Pid <- maps:keys(State#state.outputs)]
-    }).
+%%--------------------------------------------------------------------
+%% @doc The neuron loop. It collects all the signals until fowrward or
+%% backward is completed. Then starts a forwad or back propagation.  
+%%
+%%--------------------------------------------------------------------
+% Receives a forward signal so updates its value in inputs
+loop({N,forward,S},  #state{forward_wait  = [N|Nx]} = State) ->
+    #{N := Input} = Inputs = get(inputs),
+    put(inputs, Inputs#{N := Input#input{s = S}}),
+    loop(internal, State#state{forward_wait  = Nx});
+% Receives a backward signal so updates its error in outputs
+loop({N,backward,E}, #state{backward_wait = [N|Nx]} = State) -> 
+    #{N := Output} = Outputs = get(outputs),
+    put(outputs, Outputs#{N := Output#output{e = E}}),
+    loop(internal, State#state{backward_wait = Nx});
 
-% ......................................................................................................................
-%TODO: To add specs and description
-loop(#state{forward_wait = []} = State) ->
-    loop(forward_signal(State));
-loop(#state{backward_wait = []} = State) ->
-    loop(backward_error(State));
-loop(#state{forward_wait = [NextF | RForwardWait], backward_wait = [NextB | RBackwardWait]} = State) ->
-    receive
-        {NextF, forward, Signal} ->
-            #{NextF := Input} = Inputs = State#state.inputs,
-            loop(State#state{
-                forward_wait = RForwardWait,
-                inputs       = Inputs#{NextF := Input#input{s = Signal}}
-            });
-        {NextB, backward, BP_Error} ->
-            #{NextB := Output} = Outputs = State#state.outputs,
-            loop(State#state{
-                backward_wait = RBackwardWait,
-                outputs       = Outputs#{NextB := Output#output{e = BP_Error}},
-                error         = State#state.error + BP_Error
-            });
-        {'EXIT', _Pid, Reason} ->
-            terminate(State, Reason)
+% If all forward signals have been received, state change to forward
+loop(internal, #state{forward_wait = []} = State) -> 
+    forward_prop(internal, State);
+% If all backward signals have been received, state change to backward
+loop(internal, #state{backward_wait = []} = State) ->
+    backward_prop(internal, State);
+% If there are signals in any waiting buffer collects the next signal
+loop(internal,                              State) -> 
+    receive_next(internal, State);
+
+% If receives an 'exit' signal, state change to terminate
+loop({'EXIT', _Pid, Reason}, State) -> 
+    terminate(Reason, State).
+%%--------------------------------------------------------------------
+%% @doc Forwards the signal to the connected neurons. 
+%%
+%%--------------------------------------------------------------------
+forward_prop(internal, State) -> 
+    calculate_tensor(),
+    calculate_soma(),
+    calculate_signal(),
+    [forward(Output) || Output <- maps:to_list(get(outputs))],
+    loop(internal, State#state{
+        forward_wait = [Pid || Pid <- maps:keys(get(inputs))]
+    }).
+%%--------------------------------------------------------------------
+%% @doc Backwards the errror to the connected inputs.
+%% 
+%%--------------------------------------------------------------------
+backward_prop(internal, State) ->
+    calculate_beta(),
+    calculate_weights(),
+    calculate_bias(),
+    [backward(Input) || Input <- maps:to_list(get(inputs))],
+   loop(internal, State#state{
+        backward_wait = [Pid || Pid <- maps:keys(get(outputs))]
+    }).
+%%--------------------------------------------------------------------
+%% @doc Receives the next messages and sends it to loop. 
+%%
+%%--------------------------------------------------------------------
+receive_next(internal, State) ->
+    receive Message        -> loop(Message, State)
     after ?STDIDLE_TIMEOUT ->
-        #state{id = Neuron_Id} = State,
-        ?LOG_WARNING("neuron ~p stuck ", [Neuron_Id])
+        ?LOG_WARNING("neuron ~p stuck", [get(id)]),
+        terminate(unknown_message, State)
     end.
+%%--------------------------------------------------------------------
+%% @end  
+%%--------------------------------------------------------------------
 
-%TODO: To add specs and description
-forward_signal(State) -> %TODO: save on signals_acc the "Tensor" (modifying tensor & aggregation_function)
-    Tensor = tensor(State),
-    forward(State#state.outputs, Tensor#tensor.signal),
-    State#state{
-        tensor       = Tensor,
-        forward_wait = [Pid || Pid <- maps:keys(State#state.inputs)]
-    }.
-
-%TODO: To add specs and description
-backward_error(State) ->
-    Tensor = State#state.tensor,
-    DTensor = d_tensor(Tensor),
-    B = activation:beta(State#state.af, State#state.error, Tensor#tensor.soma),
-    backward(State#state.inputs, B),
-    State#state{
-        bias          = adjust_bias(Tensor#tensor.bias, DTensor#tensor.bias, B),
-        inputs        = adjust_weights(Tensor#tensor.in, DTensor#tensor.in, State#state.inputs, B),
-        backward_wait = [Pid || Pid <- maps:keys(State#state.outputs)],
-        error         = 0.0
-    }.
-
-%TODO: To add specs and description
-terminate(State, Reason) ->
+%%--------------------------------------------------------------------
+%% @doc Terminates the neuron and saves in edb the new weiights.
+%% @end
+%%--------------------------------------------------------------------
+terminate(Reason, _State) ->
     % TODO: When saving the new state, those links with weights ~= 0, must be deleted (both neurons)
     % TODO: If the neuron has not at least 1 input or 1 output, it must be deleted (and bias forwarded)
-    Neuron = edb:read(State#state.id),
+    Neuron = edb:read(get(id)),
     edb:write(elements:edit(Neuron,
         #{
-            inputs_idps => [{I#input.id, I#input.w} 
-                || {_, I} <- maps:to_list(State#state.inputs)],
             outputs_ids => [O#output.id             
-                || {_, O} <- maps:to_list(State#state.outputs)],
-            bias        => State#state.bias
+                            || {_, O} <- maps:to_list(get(outputs))],
+            inputs_idps => [{I#input.id, I#input.w} 
+                            || {_, I} <- maps:to_list(get(inputs ))],
+            bias        => get(bias)
         })),
     exit(Reason).
+
+
+%%%===================================================================
+%%% Initialization functions
+%%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @doc Neuron outputs initialization.  
+%% @end
+%%--------------------------------------------------------------------
+init_outputs(Neuron) -> 
+    Coordinade = elements:coordinade(Neuron),
+    Outputs    = elements:outputs_ids(Neuron),
+    init_outputs(Coordinade, Outputs).
+
+init_outputs(Coordinade, [Id|Idx]) ->
+    Output = #output{
+        id = Id, 
+        r  = not elements:is_dir_output(Coordinade, Id)
+    },
+    [{?PID(Id), Output} | init_outputs(Coordinade, Idx)];
+init_outputs(_, []) -> 
+    [].
+
+%%--------------------------------------------------------------------
+%% @doc Neuron inputs initialization. If a weith is not initialized
+%% a synchronised request is sent to the cortex to receive a value.  
+%% @end
+%%--------------------------------------------------------------------
+init_inputs(Neuron) -> 
+    Coordinade = elements:coordinade(Neuron),
+    Inputs     = elements:inputs_idps(Neuron),
+    init_inputs(Coordinade, Inputs).
+
+init_inputs(Coordinade, [{Id,undefined}|IdWx]) -> 
+    W = cortex:initializer(get(cortex), get(initializer)),
+    init_inputs(Coordinade, [{Id,W}|IdWx]);
+init_inputs(Coordinade, [{Id,W}|IdWx]) -> 
+    Input = #input{
+        id = Id, 
+        w  = W, 
+        r  = not elements:is_dir_input(Coordinade, Id)
+    },
+    [{?PID(Id), Input} | init_inputs(Coordinade, IdWx)];
+init_inputs(_, []) -> 
+    [].
+
+%%--------------------------------------------------------------------
+%% @doc Propagates a signal to the recurrent connections to avoid 
+%% deadlock.  
+%% @end
+%%--------------------------------------------------------------------
+propagate_recurrent() -> 
+    OutputsList = maps:to_list(get(outputs)),
+    InputsList  = maps:to_list(get(outputs)),
+    [forward(Output) || {_,#input{r = true}} = Output <- OutputsList],
+    [backward(Input) || {_,#input{r = true}} = Input  <- InputsList ].
+
+
+%%%===================================================================
+%%% Calculation functions
+%%%==================================================================
+
+%%--------------------------------------------------------------------
+%% @doc Calculates the tensor.
+%% @end
+%%--------------------------------------------------------------------
+calculate_tensor() ->
+    TensorsList = [{Pid, {Input#input.w, Input#input.s}} 
+                      || {Pid, Input} <- maps:to_list(get(inputs))],
+    put(tensor, TensorsList).
+
+%%--------------------------------------------------------------------
+%% @doc Calculates the value of soma.
+%% @end
+%%--------------------------------------------------------------------
+calculate_soma() -> 
+    put(soma, aggregation:apply(get(aggregation), 
+                                get(tensor     ), 
+                                get(bias       )
+    )).
+
+%%--------------------------------------------------------------------
+%% @doc Calculates the value of soma.
+%% @end
+%%--------------------------------------------------------------------
+calculate_signal() -> 
+    put(signal, activation:apply(get(activation), 
+                                 get(soma      )
+    )).
+
+%%--------------------------------------------------------------------
+%% @doc Calculates the value of beta for back propagation).
+%% @end
+%%--------------------------------------------------------------------
+calculate_beta() -> 
+    put(beta, activation:beta(get(activation), 
+                              get(error     ), 
+                              get(soma      ) 
+    )).
+
+%%--------------------------------------------------------------------
+%% @doc Calculates the new weights from back propagation of the error.
+%% @end
+%%--------------------------------------------------------------------
+calculate_weights() -> 
+    put(inputs, calculate_weights(get(tensor), get(inputs))).
+
+calculate_weights([{Pid, {Wi,Xi}} | Tx], Inputs) -> 
+    I = maps:get(Pid, Inputs),
+    calculate_weights(Tx, Inputs#{Pid := I#input{w = Wi + dw(Xi)}});
+calculate_weights([], Inputs) -> 
+    Inputs.
+
+%%--------------------------------------------------------------------
+%% @doc Calculates the new bias from back propagation of the error.
+%% @end
+%%--------------------------------------------------------------------
+calculate_bias() -> 
+    put(bias, get(bias) + dw(1.0)).
 
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
 
-% ......................................................................................................................
-check_neuron(Neuron) ->
-    try
-        true = elements:is_neuron(Neuron),
-        % ?assert(elements:is_neuron(Neuron))
-        false = [] == elements:inputs_idps(Neuron),
-        false = [] == elements:outputs_ids(Neuron)
-    catch
-        error:{badmatch, _} ->
-            ?LOG_NOTICE("broken network on neuron: ~p", [Neuron]),
-            exit(broken_nn)
-    end.
+% % Weight variation calculation with momentum .........................
+% m <- ?MOMENTUM_FACTOR*m - ?LEARNING_FACTOR*get(beta) * Xi,
+% w <- W - m,
+% dw(Xi, Mi) ->
+%     NewMi = ?MOMENTUM_FACTOR * Mi - ?LEARNING_FACTOR * get(beta) * Xi,
+%     NewWi = Wi - NewMi.
 
-% ......................................................................................................................
-is_recurrent(_Key, Value) when is_record(Value, input) ->
-    Value#input.r;
-is_recurrent(_Key, Value) when is_record(Value, output) ->
-    Value#output.r.
+% Weight variation calculation .......................................
+dw(Xi) -> ?LEARNING_FACTOR * get(beta) * Xi.
 
-% ......................................................................................................................
-tensor(State) ->
-    Tensor_In = maps:from_list(
-        [{Pid, {Input#input.w, Input#input.s}} || {Pid, Input} <- maps:to_list(State#state.inputs)]),
-    Soma = aggregation:apply(State#state.aggrf, maps:values(Tensor_In), State#state.bias),
-    Signal = activation:apply(State#state.af, Soma),
-    #tensor{
-        bias   = State#state.bias,
-        in     = Tensor_In,
-        soma   = Soma,
-        signal = Signal
-    }.
 
-d_tensor(Tensor) ->
-    PrevTensor = put(tensor, Tensor),
-    #tensor{
-        bias   = Tensor#tensor.bias - PrevTensor#tensor.bias,
-        in     = d_tensor_in(Tensor#tensor.in, maps:iterator(PrevTensor#tensor.in)),
-        soma   = Tensor#tensor.soma - PrevTensor#tensor.soma,
-        signal = Tensor#tensor.signal - PrevTensor#tensor.signal
-    }.
+%%%===================================================================
+%%% Message functions
+%%%===================================================================
 
-d_tensor_in(ThisTensor_In, none) ->
-    ThisTensor_In;
-d_tensor_in(ThisTensor_In, Iterator) ->
-    {Pid, {W1, V1}, Next_Iterator} = maps:next(Iterator),
-    #{Pid := {W2, V2}} = ThisTensor_In,
-    d_tensor_in(ThisTensor_In#{Pid := {W2 - W1, V2 - V1}}, Next_Iterator).
+% ....................................................................
+forward({Pid, _Output}) ->
+    Pid ! {self(), forward, get(signal)}.
 
-% ......................................................................................................................
-forward(Outputs, Signal) ->
-    [forward(Pid, void, Signal) || {Pid, _Output} <- maps:to_list(Outputs)].
+% ....................................................................
+backward({Pid, Input}) ->
+    Pid ! {self(), backward, Input#input.w * get(beta)}.
 
-forward(Output_Pid, _Void, Signal) ->
-    Output_Pid ! {self(), forward, Signal},
-    {Output_Pid, Signal}.
 
-% ......................................................................................................................
-backward(Inputs, B) ->
-    [backward(Pid, Input#input.w, B) || {Pid, Input} <- maps:to_list(Inputs)].
-
-backward(Input_Pid, Weight, B) ->
-    Input_Pid ! {self(), backward, BP_Error = Weight * B},
-    {Input_Pid, BP_Error}.
-
-% ......................................................................................................................
-adjust_weights(TensorIn, OldTensor_In, Inputs, B) ->
-    do_adjust_weights(maps:to_list(TensorIn), OldTensor_In, Inputs, B).
-
-do_adjust_weights([{Pid, {_, Signal}} | Signals_Acc], OldTensor_In, Inputs, B) ->
-    #input{w = W} = Input = maps:get(Pid, Inputs),
-    #{Pid := {D_W, _D_S}} = OldTensor_In,
-    New_W = sat(W + (?LEARNING_FACTOR * B * Signal) + (?MOMENTUM_FACTOR * D_W), -?SAT_LIMIT, ?SAT_LIMIT),
-    do_adjust_weights(Signals_Acc, OldTensor_In, Inputs#{Pid := Input#input{w = New_W}}, B);
-do_adjust_weights([], _OldTensor_In, Inputs, _B) ->
-    Inputs.
-
-% ......................................................................................................................
-adjust_bias(Bias, D_Bias, B) ->
-    sat(Bias + (?LEARNING_FACTOR * B) + (?MOMENTUM_FACTOR * D_Bias), -?SAT_LIMIT, ?SAT_LIMIT).
-
-% ......................................................................................................................
-replace_weight(Pid, #input{w = Weight}, Inputs) ->
-    #{Pid := Input} = Inputs,
-    maps:update(Pid, Input#input{w = Weight}, Inputs).
-
-% ......................................................................................................................
-sat(Val, Min, _) when Val < Min -> Min;
-sat(Val, _, Max) when Val > Max -> Max;
-sat(Val, _, _)                  -> Val.
-
-    
     
     
