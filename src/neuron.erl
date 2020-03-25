@@ -83,9 +83,11 @@ new(Coordinade, Properties) ->
 %% @doc Neuron id start function for supervisor. 
 %% @end
 %%--------------------------------------------------------------------
--spec start_link(Neuron_Id :: id()) -> gen_statem:start_ret().
-start_link(Neuron_Id) ->
-    proc_lib:start_link(?MODULE, init, [Neuron_Id, Cortex, self()]).
+-spec start_link(Id :: id(), Cortex :: pid()) -> 
+    gen_statem:start_ret().
+start_link(Id, Cortex) ->
+    Supervisor = self(),
+    proc_lib:start_link(?MODULE, init, [Id, Cortex, Supervisor]).
 
 
 %%%===================================================================
@@ -96,8 +98,8 @@ start_link(Neuron_Id) ->
 %% @doc The neuron initialization.  
 %% @end
 %%--------------------------------------------------------------------
-init(Neuron_Id, Cortex, Supervisor) ->
-    Neuron = edb:read(Neuron_Id),
+init(Id, Cortex, Supervisor) ->
+    Neuron = edb:read(Id),
     [_] = elements:inputs_idps(Neuron),
     [_] = elements:outputs_ids(Neuron),
     process_flag(trap_exit, true),           % Catch supervisor exits

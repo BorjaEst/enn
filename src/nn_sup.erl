@@ -12,6 +12,9 @@
 %% Supervisor callbacks
 -export([init/1]).
 
+-define(START_CHILD(Supervisor, ChildSpec), 
+        supervisor:start_child(Supervisor, ChildSpec)).
+
 -define(SPECS_CORTEX(Cortex_Id), #{
     id       => Cortex_Id,
     start    => {cortex, start_link, [Cortex_Id]},
@@ -19,10 +22,9 @@
     shutdown => 1000,
     modules  => [gen_statem]}).
 
-
--define(SPECS_NEURON(Neuron_Id), #{
+-define(SPECS_NEURON(Neuron_Id, Cortex), #{
     id       => Neuron_Id,
-    start    => {neuron, start_link, [Neuron_Id]},
+    start    => {neuron, start_link, [Neuron_Id, Cortex]},
     restart  => permanent,
     shutdown => 500,
     modules  => [neuron]}).
@@ -50,7 +52,7 @@ start_link() ->
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
 start_cortex(Supervisor, Cortex_Id) ->
-    supervisor:start_child(Supervisor, ?SPECS_CORTEX(Cortex_Id)).
+    ?START_CHILD(Supervisor, ?SPECS_CORTEX(Cortex_Id)).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -60,7 +62,8 @@ start_cortex(Supervisor, Cortex_Id) ->
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
 start_neuron(Supervisor, Neuron_Id) ->
-    supervisor:start_child(Supervisor, ?SPECS_NEURON(Neuron_Id)).
+    Cortex = self(),
+    ?START_CHILD(Supervisor, ?SPECS_NEURON(Neuron_Id, Cortex)).
 
 
 %%====================================================================
