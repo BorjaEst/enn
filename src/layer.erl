@@ -51,7 +51,7 @@ dense(Units, Prop) ->
         units       => Units,
         activation  => maps:get(activation,  Prop, sigmoid),
         aggregation => maps:get(aggregation, Prop, dotprod),
-        initializer => maps:get(initializer, Prop, glorot_uniform)
+        initializer => maps:get(initializer, Prop, glorot)
     }.
 
 %%--------------------------------------------------------------------
@@ -67,7 +67,7 @@ input(Units, Prop) ->
         units       => Units,
         activation  => maps:get(activation,  Prop, tanh),
         aggregation => maps:get(aggregation, Prop, direct),
-        initializer => maps:get(initializer, Prop, glorot_uniform)
+        initializer => maps:get(initializer, Prop, glorot)
     }.
 
 %%--------------------------------------------------------------------
@@ -83,7 +83,7 @@ output(Units, Prop) ->
         units       => Units,
         activation  => maps:get(activation,  Prop, tanh),
         aggregation => maps:get(aggregation, Prop, dotprod),
-        initializer => maps:get(initializer, Prop, glorot_uniform)
+        initializer => maps:get(initializer, Prop, glorot)
     }.
 
 %%--------------------------------------------------------------------
