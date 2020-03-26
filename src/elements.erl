@@ -38,7 +38,7 @@
     initializer              :: initializer:func(),
     outputs_ids = []         :: [ id()  ], 
     inputs_idps = []         :: [{id(), Weight :: weight()}],
-    bias                     :: float()
+    bias = uninitialized     :: float() | uninitialized
 }).  
 -type neuron() :: #neuron{}.
 
