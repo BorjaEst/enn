@@ -124,7 +124,7 @@ outputs(Model) when is_map(Model) ->
 outputs({_, cortex} = Cortex_Id) ->
     Cortex = edb:read(Cortex_Id),
     % Cortex outputs are the input neurons
-    length(elements:inputs_idps(Cortex)). 
+    length(elements:inputs_ids(Cortex)). 
 
 %%--------------------------------------------------------------------
 %% @doc Clones a network. Each element of the newtork is cloned inside
