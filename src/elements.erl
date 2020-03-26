@@ -157,8 +157,8 @@ neurons(Cortex) ->
 -spec neurons(Cortex :: cortex(), Layer :: float() | hidden) -> 
     [Neuron_Id :: neuron:id()].
 neurons(Cortex, hidden) ->
-    [_ | HiddenLayers] = lists:droplast(maps:values(Cortex#cortex.layers)),
-    lists:append(HiddenLayers);
+    [_|HiddenLy] = lists:droplast(maps:values(Cortex#cortex.layers)),
+    lists:append(HiddenLy);
 neurons(Cortex, Layer) ->
     maps:get(Layer, Cortex#cortex.layers).
 
@@ -179,7 +179,8 @@ layers(Cortex) ->
 %%--------------------------------------------------------------------
 -spec links(Neurons :: [neuron()]) -> [Links :: link()].
 links([Neuron | Neurons]) ->
-    [{In, Neuron#neuron.id} || In <- inputs_ids(Neuron)] ++ links(Neurons);
+    [{In, Neuron#neuron.id} 
+        || In <- inputs_ids(Neuron)] ++ links(Neurons);
 links([]) ->
     [].
 
@@ -398,10 +399,10 @@ add_input(Cortex, FromId) when is_record(Cortex, cortex) ->
 -spec remove_input(Neuron :: neuron(), FromId :: id()) -> 
     EditedNeuron :: neuron().
 remove_input(Neuron, FromId) when is_record(Neuron, neuron) ->
-    Inputs_IdPs = lists:keydelete(FromId, 1, Neuron#neuron.inputs_idps),
+    Inputs_IdPs = lists:keydelete(FromId,1,Neuron#neuron.inputs_idps),
     Neuron#neuron{inputs_idps = Inputs_IdPs};
 remove_input(Cortex, FromId) when is_record(Cortex, cortex) ->
-    Inputs_IdPs = lists:keydelete(FromId, 1, Cortex#cortex.inputs_ids),
+    Inputs_IdPs = lists:keydelete(FromId,1,Cortex#cortex.inputs_ids),
     Cortex#cortex{inputs_ids = Inputs_IdPs}.
 
 %%--------------------------------------------------------------------
