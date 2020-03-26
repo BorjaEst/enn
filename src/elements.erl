@@ -164,7 +164,7 @@ neurons(Cortex, Coordinade) ->
 
 %%-------------------------------------------------------------------
 %% @doc Returns the layers of the Neural Network related to the
-%% cortex. The return is ordered from higer to lower.
+%% cortex. The return is ordered from lower to higher.
 %% @end
 %%--------------------------------------------------------------------
 -spec layers(Cortex :: cortex()) -> [Coordinade :: float()].
