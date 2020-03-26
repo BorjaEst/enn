@@ -93,7 +93,8 @@ start_link(Cortex_Id) ->
 -spec predict(Cortex_Pid :: pid(), ExternalInputs :: [float()]) ->
     Predictions :: [float()].
 predict(Cortex_Pid, ExternalInputs) ->
-    gen_statem:call(Cortex_Pid, {feedforward, ExternalInputs}, ?STDCALL_TIMEOUT).
+    gen_statem:call(Cortex_Pid, {feedforward, ExternalInputs}, 
+                    ?STDCALL_TIMEOUT).
 
 %%--------------------------------------------------------------------
 %% @doc Performs a single NN training using back propagation.
@@ -102,7 +103,8 @@ predict(Cortex_Pid, ExternalInputs) ->
 -spec fit(Cortex_Pid :: pid(), OptimalOutputs :: [float()]) ->
     Errors :: [float()].
 fit(Cortex_Pid, OptimalOutputs) ->
-    gen_statem:call(Cortex_Pid, {backprop, OptimalOutputs}, ?STDCALL_TIMEOUT).
+    gen_statem:call(Cortex_Pid, {backprop, OptimalOutputs}, 
+                    ?STDCALL_TIMEOUT).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the pid of a neuron from its id.
@@ -123,6 +125,20 @@ nn_id2pid(Neuron_Id, TId_IdPids) ->
 nn_pid2id(Neuron_Pid, TId_IdPids) ->
     [{Neuron_Pid, Neuron_Id}] = ets:lookup(TId_IdPids, Neuron_Pid),
     Neuron_Id.
+
+%%--------------------------------------------------------------------
+%% @doc Returns the id of a neuron from its pid.
+%% @end
+%%--------------------------------------------------------------------
+-spec fan_inout(Cortex_Pid, Neuron_Id) -> {Fan_In, Fan_Out} when 
+    Cortex_Pid :: pid(),
+    Neuron_Id  :: neuron:id(),
+    Fan_In     :: float(),
+    Fan_Out    :: float().
+fan_inout(Cortex_Pid, Neuron_Id) -> 
+    Coordinade = elements:coordinade(Neuron_Id),
+    gen_statem:call(Cortex_Pid, {fan_inout, Coordinade}, 
+                    ?STDCALL_TIMEOUT).
 
 
 %%%===================================================================
@@ -145,7 +161,8 @@ nn_pid2id(Neuron_Pid, TId_IdPids) ->
 init([Option | Rest]) ->
     case Option of
         {id, Cortex_Id} ->
-            put(id, Cortex_Id);
+            put(id,     Cortex_Id),
+            put(cortex, ndb:read(Cortex_Id));
         {nn_sup, NNSup_Pid} ->
              put(nn_sup, NNSup_Pid);
         {tid_idpids, TId_IdPids} ->
@@ -290,7 +307,9 @@ handle_common(enter, _OldState, State) ->
     {keep_state, State};
 handle_common(internal, _EventContent, State) ->
     {keep_state, State};
-
+handle_common({call,From}, {fan_inout, Coordinade}, State) ->
+    Reply = calc_fan_inout(Coordinade),
+    {keep_state, State, {reply,From,Reply}};
 handle_common(EventType, EventContent, _State) ->
     error({"Unknown event", EventType, EventContent}).
 %%--------------------------------------------------------------------
@@ -376,7 +395,7 @@ backward(Input, Optm) ->
 
 % ....................................................................
 handle_start_nn() ->
-    Cortex = edb:read(get(id)), 
+    Cortex = get(cortex), 
     NNSup_Pid = get(nn_sup), 
     TId_IdPids = get(tid_idpids),
     Neurons = [{start_nn_element(NNSup_Pid, TId_IdPids, N_Id), edb:read(N_Id)} 
@@ -396,6 +415,27 @@ start_nn_element(NNSup_Pid, TId_IdPids, Neuron_Id) ->
         {error, Reason} ->
             exit(Reason)
     end.
+
+% ....................................................................
+calc_fan_inout(Coordinade) ->
+    Cortex = get(cortex),
+    Layers = elements:layers(Cortex),
+    case hd()
+        1.0           -> 
+        In_Coordinade ->
+
+
+len_inputs(Coordinade) -> 
+    LoweLayers = [X||X <- elements:layers(Cortex), X<Coordinade],
+    PrevCoordinade = case hd() of
+        -1.0  -> -1.0;
+        Other -> Other
+    end,
+    length(elements:neurons(get(cortex), PrevCoordinade)).
+
+len_layer(Coordinade) -> 
+    length(elements:neurons(get(cortex), Coordinade)).
+
 
 
 %%====================================================================
