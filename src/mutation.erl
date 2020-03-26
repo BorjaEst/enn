@@ -8,6 +8,7 @@
 -compile([export_all, nowarn_export_all]). %%TODO: To delete after build
 
 -include_lib("eunit/include/eunit.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% API
 %%-export([]).
