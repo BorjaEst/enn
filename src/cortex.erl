@@ -417,7 +417,7 @@ start_nn_element(NNSup_Pid, TId_IdPids, Neuron_Id) ->
 
 % ....................................................................
 calc_fan_inout(Coordinade) ->
-     case [ X || X <- elements:layers(get(cortex)), X < Coordinade] of
+     case [X||X<-elements:coordinades(get(cortex)),X<Coordinade] of
         []          -> PrevCoordinade = -1.0;
         LowerLayers -> PrevCoordinade = lists:last(LowerLayers)
     end,   
