@@ -101,7 +101,7 @@ remove_link(FromElement_Id, ToElement_Id) ->
 % TODO: Define specs
 change_activation({_, neuron} = Neuron_Id, NewAFun) ->
     Neuron    = edb:read(Neuron_Id),
-    NewNeuron = elements:edit(Neuron, [{af, NewAFun}]),
+    NewNeuron = elements:edit(Neuron, #{activation => NewAFun}),
     edb:write(NewNeuron).
 
 %%--------------------------------------------------------------------
@@ -113,7 +113,7 @@ change_activation({_, neuron} = Neuron_Id, NewAFun) ->
 % TODO: Define specs
 change_aggregation({_, neuron} = Neuron_Id, NewAggrFun) ->
     Neuron = edb:read(Neuron_Id),
-    NewNeuron = elements:edit(Neuron, [{aggrf, NewAggrFun}]),
+    NewNeuron = elements:edit(Neuron, #{aggregation => NewAggrFun}),
     edb:write(NewNeuron).
 
 
@@ -136,7 +136,7 @@ insert_neuron(Layer, AFun, AggrFun, Cortex_Id) ->
     Neurons_Ids = maps:get(Layer, elements:layers(Cortex), []),
     Neuron_Id   = neuron:new(Layer, AFun, AggrFun, _Options = []),
     NewLayer    = maps:put(Layer, [Neuron_Id | Neurons_Ids], elements:layers(Cortex)),
-    NewCortex   = elements:edit(Cortex, [{layers,NewLayer}]),
+    NewCortex   = elements:edit(Cortex, #{layers => NewLayer}),
     edb:write(NewCortex).
 
 %%--------------------------------------------------------------------
@@ -155,10 +155,10 @@ remove_neuron({{Layer, _}, neuron} = Neuron_Id, Cortex_Id) ->
     NewCortex = case lists:delete(Neuron_Id, Neurons_Ids) of
         [] ->
             NewLayer = maps:remove(Layer, elements:layers(Cortex)),
-            elements:edit(Cortex, [{layer, NewLayer}]);
+            elements:edit(Cortex, #{layer => NewLayer});
         Neurons ->
             NewLayer = maps:update(Layer, Neurons, elements:layers(Cortex)),
-            elements:edit(Cortex, [{layer, NewLayer}])
+            elements:edit(Cortex, #{layer => NewLayer})
     end,
     edb:write(NewCortex).
 
