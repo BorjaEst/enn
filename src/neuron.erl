@@ -148,11 +148,7 @@ loop(internal, #state{backward_wait = []} = State) ->
     backward_prop(internal, State);
 % If there are signals in any waiting buffer collects the next signal
 loop(internal,                              State) -> 
-    receive_next(internal, State);
-
-% If receives an 'exit' signal, state change to terminate
-loop({'EXIT', _Pid, Reason}, State) -> 
-    terminate(Reason, State).
+    receive_next(internal, State).
 %%--------------------------------------------------------------------
 %% @doc Forwards the signal to the connected neurons. 
 %%
@@ -182,8 +178,10 @@ backward_prop(internal, State) ->
 %%
 %%--------------------------------------------------------------------
 receive_next(internal, State) ->
-    receive Message        -> loop(Message, State)
-    after ?STDIDLE_TIMEOUT ->
+    #state{forward_wait=[Nf|_] , backward_wait = [Nb|_]} = State,
+    receive {N,_,_}=Msg when N==Nf; N==Nb -> loop(Msg, State);
+            {'EXIT',_,Reason}             -> terminate(Reason, State)
+    after ?STDIDLE_TIMEOUT                ->
         ?LOG_WARNING("neuron ~p stuck", [get(id)]),
         terminate(unknown_message, State)
     end.
