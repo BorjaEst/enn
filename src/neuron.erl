@@ -242,16 +242,16 @@ init_inputs(Neuron) ->
     Inputs     = elements:inputs_idps(Neuron),
     maps:from_list(init_inputs(Coordinade, Inputs)).
 
-init_inputs(Coordinade, [{Id,uninitialized}|IdWx])        -> 
-    W = cortex:initializer(get(cortex), get(initializer)),
-    init_inputs(Coordinade, [{Id,W}|IdWx]);
-init_inputs(Coordinade, [{Id,W}|IdWx]) when is_integer(W) -> 
+init_inputs(Coordinade, [{Id,uninitialized}|IdWix])          -> 
+    Wi = initializer:apply(get(initializer), #{cortex => get(cortex)}),
+    init_inputs(Coordinade, [{Id,Wi}|IdWix]);
+init_inputs(Coordinade, [{Id,Wi}|IdWix]) when is_integer(Wi) -> 
     Input = #input{
         id = Id, 
-        w  = W, 
+        w  = Wi, 
         r  = not elements:is_dir_input(Coordinade, Id)
     },
-    [{?PID(Id), Input} | init_inputs(Coordinade, IdWx)];
+    [{?PID(Id), Input} | init_inputs(Coordinade, IdWix)];
 init_inputs(_, []) -> 
     [].
 
