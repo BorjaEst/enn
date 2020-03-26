@@ -71,7 +71,7 @@ create_link(SameElement_Id, SameElement_Id) ->
 create_link(FromElement_Id, ToElement_Id) ->
     [FromElement, ToElement] = edb:read([FromElement_Id, ToElement_Id]),
     U_FromElement = link_only_From(FromElement, ToElement),
-    U_ToElement = link_only_To(U_FromElement, ToElement),
+    U_ToElement   = link_only_To(U_FromElement, ToElement),
     edb:write([U_FromElement, U_ToElement]).
 
 %%--------------------------------------------------------------------
@@ -89,7 +89,7 @@ remove_link(SameElement_Id, SameElement_Id) ->
 remove_link(FromElement_Id, ToElement_Id) ->
     [FromElement, ToElement] = edb:read([FromElement_Id, ToElement_Id]),
     U_FromElement = unlink_only_From(FromElement, ToElement),
-    U_ToElement = unlink_only_To(U_FromElement, ToElement),
+    U_ToElement   = unlink_only_To(U_FromElement, ToElement),
     edb:write([U_FromElement, U_ToElement]).
 
 %%--------------------------------------------------------------------
@@ -100,7 +100,7 @@ remove_link(FromElement_Id, ToElement_Id) ->
 %%--------------------------------------------------------------------
 % TODO: Define specs
 change_activation({_, neuron} = Neuron_Id, NewAFun) ->
-    Neuron = edb:read(Neuron_Id),
+    Neuron    = edb:read(Neuron_Id),
     NewNeuron = elements:edit(Neuron, [{af, NewAFun}]),
     edb:write(NewNeuron).
 
@@ -132,11 +132,11 @@ change_aggregation({_, neuron} = Neuron_Id, NewAggrFun) ->
 %%--------------------------------------------------------------------
 % TODO: Define specs
 insert_neuron(Layer, AFun, AggrFun, Cortex_Id) ->
-    Cortex = edb:read(Cortex_Id),
+    Cortex      = edb:read(Cortex_Id),
     Neurons_Ids = maps:get(Layer, elements:layers(Cortex), []),
-    Neuron_Id = neuron:new(Layer, AFun, AggrFun, _Options = []),
-    NewLayer = maps:put(Layer, [Neuron_Id | Neurons_Ids], elements:layers(Cortex)),
-    NewCortex = elements:edit(Cortex, [{layers,NewLayer}]),
+    Neuron_Id   = neuron:new(Layer, AFun, AggrFun, _Options = []),
+    NewLayer    = maps:put(Layer, [Neuron_Id | Neurons_Ids], elements:layers(Cortex)),
+    NewCortex   = elements:edit(Cortex, [{layers,NewLayer}]),
     edb:write(NewCortex).
 
 %%--------------------------------------------------------------------
@@ -147,9 +147,9 @@ insert_neuron(Layer, AFun, AggrFun, Cortex_Id) ->
 %%--------------------------------------------------------------------
 % TODO: Define specs
 remove_neuron({{Layer, _}, neuron} = Neuron_Id, Cortex_Id) ->
-    Cortex = edb:read(Cortex_Id),
+    Cortex      = edb:read(Cortex_Id),
     Neurons_Ids = maps:get(Layer, elements:layers(Cortex)),
-    Neuron = edb:read(Neuron_Id),
+    Neuron      = edb:read(Neuron_Id),
     [remove_link(E_Id, Neuron_Id) || E_Id <- elements:inputs_ids(Neuron)],
     [remove_link(Neuron_Id, E_Id) || E_Id <- elements:outputs_ids(Neuron)],
     NewCortex = case lists:delete(Neuron_Id, Neurons_Ids) of
@@ -174,8 +174,8 @@ link_only_From(From, To) ->
         false ->
             _U_From = elements:add_output(From, ToId);
         true ->
-            FromId = elements:id(From),
-            Error_Text = io_lib:format("[can not add O_Id]: ~w already a member of ~w outputs", [ToId, FromId]),
+            FromId     = elements:id(From),
+            Error_Text = io_lib:format("[cannot add O_Id]: ~w already a member of ~w outputs", [ToId, FromId]),
             error({link_fail, lists:flatten(Error_Text)})
     end.
 
@@ -186,8 +186,8 @@ link_only_To(From, To) ->
         false ->
             _U_To = elements:add_input(To, FromId);
         true ->
-            ToId = elements:id(To),
-            Error_Text = io_lib:format("[can not add I_Id]: ~w already a member of ~w inputs", [FromId, ToId]),
+            ToId       = elements:id(To),
+            Error_Text = io_lib:format("[cannot add I_Id]: ~w already a member of ~w inputs", [FromId, ToId]),
             error({link_fail, lists:flatten(Error_Text)})
     end.
 
@@ -198,8 +198,8 @@ unlink_only_From(From, To) ->
         true ->
             _U_From = elements:remove_output(From, ToId);
         false ->
-            FromId = elements:id(From),
-            Error_Text = io_lib:format("[can not remove O_Id]: ~w not a member of ~w outputs", [ToId, FromId]),
+            FromId     = elements:id(From),
+            Error_Text = io_lib:format("[cannot remove O_Id]: ~w not a member of ~w outputs", [ToId, FromId]),
             error({unlink_fail, lists:flatten(Error_Text)})
     end.
 
@@ -210,8 +210,8 @@ unlink_only_To(From, To) ->
         true ->
             _U_To = elements:remove_input(To, FromId);
         false ->
-            ToId = elements:id(To),
-            Error_Text = io_lib:format("[can not remove I_Id]: ~w not a member of ~w intputs", [FromId, ToId]),
+            ToId       = elements:id(To),
+            Error_Text = io_lib:format("[cannot remove I_Id]: ~w not a member of ~w intputs", [FromId, ToId]),
             error({unlink_fail, lists:flatten(Error_Text)})
     end.
 
