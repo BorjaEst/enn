@@ -234,6 +234,15 @@ aggregation(Neuron) ->
     Neuron#neuron.aggregation.
 
 %%--------------------------------------------------------------------
+%% @doc Returns the initializer fuction of a neuron.
+%% @end
+%%--------------------------------------------------------------------
+-spec initializer(Neuron :: neuron()) -> 
+    Initializer :: initializer:func().
+initializer(Neuron) -> 
+    Neuron#neuron.initializer.
+
+%%--------------------------------------------------------------------
 %% @doc Returns a neuron bias.
 %% @end
 %%--------------------------------------------------------------------
