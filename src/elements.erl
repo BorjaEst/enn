@@ -9,6 +9,7 @@
 
 -include_lib("math_constants.hrl").
 -include_lib("eunit/include/eunit.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% API
 %%-export([]).
@@ -23,22 +24,23 @@
 
 -define(NEW_CORTEX_ID, {make_ref(), cortex}).
 -record(cortex, {
-    id               :: cortex:id(),
-    layers = #{}     :: #{Layer :: float() => [neuron:neuron_id()]},
+    id           :: cortex:id(),
+    layers = #{} :: #{Coordinade :: float() => [neuron:neuron_id()]},
     outputs_ids = [] :: [neuron:id()], % Output neurons
     inputs_ids  = [] :: [neuron:id()]  % Input neurons
 }).
 -type cortex() :: #cortex{}.
 
--define(NEW_NEURON_ID(Coord), {{Coord, make_ref()}, neuron}).
+-define(NEW_NEURON_ID, {make_ref(), neuron}).
 -record(neuron, {
-    id = ?NEW_NEURON_ID(0.0) :: neuron:id(),
-    activation               :: activation:func(),
-    aggregation              :: aggregation:func(),
-    initializer              :: initializer:func(),
-    outputs_ids = []         :: [ id()  ], 
-    inputs_idps = []         :: [{id(), Weight :: weight()}],
-    bias = uninitialized     :: float() | uninitialized
+    id = ?NEW_NEURON_ID  :: neuron:id(),
+    coordinade           :: float(),
+    activation           :: activation:func(),
+    aggregation          :: aggregation:func(),
+    initializer          :: initializer:func(),
+    outputs_ids = []     :: [ id()  ], 
+    inputs_idps = []     :: [{id(), Weight :: weight()}],
+    bias = uninitialized :: float() | uninitialized
 }).  
 -type neuron() :: #neuron{}.
 
@@ -63,16 +65,13 @@ fields(cortex) -> record_info(fields, cortex).
 
 %%--------------------------------------------------------------------
 %% @doc Returns a neuron. Defaults are:
-%% - Layer: 0.0 (must be between [-1.0, +1.0])
 %% - Activation function: direct
 %% - Agregation function: dotprod
 %% @end
 %%--------------------------------------------------------------------
--spec neuron(Coordinade, Properties) -> neuron() when
-    Coordinade :: integer(),
-    Properties :: neuron:properties().
-neuron(Coordinade, Properties) ->
-    edit(#neuron{id = ?NEW_NEURON_ID(Coordinade)}, Properties).
+-spec neuron(Properties :: neuron:properties()) -> neuron().
+neuron(Properties) ->
+    edit(#neuron{}, Properties).
 
 %%--------------------------------------------------------------------
 %% @doc Evaluates if the input is a neuron.
@@ -90,7 +89,7 @@ is_neuron(Neuron) -> is_record(Neuron, neuron).
 %% @end
 %%--------------------------------------------------------------------
 -spec cortex(CompiledLayers, Properties) -> cortex() when
-    CompiledLayers :: #{integer() => layer:compiled()},
+    CompiledLayers :: #{Coordinade :: float() => layer:compiled()},
     Properties     :: cortex:properties().
 cortex(CompiledLayers, Properties) ->
     Cortex = #cortex{id = ?NEW_CORTEX_ID, layers = CompiledLayers},
@@ -118,6 +117,8 @@ edit(Cortex, Properties) when is_record(Cortex, cortex) ->
 
 edit_neuron(Neuron, [{id,              Value} | Options]) ->
    edit_neuron(Neuron#neuron{id = Value}, Options);
+edit_neuron(Neuron, [{coordinade,      Value} | Options]) ->
+    edit_neuron(Neuron#neuron{coordinade = Value}, Options);
 edit_neuron(Neuron, [{activation,      Value} | Options]) ->
     edit_neuron(Neuron#neuron{activation = Value}, Options);
 edit_neuron(Neuron, [{aggregation,     Value} | Options]) ->
@@ -169,7 +170,7 @@ neurons(Cortex, Coordinade) ->
 %%--------------------------------------------------------------------
 -spec layers(Cortex :: cortex()) -> [Coordinade :: float()].
 layers(Cortex) ->
-    maps:keys(Cortex#cortex.layers).
+    Cortex#cortex.layers.
 
 %%-------------------------------------------------------------------
 %% @doc Returns the inputs links of the specified list of neurons. 
@@ -215,6 +216,14 @@ id(Cortex) when is_record(Cortex, cortex) ->
 coordinade({{LI, _}, neuron}) -> LI;
 coordinade({_, cortex})       -> cortex;
 coordinade(Element)           -> coordinade(id(Element)).
+
+%%-------------------------------------------------------------------
+%% @doc Returns the layers coordinades of the Neural Network related 
+%% to the cortex. The return is ordered from lower to higher.
+%% @end
+%%--------------------------------------------------------------------
+-spec coordinades(Cortex :: cortex()) -> [Coordinade :: float()].
+coordinades(Cortex) -> maps:keys(layers(Cortex)).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the activation function of a neuron.
@@ -379,6 +388,14 @@ remove_output(Cortex, ToId) when is_record(Cortex, cortex) ->
     Outputs_Ids = lists:delete(ToId, Cortex#cortex.outputs_ids),
     Cortex#cortex{outputs_ids = Outputs_Ids}.
 
+remove_output_test() -> 
+    [remove_output_test_aux() || _ <- lists:seq(1,99)].
+
+remove_output_test_aux() -> 
+    N1 = #neuron{id = ?NEW_NEURON_ID(rand:uniform())},
+    N2 = #neuron{outputs_ids = [id(N1)]},
+    ?assertMatch(#neuron{outputs_ids = []}, remove_output(N2,id(N1))).
+
 %%--------------------------------------------------------------------
 %% @doc Adds an Id as input of the element.
 %% @end
@@ -404,6 +421,14 @@ remove_input(Neuron, FromId) when is_record(Neuron, neuron) ->
 remove_input(Cortex, FromId) when is_record(Cortex, cortex) ->
     Inputs_IdPs = lists:keydelete(FromId,1,Cortex#cortex.inputs_ids),
     Cortex#cortex{inputs_ids = Inputs_IdPs}.
+
+remove_input_test() -> 
+    [remove_input_test_aux() || _ <- lists:seq(1,99)].
+
+remove_input_test_aux() -> 
+    N1 = #neuron{id = ?NEW_NEURON_ID(rand:uniform())},
+    N2 = #neuron{inputs_idps = [{id(N1),0.0}]},
+    ?assertMatch(#neuron{inputs_idps = []}, remove_input(N2, id(N1))).
 
 %%--------------------------------------------------------------------
 %% @doc Edits the input weight of an input.
