@@ -45,7 +45,7 @@ edit_link(FromElement_Id, {_, neuron} = ToNeuron_Id, NewWeight) ->
 % TODO: Define specs
 edit_bias({_, neuron} = Neuron_Id, NewValue) ->
     Neuron = edb:read(Neuron_Id),
-    NewNeuron = elements:edit(Neuron, [{bias, NewValue}]),
+    NewNeuron = elements:edit(Neuron, #{bias => NewValue}),
     edb:write(NewNeuron).
 
 
