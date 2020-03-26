@@ -221,7 +221,7 @@ terminate(Reason, _State) ->
 init_outputs(Neuron) -> 
     Coordinade = elements:coordinade(Neuron),
     Outputs    = elements:outputs_ids(Neuron),
-    init_outputs(Coordinade, Outputs).
+    maps:from_list(init_outputs(Coordinade, Outputs)).
 
 init_outputs(Coordinade, [Id|Idx]) ->
     Output = #output{
@@ -240,12 +240,12 @@ init_outputs(_, []) ->
 init_inputs(Neuron) -> 
     Coordinade = elements:coordinade(Neuron),
     Inputs     = elements:inputs_idps(Neuron),
-    init_inputs(Coordinade, Inputs).
+    maps:from_list(init_inputs(Coordinade, Inputs)).
 
-init_inputs(Coordinade, [{Id,undefined}|IdWx]) -> 
+init_inputs(Coordinade, [{Id,uninitialized}|IdWx])        -> 
     W = cortex:initializer(get(cortex), get(initializer)),
     init_inputs(Coordinade, [{Id,W}|IdWx]);
-init_inputs(Coordinade, [{Id,W}|IdWx]) -> 
+init_inputs(Coordinade, [{Id,W}|IdWx]) when is_integer(W) -> 
     Input = #input{
         id = Id, 
         w  = W, 
@@ -340,6 +340,9 @@ calculate_bias() ->
 % dw(Xi, Mi) ->
 %     NewMi = ?MOMENTUM_FACTOR * Mi - ?LEARNING_FACTOR * get(beta) * Xi,
 %     NewWi = Wi - NewMi.
+
+% TODO: Add saturation and error deviation not proportinal to X 
+%       (Saturation and protection)
 
 % Weight variation calculation .......................................
 dw(Xi) -> ?LEARNING_FACTOR * get(beta) * Xi.
