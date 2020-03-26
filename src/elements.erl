@@ -154,17 +154,17 @@ edit_cortex(Cortex, []) ->
 neurons(Cortex) ->
     lists:append(maps:values(Cortex#cortex.layers)).
 
--spec neurons(Cortex :: cortex(), Layer :: float() | hidden) -> 
+-spec neurons(Cortex :: cortex(), Coordinade :: float() | hidden) -> 
     [Neuron_Id :: neuron:id()].
 neurons(Cortex, hidden) ->
     [_|HiddenLy] = lists:droplast(maps:values(Cortex#cortex.layers)),
     lists:append(HiddenLy);
-neurons(Cortex, Layer) ->
-    maps:get(Layer, Cortex#cortex.layers).
+neurons(Cortex, Coordinade) ->
+    maps:get(Coordinade, Cortex#cortex.layers).
 
 %%-------------------------------------------------------------------
 %% @doc Returns the layers of the Neural Network related to the
-%% cortex.
+%% cortex. The return is ordered from higer to lower.
 %% @end
 %%--------------------------------------------------------------------
 -spec layers(Cortex :: cortex()) -> [Coordinade :: float()].
