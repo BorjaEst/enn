@@ -130,13 +130,12 @@ nn_pid2id(Neuron_Pid, TId_IdPids) ->
 %% @doc Returns the id of a neuron from its pid.
 %% @end
 %%--------------------------------------------------------------------
--spec fan_inout(Cortex_Pid, Neuron_Id) -> {Fan_In, Fan_Out} when 
+-spec fan_inout(Cortex_Pid, Coordinade) -> {Fan_In, Fan_Out} when 
     Cortex_Pid :: pid(),
-    Neuron_Id  :: neuron:id(),
+    Coordinade :: float(),
     Fan_In     :: float(),
     Fan_Out    :: float().
-fan_inout(Cortex_Pid, Neuron_Id) -> 
-    Coordinade = elements:coordinade(Neuron_Id),
+fan_inout(Cortex_Pid, Coordinade) -> 
     gen_statem:call(Cortex_Pid, {fan_inout, Coordinade}, 
                     ?STDCALL_TIMEOUT).
 
@@ -162,7 +161,7 @@ init([Option | Rest]) ->
     case Option of
         {id, Cortex_Id} ->
             put(id,     Cortex_Id),
-            put(cortex, ndb:read(Cortex_Id));
+            put(cortex, edb:read(Cortex_Id));
         {nn_sup, NNSup_Pid} ->
              put(nn_sup, NNSup_Pid);
         {tid_idpids, TId_IdPids} ->
@@ -418,24 +417,20 @@ start_nn_element(NNSup_Pid, TId_IdPids, Neuron_Id) ->
 
 % ....................................................................
 calc_fan_inout(Coordinade) ->
-    Cortex = get(cortex),
-    Layers = elements:layers(Cortex),
-    case hd()
-        1.0           -> 
-        In_Coordinade ->
+     case [ X || X <- elements:layers(get(cortex)), X < Coordinade] of
+        []          -> PrevCoordinade = -1.0;
+        LowerLayers -> PrevCoordinade = lists:last(LowerLayers)
+    end,   
+    Fan_out = len_layer(Coordinade),
+    Fan_in  = tot_inputs(Coordinade) / len_layer(PrevCoordinade),
+    {Fan_in, Fan_out}. 
 
-
-len_inputs(Coordinade) -> 
-    LoweLayers = [X||X <- elements:layers(Cortex), X<Coordinade],
-    PrevCoordinade = case hd() of
-        -1.0  -> -1.0;
-        Other -> Other
-    end,
-    length(elements:neurons(get(cortex), PrevCoordinade)).
+tot_inputs(Coordinade) -> 
+    Neurons = edb:read(elements:neurons(get(cortex), Coordinade)),
+    lists:sum([length(elements:inputs_idps(N)) || N <- Neurons]).
 
 len_layer(Coordinade) -> 
     length(elements:neurons(get(cortex), Coordinade)).
-
 
 
 %%====================================================================
