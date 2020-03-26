@@ -110,9 +110,9 @@ init(Id, Cortex, Supervisor) ->
     put(activation,  elements:activation(Neuron)),
     put(aggregation, elements:aggregation(Neuron)),
     put(initializer, elements:initializer(Neuron)),
-    put(bias,        elements:bias(Neuron)),
     put(outputs,     init_outputs(Neuron)),
     put(inputs,      init_inputs(Neuron)),
+    put(bias,        init_bias(Neuron)),
     put(error,       ?INITIAL_ERROR),
     calculate_tensor(),
     calculate_soma(), 
@@ -243,9 +243,9 @@ init_inputs(Neuron) ->
     maps:from_list(init_inputs(Coordinade, Inputs)).
 
 init_inputs(Coordinade, [{Id,uninitialized}|IdWix])          -> 
-    Wi = initializer:apply(get(initializer), #{cortex => get(cortex)}),
+    Wi = calculate_winit(),
     init_inputs(Coordinade, [{Id,Wi}|IdWix]);
-init_inputs(Coordinade, [{Id,Wi}|IdWix]) when is_integer(Wi) -> 
+init_inputs(Coordinade, [{Id,Wi}|IdWix]) when is_float(Wi) -> 
     Input = #input{
         id = Id, 
         w  = Wi, 
@@ -254,6 +254,17 @@ init_inputs(Coordinade, [{Id,Wi}|IdWix]) when is_integer(Wi) ->
     [{?PID(Id), Input} | init_inputs(Coordinade, IdWix)];
 init_inputs(_, []) -> 
     [].
+
+%%--------------------------------------------------------------------
+%% @doc Neuron bias initialization. If a the bias is not initialized
+%% a synchronised request is sent to the cortex to receive a value.  
+%% @end
+%%--------------------------------------------------------------------
+init_bias(Neuron) ->
+    case elements:bias(Neuron) of 
+        uninitialized          -> calculate_winit();
+        Val when is_float(Val) -> Val
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc Propagates a signal to the recurrent connections to avoid 
@@ -285,8 +296,9 @@ calculate_tensor() ->
 %% @end
 %%--------------------------------------------------------------------
 calculate_soma() -> 
+    {_, WiXix} = lists:unzip(get(tensor)), 
     put(soma, aggregation:apply(get(aggregation), 
-                                get(tensor     ), 
+                                WiXix, 
                                 get(bias       )
     )).
 
@@ -328,6 +340,16 @@ calculate_weights([], Inputs) ->
 %%--------------------------------------------------------------------
 calculate_bias() -> 
     put(bias, get(bias) + dw(1.0)).
+
+%%--------------------------------------------------------------------
+%% @doc Calculates the new bias from back propagation of the error.
+%% @end
+%%--------------------------------------------------------------------
+calculate_winit() -> 
+    initializer:apply(get(initializer), #{
+        cortex     => get(cortex), 
+        coordinade => elements:coordinade(get(id))
+    }).
 
 
 %%%===================================================================
