@@ -24,12 +24,13 @@
 -type arguments() :: #{
     distribution => normal | uniform,
     mode         => fan_in | fan_out | fan_all | fan_avg,
-    cortex       => Cortex :: pid(),
-    mean         => Mean   :: float(),
-    stddev       => Stddev :: float(),
-    scale        => Scale  :: float(),
-    maxval       => Value  :: float(),
-    minval       => Value  :: float()
+    coordinade   => Coordinade  :: float(),
+    cortex       => Cortex      :: pid(),
+    mean         => Mean        :: float(),
+    stddev       => Stddev      :: float(),
+    scale        => Scale       :: float(),
+    maxval       => Value       :: float(),
+    minval       => Value       :: float()
 }.
 
 
@@ -108,7 +109,10 @@ random_test() ->
 % ....................................................................
 % TODO: Define specs and comment
 vscaling(Arg) -> 
-    {Fan_In, Fan_Out} = cortex:fan_inout(?ARG(cortex, Arg)),
+    {Fan_In, Fan_Out} = cortex:fan_inout(
+        ?ARG(cortex,     Arg),
+        ?ARG(coordinade, Arg)
+    ),
     Scale = ?ARG(scale, Arg, 1.0),
     N = case ?ARG(mode, Arg, fan_in) of
         fan_in  ->  Fan_In;
@@ -119,10 +123,10 @@ vscaling(Arg) ->
     case ?ARG(distribution, Arg, normal) of 
         normal  ->  
             Stddev = math:sqrt(Scale/N),
-            random(Arg#{stddev => Stddev});
+            random(Arg#{stddev => Stddev, distribution => normal});
         uniform -> 
             Limit = math:sqrt(3*Scale/N),
-            random(Arg#{maxval => Limit, minval => -Limit})
+            random(Arg#{maxval => Limit,  minval => -Limit})
     end.
 
 vscaling_test() -> 
