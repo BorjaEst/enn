@@ -22,10 +22,9 @@
 -define(ARG(Key, Arguments), maps:get(Key, Arguments)).
 -define(ARG(Key, Arg, Def),  maps:get(Key, Arg, Def)).
 -type arguments() :: #{
-    fan_in       := integer(),
-    fan_out      := integer(),
     distribution => normal | uniform,
     mode         => fan_in | fan_out | fan_all | fan_avg,
+    cortex       => Cortex :: pid(),
     mean         => Mean   :: float(),
     stddev       => Stddev :: float(),
     scale        => Scale  :: float(),
@@ -86,7 +85,7 @@ constant_test() ->
 % ....................................................................
 % TODO: Define specs and comments
 random(#{distribution := normal} = Arg) -> 
-    Mean   = ?ARG(mean, Arg, 0.00),
+    Mean   = ?ARG(mean,   Arg, 0.00),
     Stddev = ?ARG(stddev, Arg, 0.05),
     rand:normal(Mean, Stddev);
 random(#{distribution := uniform} = Arg) -> 
@@ -109,12 +108,13 @@ random_test() ->
 % ....................................................................
 % TODO: Define specs and comment
 vscaling(Arg) -> 
+    {Fan_In, Fan_Out} = cortex:fan_inout(?ARG(cortex, Arg)),
     Scale = ?ARG(scale, Arg, 1.0),
     N = case ?ARG(mode, Arg, fan_in) of
-        fan_in  ->  ?ARG(fan_in,  Arg);
-        fan_out ->  ?ARG(fan_out, Arg);
-        fan_all ->  ?ARG(fan_in, Arg) + ?ARG(fan_out, Arg);
-        fan_avg -> (?ARG(fan_in, Arg) + ?ARG(fan_out, Arg))/2
+        fan_in  ->  Fan_In;
+        fan_out ->  Fan_Out;
+        fan_all ->  Fan_In + Fan_Out;
+        fan_avg -> (Fan_In + Fan_Out)/2
     end,
     case ?ARG(distribution, Arg, normal) of 
         normal  ->  
