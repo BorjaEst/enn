@@ -22,7 +22,11 @@
 -type weight() :: float() | uninitialized.
 -type link()   :: {From :: id(), To :: id()}.
 
--define(NEW_CORTEX_ID, {make_ref(), cortex}).
+-define(NEW_CORTEX_ID,        {         make_ref(),  cortex}).
+-define(NEW_NEURON_ID,        {{undef,  make_ref()}, neuron}).
+-define(NEW_NEURON_ID(Float), {{Float,  make_ref()}, neuron}).
+-define(REFERENCE(Id),              element(2,element(1,Id))).
+
 -record(cortex, {
     id           :: cortex:id(),
     layers = #{} :: #{Coordinade :: float() => [neuron:neuron_id()]},
@@ -31,10 +35,8 @@
 }).
 -type cortex() :: #cortex{}.
 
--define(NEW_NEURON_ID, {make_ref(), neuron}).
 -record(neuron, {
     id = ?NEW_NEURON_ID  :: neuron:id(),
-    coordinade           :: float(),
     activation           :: activation:func(),
     aggregation          :: aggregation:func(),
     initializer          :: initializer:func(),
@@ -65,13 +67,16 @@ fields(cortex) -> record_info(fields, cortex).
 
 %%--------------------------------------------------------------------
 %% @doc Returns a neuron. Defaults are:
+%% - Coordinade: 0.0 (must be between [-1.0, +1.0])
 %% - Activation function: direct
 %% - Agregation function: dotprod
 %% @end
 %%--------------------------------------------------------------------
--spec neuron(Properties :: neuron:properties()) -> neuron().
-neuron(Properties) ->
-    edit(#neuron{}, Properties).
+-spec neuron(Coordinade, Properties) -> neuron() when
+    Coordinade :: integer(),
+    Properties :: neuron:properties().
+neuron(Coordinade, Properties) ->
+    edit(#neuron{id = ?NEW_NEURON_ID(Coordinade)}, Properties).
 
 %%--------------------------------------------------------------------
 %% @doc Evaluates if the input is a neuron.
@@ -117,8 +122,6 @@ edit(Cortex, Properties) when is_record(Cortex, cortex) ->
 
 edit_neuron(Neuron, [{id,              Value} | Options]) ->
    edit_neuron(Neuron#neuron{id = Value}, Options);
-edit_neuron(Neuron, [{coordinade,      Value} | Options]) ->
-    edit_neuron(Neuron#neuron{coordinade = Value}, Options);
 edit_neuron(Neuron, [{activation,      Value} | Options]) ->
     edit_neuron(Neuron#neuron{activation = Value}, Options);
 edit_neuron(Neuron, [{aggregation,     Value} | Options]) ->
@@ -389,12 +392,18 @@ remove_output(Cortex, ToId) when is_record(Cortex, cortex) ->
     Cortex#cortex{outputs_ids = Outputs_Ids}.
 
 remove_output_test() -> 
-    [remove_output_test_aux() || _ <- lists:seq(1,99)].
+    [remove_output_neuron_test_aux() || _ <- lists:seq(1,99)],
+    [remove_output_cortex_test_aux() || _ <- lists:seq(1,99)].
 
-remove_output_test_aux() -> 
+remove_output_neuron_test_aux() -> 
     N1 = #neuron{id = ?NEW_NEURON_ID(rand:uniform())},
     N2 = #neuron{outputs_ids = [id(N1)]},
-    ?assertMatch(#neuron{outputs_ids = []}, remove_output(N2,id(N1))).
+    ?assertMatch(#neuron{outputs_ids = []}, remove_output(N2, id(N1))).
+
+remove_output_cortex_test_aux() -> 
+    N1 = #neuron{id = ?NEW_NEURON_ID(rand:uniform())},
+    C1 = #cortex{outputs_ids = [id(N1)]},
+    ?assertMatch(#cortex{outputs_ids = []}, remove_output(C1, id(N1))).
 
 %%--------------------------------------------------------------------
 %% @doc Adds an Id as input of the element.
@@ -419,16 +428,22 @@ remove_input(Neuron, FromId) when is_record(Neuron, neuron) ->
     Inputs_IdPs = lists:keydelete(FromId,1,Neuron#neuron.inputs_idps),
     Neuron#neuron{inputs_idps = Inputs_IdPs};
 remove_input(Cortex, FromId) when is_record(Cortex, cortex) ->
-    Inputs_IdPs = lists:keydelete(FromId,1,Cortex#cortex.inputs_ids),
-    Cortex#cortex{inputs_ids = Inputs_IdPs}.
+    Inputs_Ids = lists:delete(FromId, Cortex#cortex.inputs_ids),
+    Cortex#cortex{inputs_ids = Inputs_Ids}.
 
 remove_input_test() -> 
-    [remove_input_test_aux() || _ <- lists:seq(1,99)].
+    [remove_input_neuron_test_aux() || _ <- lists:seq(1,99)],
+    [remove_input_cortex_test_aux() || _ <- lists:seq(1,99)].
 
-remove_input_test_aux() -> 
+remove_input_neuron_test_aux() -> 
     N1 = #neuron{id = ?NEW_NEURON_ID(rand:uniform())},
     N2 = #neuron{inputs_idps = [{id(N1),0.0}]},
     ?assertMatch(#neuron{inputs_idps = []}, remove_input(N2, id(N1))).
+
+remove_input_cortex_test_aux() -> 
+    N1 = #neuron{id = ?NEW_NEURON_ID(rand:uniform())},
+    C1 = #cortex{inputs_ids = [id(N1)]},
+    ?assertMatch(#cortex{inputs_ids = []}, remove_input(C1, id(N1))).
 
 %%--------------------------------------------------------------------
 %% @doc Edits the input weight of an input.
