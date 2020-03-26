@@ -512,14 +512,14 @@ map_inputs_idps(Inputs_IdPs, ConversionETS) ->
 
 % ----------------------------------------------------------------------------------------------------------------------
 % TESTS DESCRIPTIONS ---------------------------------------------------------------------------------------------------
-print_elements_test_() ->
-    % {setup, Where, Setup, Cleanup, Tests | Instantiator}
-    [
-        {"It is possible to print a neuron correctly using ?LOG_INFO",
-         {setup, local, fun no_setup/0, fun no_cleanup/1, fun test_for_print_neuron/1}}
-%%        {"It is possible to print all record types correctly using ?LOG_INFO",
-%%         {setup, local, fun no_setup/0, fun no_cleanup/1, fun test_for_print_all/1}}
-    ].
+% print_elements_test_() ->
+%     {setup, Where, Setup, Cleanup, Tests | Instantiator}
+%     [
+%         {"It is possible to print a neuron correctly using ?LOG_INFO",
+%          {setup, local, fun no_setup/0, fun no_cleanup/1, fun test_for_print_neuron/1}}
+%        {"It is possible to print all record types correctly using ?LOG_INFO",
+%         {setup, local, fun no_setup/0, fun no_cleanup/1, fun test_for_print_all/1}}
+%     ].
 
 
 % ----------------------------------------------------------------------------------------------------------------------
@@ -532,21 +532,22 @@ no_cleanup(_) ->
 
 % ----------------------------------------------------------------------------------------------------------------------
 % ACTUAL TESTS ---------------------------------------------------------------------------------------------------------
-test_for_print_neuron(_) ->
-    Neuron = #neuron{bias = 0.0},
-    TestListToPrint = lists:append([
-                                       "Element record: neuron \n",
-                                       " --> id = undefined \n",
-                                       " --> activation  = undefined \n",
-                                       " --> aggregation = undefined \n",
-                                       " --> initializer = undefined \n",
-                                       " --> outputs_ids = [] \n",
-                                       " --> inputs_idps = [] \n",
-                                       " --> bias = 0.0 \n"
-                                   ]),
-    {inorder, [
-        ?_assertEqual(TestListToPrint, lists:flatten(pformat(Neuron)))
-    ]}.
+% test_for_print_neuron(_) ->
+%     Neuron = #neuron{bias = 0.0},
+%     TestListToPrint = lists:append(
+%         [
+%             "Element record: neuron \n",
+%             " --> id = undefined \n",
+%             " --> activation  = undefined \n",
+%             " --> aggregation = undefined \n",
+%             " --> initializer = undefined \n",
+%             " --> outputs_ids = [] \n",
+%             " --> inputs_idps = [] \n",
+%             " --> bias = 0.0 \n"
+%         ]),
+%     {inorder, [
+%         ?_assertEqual(TestListToPrint, lists:flatten(pformat(Neuron)))
+%     ]}.
 
 %%test_for_print_all(_) ->
 %%    EList = [#input{}, #output{}, #neuron{}, #cortex{}],
