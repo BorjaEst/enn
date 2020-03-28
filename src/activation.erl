@@ -2,17 +2,23 @@
 %%% @author borja
 %%% @doc
 %%%
+%%%
+%%% TODO: Implement crelu
+%%% TODO: Implement relu_x
+%%% TODO: Implement dropout (Probably this is not an activation)
+%%%
 %%% @end
 %%%-------------------------------------------------------------------
 -module(activation).
 
 -include_lib("math_constants.hrl").
 -include_lib("eunit/include/eunit.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -define(EQUAL_TOLERANCE, 0.001).
 
 %% API
--export([apply/2, beta/3]).
+-export([func/2, dfun/2, beta/3]).
 -export_type([func/0]).
 
 -type func() :: direct | sigmoid | tanh | softplus | softsign 
@@ -23,41 +29,66 @@
 %%% API
 %%%===================================================================
 
-% ....................................................................
-% TODO: Define specs and comments
-apply(sigmoid, Soma)  -> sigmoid(Soma);
-apply(tanh, Soma)     -> tanh(Soma);
-apply(softplus, Soma) -> softplus(Soma);
-apply(softsign, Soma) -> softsign(Soma);
-apply(elu, Soma)      -> elu(Soma);
-apply(selu, Soma)     -> selu(Soma);
-apply(relu, Soma)     -> relu(Soma);
-apply(crelu, _Soma)   -> error(not_defined); %% TODO: To implement
-apply(relu_x, _Soma)  -> error(not_defined); %% TODO: To implement
-apply(dropout, _Soma) -> error(not_defined); %% TODO: To implement
-apply(_Ref, _)        -> error(not_defined).
+%%--------------------------------------------------------------------
+%% @doc Applies the indicated activation funtion.
+%% @end
+%%--------------------------------------------------------------------
+-spec func(Function :: func(), Soma :: float()) -> 
+    Result :: float().
+func(Function, Soma) -> 
+    Result = apply_fun(Function, Soma),
+    ?LOG_DEBUG("Activation function: ~p, result: ~p, soma: ~p", 
+               [Function, Result, Soma]),
+    Result.
 
-% ....................................................................
-% TODO: Define specs and comments
-beta(sigmoid, Err, Soma)   -> do_beta(Err, Soma, fun d_sigmoid/1);
-beta(tanh, Err, Soma)      -> do_beta(Err, Soma, fun d_tanh/1);
-beta(softplus, Err, Soma)  -> do_beta(Err, Soma, fun d_softplus/1);
-beta(softsign, Err, Soma)  -> do_beta(Err, Soma, fun d_softsign/1);
-beta(elu, Err, Soma)       -> do_beta(Err, Soma, fun d_elu/1);
-beta(selu, Err, Soma)      -> do_beta(Err, Soma, fun d_selu/1);
-beta(relu, Err, Soma)      -> do_beta(Err, Soma, fun d_relu/1);
-beta(crelu, _Err, _Soma)   -> error(not_defined); %% TODO: To implement
-beta(relu_x, _Err, _Soma)  -> error(not_defined); %% TODO: To implement
-beta(dropout, _Err, _Soma) -> error(not_defined); %% TODO: To implement
-beta(_Ref, _Err, _Soma)    -> error(not_defined).
+apply_fun(sigmoid,  Soma) -> sigmoid(Soma);
+apply_fun(tanh,     Soma) -> tanh(Soma);
+apply_fun(softplus, Soma) -> softplus(Soma);
+apply_fun(softsign, Soma) -> softsign(Soma);
+apply_fun(elu,      Soma) -> elu(Soma);
+apply_fun(selu,     Soma) -> selu(Soma);
+apply_fun(relu,     Soma) -> relu(Soma);
+apply_fun(_Ref,    _Soma) -> error(not_defined).
 
-do_beta(Error, Soma, DerF) when Error =< 0 ->
+%%--------------------------------------------------------------------
+%% @doc Applies the derivade of the indicated activation funtion.
+%% @end
+%%--------------------------------------------------------------------
+-spec dfun(Function :: func(), Soma :: float()) -> 
+    Result :: float().
+dfun(Function, Soma) -> 
+    Result = apply_dfun(Function, Soma),
+    ?LOG_DEBUG("Activation function: ~p, result: ~p, soma: ~p", 
+               [Function, Result, Soma]),
+    Result.
+
+apply_dfun(sigmoid,  Soma) -> d_sigmoid(Soma);
+apply_dfun(tanh,     Soma) -> d_tanh(Soma);
+apply_dfun(softplus, Soma) -> d_softplus(Soma);
+apply_dfun(softsign, Soma) -> d_softsign(Soma);
+apply_dfun(elu,      Soma) -> d_elu(Soma);
+apply_dfun(selu,     Soma) -> d_selu(Soma);
+apply_dfun(relu,     Soma) -> d_relu(Soma);
+apply_dfun(_Ref,    _Soma) -> error(not_defined).
+
+%%--------------------------------------------------------------------
+%% @doc Applies the beta calculation for the activation funtion.
+%% @end
+%%--------------------------------------------------------------------
+-spec beta(Function :: func(), Error :: float(), Soma :: float()) -> 
+    Result :: float().
+beta(Function, Error, Soma) when Error =< 0 ->
     if
-        Soma =< 0 -> DerF(Soma) * Error;
-        true -> Error
-    end;
-do_beta(Error, Soma, DerF) ->
-    - do_beta(-Error, -Soma, DerF).
+        Soma =< 0 -> Result = Error * dfun(Function, Soma);
+        true      -> Result = Error
+    end,
+    ?LOG_DEBUG("Beta function: ~p, result: ~p, error: ~p, soma: ~p", 
+               [Function, Result, Error, Soma]),
+    Result;
+beta(Function, Error, Soma) ->
+    ?LOG_DEBUG("Beta error: ~p and soma: ~p inverted (*-1)", 
+               [Error, Soma]), 
+    - beta(Function, -Error, -Soma).
 
 
 %%====================================================================
