@@ -305,7 +305,7 @@ calculate_soma() ->
 %% @end
 %%--------------------------------------------------------------------
 calculate_signal() -> 
-    put(signal, activation:apply(get(activation), 
+    put(signal, activation:func(get(activation), 
                                  get(soma      )
     )).
 
