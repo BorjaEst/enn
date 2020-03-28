@@ -111,20 +111,31 @@ end_per_testcase(_TestCase, _Config) ->
 %%--------------------------------------------------------------------
 groups() ->
     [
-        {test_for_multiple_networks, [parallel],
+        {test_simple_architectures, [sequence],
          [
-             xor_gate_static_inputs,
-             xor_gate_random_inputs,
-             addition_static_inputs,
-             addition_random_inputs,
-             weights_0_network,
-             sequence_1_input |
-             [random_dense_random_inputs 
-                 || _ <- lists:seq(1, ?PARALLEL_NN - 5)] 
-         ]},
-        {test_of_error_networks, [parallel],
-         [test_for_empty_nn,
-          test_for_broken_nn]}
+            xor_gate_static_inputs,
+            xor_gate_random_inputs,
+            addition_static_inputs,
+            addition_random_inputs
+         ]
+        },
+        {test_complex_architectures, [sequence],
+         [
+            weights_0_network,
+            sequence_1_input
+         ]
+        },
+        {test_error_networks, [parallel],
+         [
+            test_for_empty_nn,
+            test_for_broken_nn
+         ]
+        },
+        {test_parallel_networks, [parallel],
+         [random_dense_random_inputs 
+            || _ <- lists:seq(1, ?PARALLEL_NN - 5)] 
+        }
+
     ].
 
 %%--------------------------------------------------------------------
@@ -135,12 +146,11 @@ groups() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 all() ->
-    [
-        % addition_static_inputs,
-        % addition_random_inputs,
-        % xor_gate_static_inputs % GROUPS CANNOT BE DEBUGGED
-        {group, test_for_multiple_networks}
-        % {group, test_of_error_networks}
+    [ % NOTE THAT GROUPS CANNOT BE DEBUGGED WITH {step, ?STEP_OPTS}
+        {group, test_simple_architectures},
+        % {group, test_complex_architectures},
+        % {group, test_error_networks},
+        {group, test_parallel_networks}
     ].
 
 %%--------------------------------------------------------------------
