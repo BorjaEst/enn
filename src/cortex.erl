@@ -11,8 +11,8 @@
 -compile([export_all, nowarn_export_all]). %% TODO: To delete after build
 
 -include_lib("math_constants.hrl").
--include_lib("kernel/include/logger.hrl").
 -include_lib("eunit/include/eunit.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 -behaviour(gen_statem).
 
@@ -34,9 +34,30 @@
 -record(output, {pid :: pid(), s :: float(), error    :: float()}).
 -record(input,  {pid :: pid(), s :: float(), acc = [] :: [float()]}).
 -record(state, {
-    wait :: [term()],
-    from :: gen_statem:from()
+    wait :: [term()]
 }).
+
+
+-define(INFO_STATE_CHANGE(OldState),
+    ?LOG_INFO(#{desc     => "Cortex state has changed", 
+                new_state => ?FUNCTION_NAME, old_state => OldState},
+              #{logger_formatter=>#{title=>"CORTEX STATE CHANGE"}})
+).
+-define(INFO_EVENT(Description, StateData, Context),
+    ?LOG_INFO(#{desc  => Description,    context    => Context,
+               state => ?FUNCTION_NAME, state_data => StateData},
+              #{logger_formatter=>#{title=>"CORTEX INFO"}})
+).
+-define(DEBUG_EVENT(Description, StateData, Context),
+    ?LOG_DEBUG(#{desc  => Description,    context    => Context,
+                state => ?FUNCTION_NAME, state_data => StateData},
+               #{logger_formatter=>#{title=>"CORTEX DEBUG"}})
+).
+-define(DEBUG_NEURON_MSG(Type, From, Signal),
+    ?LOG_DEBUG(#{desc => "Neuron message received", type => Type,
+                 from => From, signal => ?FUNCTION_NAME},
+               #{logger_formatter=>#{title=>"CORTEX DEBUG"}})
+).
 
 
 -ifdef(debug_mode).
@@ -172,7 +193,7 @@ init([]) ->
     Id = get(id),
     ets:insert(get(tid_idpids), [{Id, self()}, {self(), Id}]),
     process_flag(trap_exit, true), % Mandatory to catch supervisor exits
-    ?LOG_INFO("Cortex_Id:~p initiated", [Id]),
+    ?LOG_INFO(#{desc => "Cortex initiated", id => Id}),
     {ok, inactive, #state{},
      [{next_event, internal, start_nn}]}.
 
@@ -232,28 +253,29 @@ format_status(_Opt, [_PDict, _StateName, _State]) ->
 %% backpropagation wave.  
 %%
 %%--------------------------------------------------------------------
+inactive(enter, OldState, State) ->
+    ?INFO_STATE_CHANGE(OldState),
+    {keep_state, State};
 inactive({call, From}, {feedforward, ExtInputs}, State) ->
+    ?INFO_EVENT("Feedforward request", State, #{inputs=>ExtInputs}),
     UpdatedOutputs = trigger_forward(get(outputs), ExtInputs),
     put(outputs, UpdatedOutputs),
+    put(   from,           From),
     {next_state, on_feedforward, State#state{
-        from = From,
         wait = [Input#input.pid || Input <- get(inputs)]
     }};
 inactive({call, From}, {backprop, Optimals}, State) ->
+    ?INFO_EVENT("Backprop request", State, #{optimals=>Optimals}),
     UpdatedInputs = trigger_backward(get(inputs), Optimals),
     put(inputs, UpdatedInputs),
+    put(  from,          From),
     {next_state, on_backpropagation, State#state{
-        from = From,
         wait = [Output#output.pid || Output <- get(outputs)]
     }};
 inactive(internal, start_nn, State) ->
-    case catch handle_start_nn() of
-        {'EXIT', {broken_nn, _}} ->
-            ?LOG_NOTICE("Cortex Id: ~p, broken_nn", [get(id)]),
-            {stop, normal};
-        {'EXIT', Reason} -> {stop, Reason};
-        _ -> {next_state, inactive, State}
-    end;
+    ?INFO_EVENT("Network start request", State, #{}),
+    ok = handle_start_nn(),
+    {keep_state, State};
 inactive(EventType, EventContent, State) ->
     handle_common(EventType, EventContent, State).
 %%--------------------------------------------------------------------
@@ -262,7 +284,11 @@ inactive(EventType, EventContent, State) ->
 %% values, the cortex returns the predictions to the requester.
 %%
 %%--------------------------------------------------------------------
+on_feedforward(enter, OldState, State) ->
+    ?INFO_STATE_CHANGE(OldState),
+    {keep_state, State};
 on_feedforward(info, {Pid, forward, Signal}, State) ->
+    ?DEBUG_NEURON_MSG(forward, Pid, Signal),
     Input = lists:keyfind(Pid, #input.pid, get(inputs)),
     UpdatedInputs = lists:keyreplace(Pid, #input.pid, get(inputs), 
                                      Input#input{s = Signal}),
@@ -271,9 +297,9 @@ on_feedforward(info, {Pid, forward, Signal}, State) ->
         wait = lists:delete(Pid, State#state.wait)
     });
 on_feedforward(internal, forward, #state{wait = []} = State) ->
+    ?DEBUG_EVENT("End of forward propagation", State, #{}),
     {next_state, inactive, State,
-     [{reply, State#state.from, 
-       [Input#input.s || Input <- get(inputs)]}]};
+     [{reply, get(from), [Input#input.s || Input <- get(inputs)]}]};
 on_feedforward(EventType, EventContent, State) ->
     handle_common(EventType, EventContent, State).
 %%--------------------------------------------------------------------
@@ -283,7 +309,11 @@ on_feedforward(EventType, EventContent, State) ->
 %% inputs to the requester.
 %%
 %%--------------------------------------------------------------------
+on_backpropagation(enter, OldState, State) ->
+    ?INFO_STATE_CHANGE(OldState),
+    {keep_state, State};
 on_backpropagation(info, {Pid, backward, BP_Err}, State) ->
+    ?DEBUG_NEURON_MSG(backward, Pid, BP_Err),
     Output = lists:keyfind(Pid, #output.pid, get(outputs)),
     UpdatedOutputs = lists:keyreplace(Pid, #input.pid, get(outputs), 
                                       Output#output{error = BP_Err}),
@@ -292,9 +322,15 @@ on_backpropagation(info, {Pid, backward, BP_Err}, State) ->
         wait = lists:delete(Pid, State#state.wait)
     });
 on_backpropagation(internal, backward, #state{wait = []} = State) ->
+    ?DEBUG_EVENT("End of back propagation", State, #{}),
     {next_state, inactive, State,
-     [{reply, State#state.from, 
-       [hd(Input#input.acc) || Input <- get(inputs)]}]};
+     [{reply, get(from), 
+     
+     
+     
+     
+     
+     [hd(Input#input.acc) || Input <- get(inputs)]}]};
 on_backpropagation(EventType, EventContent, State) ->
     handle_common(EventType, EventContent, State).
 %%--------------------------------------------------------------------
@@ -302,12 +338,11 @@ on_backpropagation(EventType, EventContent, State) ->
 %% exception if the event/call is unknown.
 %%
 %%--------------------------------------------------------------------
-handle_common(enter, _OldState, State) ->
-    {keep_state, State};
 handle_common(internal, _EventContent, State) ->
     {keep_state, State};
-handle_common({call,From}, {fan_inout, Coordinade}, State) ->
-    Reply = calc_fan_inout(Coordinade),
+handle_common({call,From}, {fan_inout, Coord}, State) ->
+    ?DEBUG_EVENT("Call for fan_inout", #{coord=>Coord}, State),
+    Reply = calc_fan_inout(Coord),
     {keep_state, State, {reply,From,Reply}};
 handle_common(EventType, EventContent, _State) ->
     error({"Unknown event", EventType, EventContent}).
@@ -353,8 +388,10 @@ handle_event(_EventType, _EventContent, _StateName, State) ->
 %% @spec terminate(Reason, StateName, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(Reason, _StateName, _State) ->
-    ?LOG_INFO("Cortex_Id ~p terminating with reason ~p", [get(id), Reason]),
+terminate(Reason, StateName, State) ->
+    ?INFO_EVENT("Cortex terminating", State, #{
+        id=> get(id), reason => Reason, state_name => StateName}
+    ),
     ok.
 
 %%--------------------------------------------------------------------
@@ -404,7 +441,8 @@ handle_start_nn() ->
     put(inputs,  [ #input{pid = cortex:nn_id2pid(Id, TId_IdPids)} 
         || Id <- elements:inputs_ids( Cortex)]),
     put(outputs, [#output{pid = cortex:nn_id2pid(Id, TId_IdPids)} 
-        || Id <- elements:outputs_ids(Cortex)]).
+        || Id <- elements:outputs_ids(Cortex)]),
+    ok.
 
 start_nn_element(NNSup_Pid, TId_IdPids, Neuron_Id) ->
     case nn_sup:start_neuron(NNSup_Pid, Neuron_Id) of
