@@ -16,7 +16,9 @@
          nn_sup,
          training
      ]}, %% TODO
-     {registered, []}, %% TODO
+     {registered, [
+         enn_sup
+     ]}, %% TODO
      {mod, {enn_app, []}},
      {applications, [kernel, stdlib]},
      {env, []},

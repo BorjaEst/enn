@@ -18,16 +18,15 @@
                     Value).
 
 -define(INFO(Text, Info), ct:log(?LOW_IMPORTANCE, "~p: ~p", [Text, Info])).
--define(ERROR(Error), ct:pal(?HI_IMPORTANCE, "Error: ~p", [Error])).
+-define(ERROR(Error),     ct:pal(?HI_IMPORTANCE, "Error: ~p", [Error])).
 
 -define(TEST_MODEL(Model, Training), 
     test_model(atom_to_list(?FUNCTION_NAME) ++ ".json", Model, Training)).
 
 -define(MAX_UNITS_PER_LAYER, 20).
--define(MAX_NUMBER_LAYERS, 4).
--define(TRAINING_LINES, 2000).
--define(DISPLAY_LINES, 10).
--define(PARALLEL_NN, 8).
+-define(MAX_NUMBER_LAYERS,    4).
+-define(TRAINING_LINES,     200).
+-define(PARALLEL_NN,          8).
 
 % TODO: If you kill the nn sup/cortex/neuron, etc, the nn is destroyed, the nn_sup dead and is not restarted
 
@@ -245,44 +244,44 @@ random_dense_random_inputs(_Config) ->
 
 % ....................................................................
 test_model(FileName, Model, Training) ->
-    {ok, Cortex_Id} = correct_model_compilation(Model),
-    {ok, Cortex_Pid} = correct_model_start(Cortex_Id),
-    ok = correct_model_training(FileName, Cortex_Id, Cortex_Pid, Training),
-    ok = correct_model_stop(Cortex_Id, Cortex_Pid),
+    {ok, Cx_Id}  = correct_model_compilation(Model),
+    {ok, Cx_Pid} = correct_model_start(Cx_Id),
+    ok = correct_model_training(FileName, Cx_Id, Cx_Pid, Training),
+    ok = correct_model_stop(Cx_Id, Cx_Pid),
     ok.
 
 % ....................................................................
 correct_model_compilation(Model) ->
     ?HEAD("Correct model compilation .............................."),
-    Cortex_Id = enn:compile(Model), ?INFO("Model", Model),
-    Cortex = edb:read(Cortex_Id), ?INFO("Cortex", Cortex),
-    true = elements:is_cortex(Cortex),
-    ?END({ok, Cortex_Id}).
+    Cx_Id  = enn:compile(Model), ?INFO("Model", Model),
+    Cortex = edb:read(Cx_Id), ?INFO("Cortex", Cortex),
+    true   = elements:is_cortex(Cortex),
+    ?END({ok, Cx_Id}).
 
 % ....................................................................
-correct_model_start(Cortex_Id) ->
+correct_model_start(Cx_Id) ->
     ?HEAD("Correct neural network start form a cortex id .........."),
-    {ok, Cortex_Pid} = enn:start_nn(Cortex_Id),
-    SleepTime = 10, timer:sleep(SleepTime),
-    true = is_process_alive(Cortex_Pid), 
+    {ok, Cx_Pid} = enn:start_nn(Cx_Id),
+    ok   = timer:sleep(SleepTime = 10),
+    true = is_process_alive(Cx_Pid), 
     ?INFO("Cortex alive after ms: ", SleepTime),
-    ?END({ok, Cortex_Pid}).
+    ?END({ok, Cx_Pid}).
 
 % ....................................................................
-correct_model_training(FileName, Cortex_Id, Cortex_Pid, Training) ->
+correct_model_training(FileName, Cx_Id, Cx_Pid, Training) ->
     ?HEAD("Correct fit of model using backpropagation ............."),
     {Inputs, Optimas} = Training(
-        enn:inputs(Cortex_Id), 
-        enn:outputs(Cortex_Id), 
+        enn:inputs(Cx_Id), 
+        enn:outputs(Cx_Id), 
         ?TRAINING_LINES),
-    [Loss] = enn:run(Cortex_Pid, Inputs, Optimas, [
+    [Loss] = enn:run(Cx_Pid, Inputs, Optimas, [
         loss,
         {log, FileName},
         {return, [loss]}
     ]),
     ?INFO("Loss AVG 10: ", {length(Loss), average_in_10(Loss)}),
     timer:sleep(10),
-    true = is_process_alive(Cortex_Pid),
+    true = is_process_alive(Cx_Pid),
     ?END(ok).
 
 % ....................................................................
@@ -298,6 +297,11 @@ correct_model_stop(Cortex_Id, Cortex_Pid) ->
     true = Neuron_BeforeTraining /= Neuron_AfterTraining,
     ?END(ok).
 
+
+% --------------------------------------------------------------------
+% RESULTS CONSOLE PRINT ----------------------------------------------
+
+
 % ....................................................................
 average_in_10(List) when length(List)>=10 ->
     NdArray = ndarray:new([length(List)], List),
@@ -305,3 +309,10 @@ average_in_10(List) when length(List)>=10 ->
     ndarray:data(NdAMean);
 average_in_10(List) when length(List)>=0 -> 
     List.
+
+
+% ....................................................................
+% console_print(Data) -> 
+%     Report = reports:progress_line(2, Data, ?PROGRESS_BAR),
+%     ct:print(Report ++ "\n").
+
