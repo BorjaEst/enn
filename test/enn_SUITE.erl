@@ -146,7 +146,7 @@ groups() ->
 all() ->
     [ % NOTE THAT GROUPS CANNOT BE DEBUGGED WITH {step, ?STEP_OPTS}
         {group, test_simple_architectures},
-        % {group, test_complex_architectures},
+        {group, test_complex_architectures},
         % {group, test_error_networks},
         {group, test_parallel_networks}
     ].
@@ -177,8 +177,8 @@ xor_gate_static_inputs() ->
     [].
 xor_gate_static_inputs(_Config) ->
     {ok, Loss10} = ?TEST_MODEL(
-        test_architectures:xor_gate(),
-        fun test_data_generators:static_xor_of_inputs/3
+        _Model = test_architectures:xor_gate(),
+        _Data  = fun test_data_generators:static_xor_of_inputs/3
     ),
     console_print_loss(?FUNCTION_NAME, Loss10).
 
@@ -187,8 +187,8 @@ xor_gate_random_inputs() ->
     [].
 xor_gate_random_inputs(_Config) ->
     {ok, Loss10} = ?TEST_MODEL(
-        test_architectures:xor_gate(),
-        fun test_data_generators:random_xor_of_inputs/3
+        _Model = test_architectures:xor_gate(),
+        _Data  = fun test_data_generators:random_xor_of_inputs/3
     ),
     console_print_loss(?FUNCTION_NAME, Loss10).
 
@@ -197,8 +197,8 @@ addition_static_inputs() ->
     [].
 addition_static_inputs(_Config) ->
     {ok, Loss10} = ?TEST_MODEL(
-        test_architectures:addition(),
-        fun test_data_generators:static_sum_of_inputs/3
+        _Model = test_architectures:addition(),
+        _Data  = fun test_data_generators:static_sum_of_inputs/3
     ),
     console_print_loss(?FUNCTION_NAME, Loss10).
 
@@ -207,8 +207,8 @@ addition_random_inputs() ->
     [].
 addition_random_inputs(_Config) ->
     {ok, Loss10} = ?TEST_MODEL(
-        test_architectures:addition(),
-        fun test_data_generators:random_sum_of_inputs/3
+        _Model = test_architectures:addition(),
+        _Data  = fun test_data_generators:random_sum_of_inputs/3
     ),
     console_print_loss(?FUNCTION_NAME, Loss10).
 
@@ -217,8 +217,8 @@ sequence_1_input() ->
     [].
 sequence_1_input(_Config) ->
     ?TEST_MODEL(
-        test_architectures:sequence(),
-        fun test_data_generators:sequence_of_1_input/3
+        _Model = test_architectures:sequence(),
+        _Data  = fun test_data_generators:sequence_of_1_input/3
     ).
 
 % ....................................................................
@@ -226,21 +226,21 @@ weights_0_network() ->
     [].
 weights_0_network(_Config) ->
     ?TEST_MODEL(
-        test_architectures:network_0_weights(),
-        fun test_data_generators:inputs_always_0/3
+        _Model = test_architectures:network_0_weights(),
+        _Data  = fun test_data_generators:inputs_always_0/3
     ).
 
 % ....................................................................
 random_dense_random_inputs() ->
     [].
 random_dense_random_inputs(_Config) ->
-    N = erlang:unique_integer([positive, monotonic]),
-    test_model(
-        "random_dense" ++ integer_to_list(N) ++ ".json",
-        test_architectures:random_dense(?MAX_UNITS_PER_LAYER, 
-                                        ?MAX_NUMBER_LAYERS),
-        fun test_data_generators:random_sum_of_inputs/3
-    ).
+    N     = erlang:unique_integer([positive, monotonic]),
+    NameJ = "random_dense" ++ integer_to_list(N) ++ ".json",
+    DataF = fun test_data_generators:random_sum_of_inputs/3,
+    Model = test_architectures:random_dense(?MAX_UNITS_PER_LAYER,
+                                            ?MAX_NUMBER_LAYERS),
+    test_model(NameJ, Model, DataF).
+
 
 % --------------------------------------------------------------------
 % SPECIFIC HELPER FUNCTIONS ------------------------------------------
