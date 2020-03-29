@@ -2,6 +2,7 @@
 %%% @author borja
 %%% @doc  
 %%%
+%%% TODO: Make gen_statem
 %%% @end
 %%%-------------------------------------------------------------------
 -module(training).
@@ -70,6 +71,7 @@ init(User_Pid, Cortex_Pid, InputsList, OptimaList, Options) ->
     put(cortex_pid, Cortex_Pid),
     put(prediction_list, []),
     put(    errors_list, []),
+    put( bp_errors_list, []),
     init(Options, #{}, #state{
         inputsList = InputsList,
         optimaList = OptimaList,
@@ -107,8 +109,8 @@ predict(internal, Data, State) ->
     Inputs = maps:get(inputs, Data),
     Cortex = get(cortex_pid),
     Prediction = cortex:predict(Cortex, Inputs),
-    put(data, Data#{prediction => Prediction}),
     put(prediction_list, [Prediction | get(prediction_list)]),
+    put(data, Data#{prediction => Prediction}),
     fit(enter, predict, State).
 %%--------------------------------------------------------------------
 %% fit: Trains the model if optima available
@@ -118,13 +120,19 @@ fit(enter, _OldState, #state{optimaList = []} = State) ->
 fit(enter, _OldState, State) -> 
     [Optima | OptimaList] = State#state.optimaList,
     Data = maps:put(optima, Optima, get(data)),
-    fit(internal, Data, State#state{optimaList = OptimaList});
-fit(internal, Data, State) -> 
-    Optima = maps:get(optima, Data),
-    Cortex = get(cortex_pid),
-    Errors = cortex:fit(Cortex, Optima),
-    put(data, Data#{errors => Errors}),
+    fit(calc_errors, Data, State#state{optimaList = OptimaList});
+fit(calc_errors, Data, State) -> 
+    Optima     = maps:get(    optima, Data),
+    Prediction = maps:get(prediction, Data),
+    Errors     = [O-P || {O,P} <- lists:zip(Optima, Prediction)],
     put(errors_list, [Errors | get(errors_list)]),
+    fit(do_fit, Data#{errors => Errors}, State);
+fit(do_fit, Data, State) -> 
+    Cortex    = get(cortex_pid),
+    Errors    = maps:get(errors, Data),
+    BP_Errors = cortex:fit(Cortex, Errors),
+    put(bp_errors_list, [BP_Errors | get(bp_errors_list)]),
+    put(data, Data#{bp_errors => BP_Errors}),
     results(enter, fit, State).
 %%--------------------------------------------------------------------
 %% results: Applies the result functions (Loss calculation, log, etc.)

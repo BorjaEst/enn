@@ -7,7 +7,7 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/0, start_cortex/2, start_neuron/2]).
+-export([start_link/0, start_cortex/2, start_neuron/3]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -61,9 +61,11 @@ start_cortex(Supervisor, Cortex_Id) ->
 %% @end
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
-start_neuron(Supervisor, Neuron_Id) ->
-    Cortex = self(),
-    ?START_CHILD(Supervisor, ?SPECS_NEURON(Neuron_Id, Cortex)).
+start_neuron(Supervisor, Id, RegisterTable) ->
+    Cortex  = self(),
+    {ok, Pid} = ?START_CHILD(Supervisor, ?SPECS_NEURON(Id, Cortex)),
+    true = ets:insert(RegisterTable, [{Id, Pid}, {Pid, Id}]),
+    Pid.
 
 
 %%====================================================================
