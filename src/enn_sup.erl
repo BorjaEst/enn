@@ -1,12 +1,16 @@
 %%%-------------------------------------------------------------------
 %% @doc enn top level supervisor.
+%%
+%% TODO: Use a non named_table for the nn_pool
 %% @end
 %%%-------------------------------------------------------------------
 -module(enn_sup).
 -behaviour(supervisor).
 
+-include_lib("nn_pool.hrl").
+
 %% API
--export([start_link/1, start_nn_supervisor/1, terminate_nn_supervisor/1]).
+-export([start_link/1, start_nn/1, terminate_nn/1]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -33,9 +37,7 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Starts the supervisor
-%%
+%% @doc Starts the supervisor
 %% @end
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
@@ -43,24 +45,27 @@ start_link(StartArgs) ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, StartArgs).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Starts the neural network supervisor
-%%
+%% @doc Starts the neural network supervisor
 %% @end
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
-start_nn_supervisor(Cortex_Id) ->
-    supervisor:start_child(?SERVER, ?SPECS_NN_SUP(Cortex_Id)).
+start_nn(Cortex_Id) ->
+    {ok, NN_Pid} = supervisor:start_child(?SERVER, 
+                                          ?SPECS_NN_SUP(Cortex_Id)),
+    {ok, Cx_Pid} = nn_sup:start_cortex(NN_Pid, Cortex_Id),
+    ets:insert(?NN_POOL, #nn{id=Cortex_Id, sup=NN_Pid, cx=Cx_Pid}),
+   {ok, Cx_Pid}. 
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Stops the neural network supervisor
-%%
+%% @doc Stops the neural network supervisor
 %% @end
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
-terminate_nn_supervisor(Cortex_Id) ->
-    supervisor:terminate_child(?SERVER, ?NN_SUP_ID(Cortex_Id)).
+terminate_nn(Cortex_Id) ->
+    case supervisor:terminate_child(?SERVER, ?NN_SUP_ID(Cortex_Id)) of
+        ok   -> true = ets:delete(?NN_POOL, Cortex_Id), ok;
+        Fail -> Fail
+    end.
 
 
 %%====================================================================
@@ -78,9 +83,15 @@ init([]) ->
     ChildSpecs = [
         ?SPECS_DATALOG
     ],
+    start_pool(),
     {ok, {SupFlags, ChildSpecs}}.
 
     
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+start_pool() ->  
+    ets:new(?NN_POOL, ?NN_POOL_OPTIONS).
+
+

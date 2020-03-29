@@ -12,6 +12,7 @@
 -author("borja").
 -compile([export_all, nowarn_export_all]). %%TODO: To delete after build
 
+-include_lib("nn_pool.hrl").
 -include_lib("kernel/include/logger.hrl").
 
 %% API
@@ -150,9 +151,7 @@ clone({_, cortex} = Cortex_Id) ->
 -spec start_nn(Cortex_Id :: cortex:id()) -> 
     {ok, Cortex_Pid :: pid()}.
 start_nn(Cortex_Id) ->
-    {ok, NN_Pid} = enn_sup:start_nn_supervisor(Cortex_Id),
-    {ok, Cortex_Pid} = nn_sup:start_cortex(NN_Pid, Cortex_Id),
-    {ok, Cortex_Pid}.
+    enn_sup:start_nn(Cortex_Id).
 
 %%--------------------------------------------------------------------
 %% @doc Stops a neural network.
@@ -162,7 +161,7 @@ start_nn(Cortex_Id) ->
       Result :: 'ok' | {'error', Error},
       Error :: 'not_found' | 'simple_one_for_one'.
 stop_nn(Cortex_Id) ->
-    enn_sup:terminate_nn_supervisor(Cortex_Id).
+    enn_sup:terminate_nn(Cortex_Id).
 
 %%--------------------------------------------------------------------
 %% @doc Returns a character list that represents the element of the Id

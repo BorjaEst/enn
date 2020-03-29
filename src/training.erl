@@ -19,6 +19,7 @@
 -export([init/5, predict/3, fit/3, results/3, terminate/1]).
 
 -type option() :: {return, Returns :: [return()]} 
+                | print
                 | loss
                 | log.
 -type return() :: prediction
@@ -27,10 +28,13 @@
 -type result() :: [float()]
                 | undefined.
 
+-define(PROGRESS_BAR, #{size => 20}).
+
 -record(state, {
     inputsList = [] :: [[number()]],
     optimaList = [] :: [[number()]],
-    log             :: undefined | {ok, reference()} | closed
+    cycle :: integer(),
+    log   :: undefined | {ok, reference()} | closed
 }).
 
 
@@ -68,11 +72,15 @@ init(User_Pid, Cortex_Pid, InputsList, OptimaList, Options) ->
     put(    errors_list, []),
     init(Options, #{}, #state{
         inputsList = InputsList,
-        optimaList = OptimaList
+        optimaList = OptimaList,
+        cycle      = 0
     }).
 
 init([{return, Returns} | Options], Map, State) -> 
     init(Options, Map#{return => Returns}, State);
+init([            print | Options], Map, State) -> 
+    Size = length(State#state.inputsList),
+    init(Options, Map#{print => Size}, State);
 init([             loss | Options], Map, State) -> 
     put(loss_list, []), 
     init(Options, Map#{loss => true}, State);
@@ -123,8 +131,14 @@ fit(internal, Data, State) ->
 %%--------------------------------------------------------------------
 results(enter, _OldState, State) ->
     Options = get(options),
-    Data = get(data),
+    Data    = get(data),
     results(Options, Data, State);
+results(#{print:=Size} = Options, Data, #state{cycle=Cyc} = State)
+when Cyc rem ceil(Size/10) == 0 -> 
+    Report = [Cyc, Cyc/Size, "errors:", maps:get(errors, Data)],
+    Print  = reports:progress_line(2, Report, ?PROGRESS_BAR),
+    io:format(Print ++ "\n"),
+    results(maps:remove(print, Options), Data, State);
 results(#{loss := true} = Options, Data, State)  ->
     Loss = ?LOSS(maps:get(errors, Data)),
     put(loss_list, [Loss | get(loss_list)]),
