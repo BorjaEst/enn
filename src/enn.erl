@@ -69,11 +69,11 @@ compile(Model) ->
 %% the cortex pid.
 %% @end
 %%--------------------------------------------------------------------
--spec predict(Cortex_Pid :: pid(), InputsList :: [[float()]]) ->
+-spec predict(Cortex_Id :: cortex:id(), InputsList :: [[float()]]) ->
     [Prediction :: [float()]].
-predict(Cortex_Pid, InputsList) ->
+predict(Cortex_Id, InputsList) ->
     Options = [{return, [prediction]}],
-    [Prediction] = run(Cortex_Pid, InputsList, [], Options),
+    [Prediction] = run(Cortex_Id, InputsList, [], Options),
     Prediction.
 
 %%--------------------------------------------------------------------
@@ -81,22 +81,23 @@ predict(Cortex_Pid, InputsList) ->
 %% OptimalOutputs. Returns the errors between prediction and optima.
 %% @end
 %%--------------------------------------------------------------------
--spec fit(Cortex_Pid :: pid(), InputsList :: [float()], 
+-spec fit(Cortex_Id :: cortex:id(), InputsList :: [float()], 
           OptimaList :: [float()]) ->
     Errors :: [float()].
-fit(Cortex_Pid, InputsList, OptimaList) ->
+fit(Cortex_Id, InputsList, OptimaList) ->
     Options = [{return, [errors]}],
-    [Errors] = run(Cortex_Pid, InputsList, OptimaList, Options),
+    [Errors] = run(Cortex_Id, InputsList, OptimaList, Options),
     Errors.
 
 %%--------------------------------------------------------------------
 %% @doc Runs an ANN with the criteria defined at the options.
 %% @end
 %%--------------------------------------------------------------------
--spec run(Cortex_Pid :: pid(), InputsList :: [float()], 
+-spec run(Cortex_Id :: cortex:id(), InputsList :: [float()], 
           OptimaList :: [float()], Options :: [training:option()]) ->
     Errors :: [float()].
-run(Cortex_Pid, InputsList, OptimaList, Options) ->
+run(Cortex_Id, InputsList, OptimaList, Options) ->
+    Cortex_Pid = cortex_pid(Cortex_Id),
     training:start_link(Cortex_Pid, InputsList, OptimaList, Options).
 
 %%--------------------------------------------------------------------
@@ -149,7 +150,7 @@ clone({_, cortex} = Cortex_Id) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec start_nn(Cortex_Id :: cortex:id()) -> 
-    {ok, Cortex_Pid :: pid()}.
+    ok.
 start_nn(Cortex_Id) ->
     enn_sup:start_nn(Cortex_Id).
 
@@ -193,6 +194,10 @@ check_nn(Cortex_Id) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+% ....................................................................
+cortex_pid(Cortex_Id) -> 
+    ets:lookup_element(?NN_POOL, Cortex_Id, #nn.cx).
 
 % ....................................................................
 check_links(Cortex, Neurons) -> %TODO: Check using elements:link

@@ -133,16 +133,17 @@ results(enter, _OldState, State) ->
     Options = get(options),
     Data    = get(data),
     results(Options, Data, State);
-results(#{print:=Size} = Options, Data, #state{cycle=Cyc} = State)
-when Cyc rem ceil(Size/10) == 0 -> 
-    Report = [Cyc, Cyc/Size, "errors:", maps:get(errors, Data)],
-    Print  = reports:progress_line(2, Report, ?PROGRESS_BAR),
-    io:format(Print ++ "\n"),
-    results(maps:remove(print, Options), Data, State);
 results(#{loss := true} = Options, Data, State)  ->
     Loss = ?LOSS(maps:get(errors, Data)),
     put(loss_list, [Loss | get(loss_list)]),
     results(maps:remove(loss, Options), Data#{loss => Loss}, State);
+results(#{print:=Size} = Options, Data, #state{cycle=Cyc} = State)
+when Cyc rem ceil(Size/10) == 0 -> 
+    Errors = maps:get(errors, Data),
+    Report = [Cyc, Cyc/Size, "acu:",lists:sum(Errors)/length(Errors)],
+    Print  = reports:progress_line(2, Report, ?PROGRESS_BAR),
+    io:format(Print ++ "\n"),
+    results(maps:remove(print, Options), Data, State);
 results(#{log := LogRef} = Options, Data, State) ->
     datalog:write(LogRef, Data),
     results(maps:remove(log, Options), Data, State);
