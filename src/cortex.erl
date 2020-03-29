@@ -5,6 +5,9 @@
 %%% all the outputs have received their control inputs, and that it’s
 %%% time for the inputs to again gather and fanout input data to the
 %%% neurons in the input layer. 
+%%
+%%
+%%  TODO: Try to move the ets table to the nn_sup 
 %%% @end
 %%%-------------------------------------------------------------------
 -module(cortex).
@@ -31,10 +34,17 @@
     OptionalProperty :: property() => Value :: term()
 }.
 
--record(output, {pid :: pid(), s :: float(), error    :: float()}).
--record(input,  {pid :: pid(), s :: float(), acc = [] :: [float()]}).
+-record(input,  {
+    id      :: id(),        % Neuron id (input)
+    s = 0.0 :: float()      % Signal value (Xi)
+}).
+-record(output, {
+    id      :: id(),        % Neuron id (output)
+    e = 0.0 :: float()      % Output error (Ei)
+}).
+
 -record(state, {
-    wait :: [term()]
+    wait = [] :: [term()]
 }).
 
 
@@ -121,10 +131,10 @@ predict(Cortex_Pid, ExternalInputs) ->
 %% @doc Performs a single NN training using back propagation.
 %% @end
 %%--------------------------------------------------------------------
--spec fit(Cortex_Pid :: pid(), OptimalOutputs :: [float()]) ->
-    Errors :: [float()].
-fit(Cortex_Pid, OptimalOutputs) ->
-    gen_statem:call(Cortex_Pid, {backprop, OptimalOutputs}, 
+-spec fit(Cortex_Pid :: pid(), Errors :: [float()]) ->
+    BP_Errors :: [float()].
+fit(Cortex_Pid, Errors) ->
+    gen_statem:call(Cortex_Pid, {backprop, Errors}, 
                     ?STDCALL_TIMEOUT).
 
 %%--------------------------------------------------------------------
@@ -194,7 +204,7 @@ init([]) ->
     ets:insert(get(tid_idpids), [{Id, self()}, {self(), Id}]),
     process_flag(trap_exit, true), % Mandatory to catch supervisor exits
     ?LOG_INFO(#{desc => "Cortex initiated", id => Id}),
-    {ok, inactive, #state{},
+    {ok, inactive, #state{wait = []},
      [{next_event, internal, start_nn}]}.
 
 %%--------------------------------------------------------------------
@@ -258,23 +268,21 @@ inactive(enter, OldState, State) ->
     {keep_state, State};
 inactive({call, From}, {feedforward, ExtInputs}, State) ->
     ?INFO_EVENT("Feedforward request", State, #{inputs=>ExtInputs}),
-    UpdatedOutputs = trigger_forward(get(outputs), ExtInputs),
-    put(outputs, UpdatedOutputs),
-    put(   from,           From),
+    forward(ExtInputs),
+    put(from, From),
     {next_state, on_feedforward, State#state{
-        wait = [Input#input.pid || Input <- get(inputs)]
+        wait = [Pid || {Pid, _} <- get(inputs)]
     }};
-inactive({call, From}, {backprop, Optimals}, State) ->
-    ?INFO_EVENT("Backprop request", State, #{optimals=>Optimals}),
-    UpdatedInputs = trigger_backward(get(inputs), Optimals),
-    put(inputs, UpdatedInputs),
-    put(  from,          From),
+inactive({call, From}, {backprop, Errors}, State) ->
+    ?INFO_EVENT("Backprop request", State, #{errors=>Errors}),
+    backward(Errors),
+    put(from, From),
     {next_state, on_backpropagation, State#state{
-        wait = [Output#output.pid || Output <- get(outputs)]
+        wait = [Pid || {Pid, _}  <- get(outputs)]
     }};
 inactive(internal, start_nn, State) ->
     ?INFO_EVENT("Network start request", State, #{}),
-    ok = handle_start_nn(),
+    handle_start_nn(),
     {keep_state, State};
 inactive(EventType, EventContent, State) ->
     handle_common(EventType, EventContent, State).
@@ -289,17 +297,14 @@ on_feedforward(enter, OldState, State) ->
     {keep_state, State};
 on_feedforward(info, {Pid, forward, Signal}, State) ->
     ?DEBUG_NEURON_MSG(forward, Pid, Signal),
-    Input = lists:keyfind(Pid, #input.pid, get(inputs)),
-    UpdatedInputs = lists:keyreplace(Pid, #input.pid, get(inputs), 
-                                     Input#input{s = Signal}),
-    put(inputs, UpdatedInputs),
+    update_input_signal(Pid, Signal),
     on_feedforward(internal, forward, State#state{
         wait = lists:delete(Pid, State#state.wait)
     });
 on_feedforward(internal, forward, #state{wait = []} = State) ->
     ?DEBUG_EVENT("End of forward propagation", State, #{}),
     {next_state, inactive, State,
-     [{reply, get(from), [Input#input.s || Input <- get(inputs)]}]};
+     [{reply, get(from), [I#input.s || I <- get(inputs)]}]};
 on_feedforward(EventType, EventContent, State) ->
     handle_common(EventType, EventContent, State).
 %%--------------------------------------------------------------------
@@ -314,23 +319,14 @@ on_backpropagation(enter, OldState, State) ->
     {keep_state, State};
 on_backpropagation(info, {Pid, backward, BP_Err}, State) ->
     ?DEBUG_NEURON_MSG(backward, Pid, BP_Err),
-    Output = lists:keyfind(Pid, #output.pid, get(outputs)),
-    UpdatedOutputs = lists:keyreplace(Pid, #input.pid, get(outputs), 
-                                      Output#output{error = BP_Err}),
-    put(outputs, UpdatedOutputs),
+    update_output_error(Pid, BP_Err),
     on_backpropagation(internal, backward, State#state{
         wait = lists:delete(Pid, State#state.wait)
     });
 on_backpropagation(internal, backward, #state{wait = []} = State) ->
     ?DEBUG_EVENT("End of back propagation", State, #{}),
     {next_state, inactive, State,
-     [{reply, get(from), 
-     
-     
-     
-     
-     
-     [hd(Input#input.acc) || Input <- get(inputs)]}]};
+     [{reply, get(from), [O#output.e || O <- get(outputs)]}]};
 on_backpropagation(EventType, EventContent, State) ->
     handle_common(EventType, EventContent, State).
 %%--------------------------------------------------------------------
@@ -411,47 +407,49 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%%===================================================================
 
 % ....................................................................
-trigger_forward(Outputs, ExtInputs) ->
-    [forward(Output, ExtInput) || 
-            {Output, ExtInput} <- lists:zip(Outputs, ExtInputs)].
-
-forward(Output, Signal) ->
-    Output#output.pid ! {self(), forward, Signal},
-    Output#output{s = Signal}.
+update_input_signal(Pid, Signal) -> 
+    {value, {_, I}} = lists:keysearch(Pid, 1, get(inputs)),
+    Inputs = lists:keyreplace(Pid, 1, get(inputs), I#input{s=Signal}),
+    put(inputs, Inputs).
 
 % ....................................................................
-trigger_backward(Inputs, Optimals) -> 
-    [backward(Input, Optm) || 
-             {Input, Optm} <- lists:zip(Inputs, Optimals)].
+update_output_error(Pid, Error) -> 
+    {value, {_, O}} = lists:keysearch(Pid, 1, get(outputs)),
+    Outputs = lists:keyreplace(Pid,1,get(outputs),O#output{e=Error}),
+    put(outputs, Outputs).
 
-backward(Input, Optm) ->
-    Error = Optm - Input#input.s,
-    Input#input.pid ! {self(), backward, Error},
-    Input#input{acc = [Error | Input#input.acc]}.
+% ....................................................................
+forward(ExtInputs) ->
+    [forward(P,S) || {{P,_},S} <- lists:zip(get(outputs), ExtInputs)].
+
+forward(Output_Pid, Signal) ->
+    Output_Pid ! {self(), forward, Signal}.
+
+% ....................................................................
+backward(Errors) -> 
+    [backward(P,E) || {{P,_},E} <- lists:zip(get(inputs), Errors)].
+
+backward(Input_Pid, Error) ->
+    Input_Pid ! {self(), backward, Error}.
 
 % ....................................................................
 handle_start_nn() ->
-    Cortex = get(cortex), 
-    NNSup_Pid = get(nn_sup), 
-    TId_IdPids = get(tid_idpids),
-    Neurons = [{start_nn_element(NNSup_Pid, TId_IdPids, N_Id), edb:read(N_Id)} 
-                  || N_Id <- elements:neurons(Cortex)],
-    [Pid ! {continue_init, TId_IdPids} || {Pid, _} <- Neurons],
-    put(neurons, maps:from_list(Neurons)),
-    put(inputs,  [ #input{pid = cortex:nn_id2pid(Id, TId_IdPids)} 
-        || Id <- elements:inputs_ids( Cortex)]),
-    put(outputs, [#output{pid = cortex:nn_id2pid(Id, TId_IdPids)} 
-        || Id <- elements:outputs_ids(Cortex)]),
+    Cortex     = get(cortex), 
+    RefIdT     = get(tid_idpids),
+    Neuron_Ids = elements:neurons(Cortex),
+    Neurons = [ start_neuron( Id, RefIdT) || Id  <- Neuron_Ids],
+    _       = [resume_neuron(Pid, RefIdT) || Pid <- Neurons],
+    put(inputs,  [{nn_id2pid(Id, RefIdT), #input{ }} 
+                     || Id <- elements:inputs_ids( Cortex)]),
+    put(outputs, [{nn_id2pid(Id, RefIdT), #output{}}
+                     || Id <- elements:outputs_ids(Cortex)]),
     ok.
 
-start_nn_element(NNSup_Pid, TId_IdPids, Neuron_Id) ->
-    case nn_sup:start_neuron(NNSup_Pid, Neuron_Id) of
-        {ok, Pid} ->
-            ets:insert(TId_IdPids, [{Neuron_Id, Pid}, {Pid, Neuron_Id}]),
-            Pid;
-        {error, Reason} ->
-            exit(Reason)
-    end.
+start_neuron(Id, RefIdT) ->
+    nn_sup:start_neuron(get(nn_sup), Id, RefIdT).
+
+resume_neuron(Pid, RefIdT) -> 
+    Pid ! {continue_init, RefIdT}.
 
 % ....................................................................
 calc_fan_inout(Coordinade) ->
