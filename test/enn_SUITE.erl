@@ -19,13 +19,14 @@
 
 -define(INFO(Text, Info), ct:log(?LOW_IMPORTANCE, "~p: ~p", [Text, Info])).
 -define(ERROR(Error),     ct:pal(?HI_IMPORTANCE, "Error: ~p", [Error])).
+-define(PROGRESS_BAR, #{size => 20}).
 
 -define(TEST_MODEL(Model, Training), 
     test_model(atom_to_list(?FUNCTION_NAME) ++ ".json", Model, Training)).
 
 -define(MAX_UNITS_PER_LAYER, 20).
 -define(MAX_NUMBER_LAYERS,    4).
--define(TRAINING_LINES,     200).
+-define(TRAINING_LINES,      20).
 -define(PARALLEL_NN,          8).
 
 % TODO: If you kill the nn sup/cortex/neuron, etc, the nn is destroyed, the nn_sup dead and is not restarted
@@ -130,11 +131,9 @@ groups() ->
             test_for_broken_nn
          ]
         },
-        {test_parallel_networks, [parallel],
-         [random_dense_random_inputs 
-            || _ <- lists:seq(1, ?PARALLEL_NN - 5)] 
+        {test_parallel_networks, [parallel, {repeat,?PARALLEL_NN}],
+            [random_dense_random_inputs]
         }
-
     ].
 
 %%--------------------------------------------------------------------
@@ -177,37 +176,41 @@ my_test_case_example(_Config) ->
 xor_gate_static_inputs() ->
     [].
 xor_gate_static_inputs(_Config) ->
-    ?TEST_MODEL(
+    {ok, Loss10} = ?TEST_MODEL(
         test_architectures:xor_gate(),
         fun test_data_generators:static_xor_of_inputs/3
-    ).
+    ),
+    console_print_loss(?FUNCTION_NAME, Loss10).
 
 % ....................................................................
 xor_gate_random_inputs() ->
     [].
 xor_gate_random_inputs(_Config) ->
-    ?TEST_MODEL(
+    {ok, Loss10} = ?TEST_MODEL(
         test_architectures:xor_gate(),
         fun test_data_generators:random_xor_of_inputs/3
-    ).
+    ),
+    console_print_loss(?FUNCTION_NAME, Loss10).
 
 % ....................................................................
 addition_static_inputs() ->
     [].
 addition_static_inputs(_Config) ->
-    ?TEST_MODEL(
+    {ok, Loss10} = ?TEST_MODEL(
         test_architectures:addition(),
         fun test_data_generators:static_sum_of_inputs/3
-    ).
+    ),
+    console_print_loss(?FUNCTION_NAME, Loss10).
 
 % ....................................................................
 addition_random_inputs() ->
     [].
 addition_random_inputs(_Config) ->
-    ?TEST_MODEL(
+    {ok, Loss10} = ?TEST_MODEL(
         test_architectures:addition(),
         fun test_data_generators:random_sum_of_inputs/3
-    ).
+    ),
+    console_print_loss(?FUNCTION_NAME, Loss10).
 
 % ....................................................................
 sequence_1_input() ->
@@ -244,56 +247,48 @@ random_dense_random_inputs(_Config) ->
 
 % ....................................................................
 test_model(FileName, Model, Training) ->
-    {ok, Cx_Id}  = correct_model_compilation(Model),
-    {ok, Cx_Pid} = correct_model_start(Cx_Id),
-    ok = correct_model_training(FileName, Cx_Id, Cx_Pid, Training),
-    ok = correct_model_stop(Cx_Id, Cx_Pid),
-    ok.
+    ok = correct_model_compilation(Model),
+    ok = correct_model_start(),
+    {ok, Loss10} = correct_model_training(FileName, Training),
+    ok           = correct_model_stop(),
+    {ok, Loss10}.
 
 % ....................................................................
 correct_model_compilation(Model) ->
     ?HEAD("Correct model compilation .............................."),
-    Cx_Id  = enn:compile(Model), ?INFO("Model", Model),
-    Cortex = edb:read(Cx_Id), ?INFO("Cortex", Cortex),
-    true   = elements:is_cortex(Cortex),
-    ?END({ok, Cx_Id}).
-
-% ....................................................................
-correct_model_start(Cx_Id) ->
-    ?HEAD("Correct neural network start form a cortex id .........."),
-    {ok, Cx_Pid} = enn:start_nn(Cx_Id),
-    ok   = timer:sleep(SleepTime = 10),
-    true = is_process_alive(Cx_Pid), 
-    ?INFO("Cortex alive after ms: ", SleepTime),
-    ?END({ok, Cx_Pid}).
-
-% ....................................................................
-correct_model_training(FileName, Cx_Id, Cx_Pid, Training) ->
-    ?HEAD("Correct fit of model using backpropagation ............."),
-    {Inputs, Optimas} = Training(
-        enn:inputs(Cx_Id), 
-        enn:outputs(Cx_Id), 
-        ?TRAINING_LINES),
-    [Loss] = enn:run(Cx_Pid, Inputs, Optimas, [
-        loss,
-        {log, FileName},
-        {return, [loss]}
-    ]),
-    ?INFO("Loss AVG 10: ", {length(Loss), average_in_10(Loss)}),
-    timer:sleep(10),
-    true = is_process_alive(Cx_Pid),
+    Cx_Id    = enn:compile(Model), ?INFO("Model", Model),
+    Cortex   = edb:read(Cx_Id),    ?INFO("Cortex", Cortex),
+    true     = elements:is_cortex(Cortex),
+    [N_Id|_] = elements:neurons(Cortex),
+    put(cx_id, Cx_Id),
+    put( n_id,  N_Id),
     ?END(ok).
 
 % ....................................................................
-correct_model_stop(Cortex_Id, Cortex_Pid) ->
+correct_model_start() ->
+    ?HEAD("Correct neural network start form a cortex id .........."),
+    ok = enn:start_nn(get(cx_id)),
+    ?END(ok).
+
+% ....................................................................
+correct_model_training(FileName, Training) ->
+    ?HEAD("Correct fit of model using backpropagation ............."),
+    Cx_Id = get(cx_id),
+    Options = [loss, print, {log, FileName}, {return, [loss]}],
+    {Inputs, Optimas} = Training(enn:inputs(Cx_Id), 
+                                 enn:outputs(Cx_Id), 
+                                 ?TRAINING_LINES),
+    [Loss] = enn:run(Cx_Id, Inputs, Optimas, Options),
+    ?END({ok, average(Loss, 10)}).
+
+% ....................................................................
+correct_model_stop() ->
     ?HEAD("Correct neural network stop form a cortex id ..........."),
-    [Neuron_Id | _] = elements:neurons(edb:read(Cortex_Id)),
-    Neuron_BeforeTraining = edb:read(Neuron_Id), 
-    enn:stop_nn(Cortex_Id),
-    false = is_process_alive(Cortex_Pid),
-    Neuron_AfterTraining = edb:read(Neuron_Id), 
+    Neuron_BeforeTraining = edb:read(get(n_id)), 
+    ok = enn:stop_nn(get(cx_id)),
+    Neuron_AfterTraining  = edb:read(get(n_id)), 
     ?INFO("Neuron before training", Neuron_BeforeTraining),
-    ?INFO("Neuron after training", Neuron_AfterTraining),
+    ?INFO("Neuron  after training", Neuron_AfterTraining),
     true = Neuron_BeforeTraining /= Neuron_AfterTraining,
     ?END(ok).
 
@@ -301,18 +296,30 @@ correct_model_stop(Cortex_Id, Cortex_Pid) ->
 % --------------------------------------------------------------------
 % RESULTS CONSOLE PRINT ----------------------------------------------
 
-
 % ....................................................................
-average_in_10(List) when length(List)>=10 ->
+average(List, N) when length(List) >= N ->
     NdArray = ndarray:new([length(List)], List),
-    NdAMean = numerl:mean(ndarray:reshape(NdArray, [-1,10]), 0),
+    NdAMean = numerl:mean(ndarray:reshape(NdArray, [-1,N]), 0),
     ndarray:data(NdAMean);
-average_in_10(List) when length(List)>=0 -> 
+average(List, N) when length(List) < N  -> 
     List.
 
-
 % ....................................................................
-% console_print(Data) -> 
-%     Report = reports:progress_line(2, Data, ?PROGRESS_BAR),
-%     ct:print(Report ++ "\n").
+console_print_loss(FunName, LossList) -> 
+    Step = round(?TRAINING_LINES/length(LossList)),
+    Seq  = lists:zip(lists:seq(1, length(LossList)), 
+                     LossList),
+    Data = [{Step*N, Loss} || {N, Loss} <- Seq],
+    Format = atom_to_list(FunName) ++ "\n" ++  
+             console_print("loss:", ?TRAINING_LINES, Data),
+    ct:print(Format).
+
+console_print(Title, Size, [{N, Value} | Rest]) -> 
+    Data = [N, N/Size, Title, Value],
+    Format = reports:progress_line(2, Data, ?PROGRESS_BAR),
+    Format ++ "\n" ++ console_print(Title, Size, Rest);
+console_print(_, _, []) -> 
+    [].
+
+
 

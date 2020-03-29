@@ -54,7 +54,7 @@ start_nn(Cortex_Id) ->
                                           ?SPECS_NN_SUP(Cortex_Id)),
     {ok, Cx_Pid} = nn_sup:start_cortex(NN_Pid, Cortex_Id),
     ets:insert(?NN_POOL, #nn{id=Cortex_Id, sup=NN_Pid, cx=Cx_Pid}),
-   {ok, Cx_Pid}. 
+    ok. 
 
 %%--------------------------------------------------------------------
 %% @doc Stops the neural network supervisor
