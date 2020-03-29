@@ -8,9 +8,10 @@
 
 -include_lib("math_constants.hrl").
 -include_lib("eunit/include/eunit.hrl").
+-include_lib("kernel/include/logger.hrl").
 
 %% API
--export([apply/3]).
+-export([func/3]).
 -export_type([func/0]).
 
 -type func() :: dotprod | diffprod | diffprod | diff_power.
@@ -20,13 +21,31 @@
 %%% API
 %%%===================================================================
 
+
+%%--------------------------------------------------------------------
+%% @doc Applies the indicated activation funtion.
+%% @end
+%%--------------------------------------------------------------------
+-spec func(Function, Tensor, Bias) ->  Result when 
+    Function :: func(),
+    Tensor   :: [{Wi :: float(), Xi :: float()}],
+    Bias     :: float(),
+    Result   :: float().
+func(Function, Tensor, Bias) ->
+    Result = apply_fun(Function, Tensor, Bias),
+    ?LOG_DEBUG(#{desc   => "Aggregation function calculation",
+                 func   => Function, result => Result, 
+                 tensor => Tensor,   bias   => Bias}),
+    Result.
+
 % ....................................................................
 % TODO: Define specs and comments
-apply(direct, Tensor, Bias)     -> direct(Tensor, Bias); % Special, must be used only by inputs and outputs
-apply(dotprod, Tensor, Bias)    -> dot_product(Tensor, Bias);
-apply(diffprod, Tensor, Bias)   -> diff_product(Tensor, Bias);
-apply(diff_power, Tensor, Bias) -> diff_power(Tensor, Bias);
-apply(_Ref, _Tensor, _Bias)     -> error(not_defined).
+% Notes; Direct should be used only by inputs and outputs
+apply_fun(    direct, Tensor, Bias) ->       direct(Tensor, Bias); 
+apply_fun(   dotprod, Tensor, Bias) ->  dot_product(Tensor, Bias);
+apply_fun(  diffprod, Tensor, Bias) -> diff_product(Tensor, Bias);
+apply_fun(diff_power, Tensor, Bias) ->   diff_power(Tensor, Bias);
+apply_fun(      _Ref,_Tensor,_Bias) ->        error(not_defined).
 
 
 %%====================================================================

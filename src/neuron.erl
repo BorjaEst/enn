@@ -295,9 +295,9 @@ calculate_tensor() ->
 %%--------------------------------------------------------------------
 calculate_soma() -> 
     {_, WiXix} = lists:unzip(get(tensor)), 
-    put(soma, aggregation:apply(get(aggregation), 
-                                WiXix, 
-                                get(bias       )
+    put(soma, aggregation:func(get(aggregation), 
+                               WiXix, 
+                               get(bias       )
     )).
 
 %%--------------------------------------------------------------------
