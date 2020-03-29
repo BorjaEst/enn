@@ -37,8 +37,8 @@
     Result :: float().
 func(Function, Soma) -> 
     Result = apply_fun(Function, Soma),
-    ?LOG_DEBUG("Activation function: ~p, result: ~p, soma: ~p", 
-               [Function, Result, Soma]),
+    ?LOG_DEBUG(#{desc => "Activation function calculation",
+                func  => Function, result => Result, soma => Soma}),
     Result.
 
 apply_fun(sigmoid,  Soma) -> sigmoid(Soma);
@@ -58,8 +58,8 @@ apply_fun(_Ref,    _Soma) -> error(not_defined).
     Result :: float().
 dfun(Function, Soma) -> 
     Result = apply_dfun(Function, Soma),
-    ?LOG_DEBUG("Activation function: ~p, result: ~p, soma: ~p", 
-               [Function, Result, Soma]),
+    ?LOG_DEBUG(#{desc => "Derivade of activation function",
+                 func  => Function, result => Result, soma => Soma}),
     Result.
 
 apply_dfun(sigmoid,  Soma) -> d_sigmoid(Soma);
@@ -75,6 +75,7 @@ apply_dfun(_Ref,    _Soma) -> error(not_defined).
 %% @doc Applies the beta calculation for the activation funtion.
 %% @end
 %%--------------------------------------------------------------------
+
 -spec beta(Function :: func(), Error :: float(), Soma :: float()) -> 
     Result :: float().
 beta(Function, Error, Soma) when Error =< 0 ->
@@ -82,13 +83,16 @@ beta(Function, Error, Soma) when Error =< 0 ->
         Soma =< 0 -> Result = Error * dfun(Function, Soma);
         true      -> Result = Error
     end,
-    ?LOG_DEBUG("Beta function: ~p, result: ~p, error: ~p, soma: ~p", 
-               [Function, Result, Error, Soma]),
+    ?LOG_DEBUG(#{desc=>"Beta function calculation", func=>Function,
+                 result => Result, soma => Soma, error => Error}),
     Result;
 beta(Function, Error, Soma) ->
-    ?LOG_DEBUG("Beta error: ~p and soma: ~p inverted (*-1)", 
-               [Error, Soma]), 
-    - beta(Function, -Error, -Soma).
+    ?LOG_DEBUG(#{desc => "Beta soma and error inverted (*-1)",
+                 soma => Soma, error => Error}),
+    Result = - beta(Function, -Error, -Soma),
+    ?LOG_DEBUG(#{desc => "Beta result inverted (*-1)",
+                 result => Result}),
+    Result.
 
 
 %%====================================================================
