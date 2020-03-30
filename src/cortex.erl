@@ -48,25 +48,15 @@
 }).
 
 
--define(INFO_STATE_CHANGE(OldState, State),
-    ?LOG_INFO(#{descx=>"Cortex state has changed", state_data=>State,
+-define(LOG_STATE_CHANGE(OldState),
+    ?LOG_INFO(#{desc => "Cortex state has changed", 
                 new_state => ?FUNCTION_NAME, old_state => OldState},
               #{logger_formatter=>#{title=>"CORTEX STATE CHANGE"}})
 ).
--define(INFO_EVENT(Description, StateData, Context),
-    ?LOG_INFO(#{desc  => Description,    context    => Context,
-               state => ?FUNCTION_NAME, state_data => StateData},
-              #{logger_formatter=>#{title=>"CORTEX INFO"}})
-).
--define(DEBUG_EVENT(Description, StateData, Context),
-    ?LOG_DEBUG(#{desc  => Description,    context    => Context,
-                state => ?FUNCTION_NAME, state_data => StateData},
-               #{logger_formatter=>#{title=>"CORTEX DEBUG"}})
-).
--define(DEBUG_NEURON_MSG(Type, From, Signal),
-    ?LOG_DEBUG(#{desc => "Neuron message received", type => Type,
-                 from => From, state=> ?FUNCTION_NAME},
-               #{logger_formatter=>#{title=>"CORTEX DEBUG"}})
+-define(LOG_EVENT(Description, Context),
+    ?LOG_DEBUG(#{desc => Description, state => ?FUNCTION_NAME,
+                 context => Context},
+               #{logger_formatter=>#{title=>"CORTEX EVENT"}})
 ).
 
 
@@ -264,24 +254,24 @@ format_status(_Opt, [_PDict, _StateName, _State]) ->
 %%
 %%--------------------------------------------------------------------
 inactive(enter, OldState, State) ->
-    ?INFO_STATE_CHANGE(OldState, State),
+    ?LOG_STATE_CHANGE(OldState),
     {keep_state, State};
 inactive({call, From}, {feedforward, ExtInputs}, State) ->
-    ?INFO_EVENT("Feedforward request", State, #{inputs=>ExtInputs}),
+    ?LOG_EVENT("Feedforward request", #{ext_inputs=>ExtInputs}),
     forward(ExtInputs),
     put(from, From),
     {next_state, on_feedforward, State#state{
         wait = [Pid || {Pid, _} <- get(inputs)]
     }};
 inactive({call, From}, {backprop, Errors}, State) ->
-    ?INFO_EVENT("Backprop request", State, #{errors=>Errors}),
+    ?LOG_EVENT("Backprop request", #{errors => Errors}),
     backward(Errors),
     put(from, From),
     {next_state, on_backpropagation, State#state{
         wait = [Pid || {Pid, _}  <- get(outputs)]
     }};
 inactive(internal, start_nn, State) ->
-    ?INFO_EVENT("Network start request", State, #{}),
+    ?LOG_EVENT("Network neurons start request", #{}),
     handle_start_nn(),
     {keep_state, State};
 inactive(EventType, EventContent, State) ->
@@ -293,18 +283,18 @@ inactive(EventType, EventContent, State) ->
 %%
 %%--------------------------------------------------------------------
 on_feedforward(enter, OldState, State) ->
-    ?INFO_STATE_CHANGE(OldState, State),
+    ?LOG_STATE_CHANGE(OldState),
     {keep_state, State};
-on_feedforward(info, {Pid, forward, Signal}, State) ->
-    ?DEBUG_NEURON_MSG(forward, Pid, Signal),
+on_feedforward(info, {Pid, forward, Signal}=Msg, State) ->
+    ?LOG_EVENT("Forward received from neuron", #{message => Msg}),
     update_input_signal(Pid, Signal),
     on_feedforward(internal, forward, State#state{
         wait = lists:delete(Pid, State#state.wait)
     });
 on_feedforward(internal, forward, #state{wait = []} = State) ->
-    ?DEBUG_EVENT("End of forward propagation", State, #{}),
-    {next_state, inactive, State,
-     [{reply, get(from), [I#input.s || {_, I} <- get(inputs)]}]};
+    Signals = [I#input.s || {_, I} <- get(inputs)],
+    ?LOG_EVENT("End of forward propagation", #{signals => Signals}),
+    {next_state, inactive, State, {reply, get(from), Signals}};
 on_feedforward(EventType, EventContent, State) ->
     handle_common(EventType, EventContent, State).
 %%--------------------------------------------------------------------
@@ -315,18 +305,18 @@ on_feedforward(EventType, EventContent, State) ->
 %%
 %%--------------------------------------------------------------------
 on_backpropagation(enter, OldState, State) ->
-    ?INFO_STATE_CHANGE(OldState, State),
+    ?LOG_STATE_CHANGE(OldState),
     {keep_state, State};
-on_backpropagation(info, {Pid, backward, BP_Err}, State) ->
-    ?DEBUG_NEURON_MSG(backward, Pid, BP_Err),
+on_backpropagation(info, {Pid, backward, BP_Err}=Msg, State) ->
+    ?LOG_EVENT("Backward received from neuron", #{message => Msg}),
     update_output_error(Pid, BP_Err),
     on_backpropagation(internal, backward, State#state{
         wait = lists:delete(Pid, State#state.wait)
     });
 on_backpropagation(internal, backward, #state{wait = []} = State) ->
-    ?DEBUG_EVENT("End of back propagation", State, #{}),
-    {next_state, inactive, State,
-     [{reply, get(from), [O#output.e || {_, O} <- get(outputs)]}]};
+    BP_Err = [O#output.e || {_, O} <- get(outputs)],
+    ?LOG_EVENT("End of back propagation", #{bp_err => BP_Err}),
+    {next_state, inactive, State, {reply, get(from), BP_Err}};
 on_backpropagation(EventType, EventContent, State) ->
     handle_common(EventType, EventContent, State).
 %%--------------------------------------------------------------------
@@ -383,10 +373,9 @@ handle_event(_EventType, _EventContent, _StateName, State) ->
 %% @spec terminate(Reason, StateName, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(Reason, StateName, State) ->
-    ?INFO_EVENT("Cortex terminating", State, #{
-        id=> get(id), reason => Reason, state_name => StateName}
-    ),
+terminate(Reason, StateName, _State) ->
+    ?LOG_INFO(#{desc   => "Cortex terminating", id => get(id), 
+                reason => Reason,       state_name => StateName}),
     ok.
 
 %%--------------------------------------------------------------------

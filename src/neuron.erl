@@ -55,14 +55,41 @@
 -define(MOMENTUM_FACTOR, 0.00).
 -define(INITIAL_ERROR,   0.00).
 
--define(DEBUG_EVENT(Description, StateData, Context),
-    ?LOG_DEBUG(#{desc => Description, state_data => StateData,
-                 pid  => self(), id => get(id), context => Context},
+-define(LOG_FORWARD_MESSAGE_RECEIVED(From, Signal),
+    ?LOG_DEBUG(#{desc => "Forward message received", 
+                 pid => self(), id => get(id), From => Signal},
                #{logger_formatter=>#{title=>"NEURON DEBUG"}})
 ).
--define(DEBUG_NEURON_MSG(Type, From, Signal),
-    ?LOG_DEBUG(#{desc => "Neuron message received", type => Type,
-                 pid  => self(), id => get(id), from => From},
+-define(LOG_BACKWARD_MESSAGE_RECEIVED(From, Error),
+    ?LOG_DEBUG(#{desc => "Backward message received", 
+                 pid => self(), id => get(id), From => Error},
+               #{logger_formatter=>#{title=>"NEURON DEBUG"}})
+).
+-define(LOG_FORWARD_PROPAGATION(Sent),
+    ?LOG_DEBUG(#{desc => "Forward propagation trigger", 
+                 pid=>self(), id => get(id), sent => Sent},
+               #{logger_formatter=>#{title=>"NEURON DEBUG"}})
+).
+-define(LOG_FORWARD_PROPAGATION_RECURRENT_OUTPUTS(Sent),
+    ?LOG_DEBUG(#{desc => "Forward prop trigger (recurrent outputs)",
+                 pid=>self(), id => get(id), sent => Sent},
+               #{logger_formatter=>#{title=>"NEURON DEBUG"}})
+).
+-define(LOG_BACKWARD_PROPAGATION(Sent),
+    ?LOG_DEBUG(#{desc => "Backward propagation trigger", 
+                 pid=>self(), id => get(id), sent => Sent},
+               #{logger_formatter=>#{title=>"NEURON DEBUG"}})
+).
+-define(LOG_BACKWARD_PROPAGATION_RECURRENT_INPUTS(Sent),
+    ?LOG_DEBUG(#{desc => "Backward prop trigger (recurrent inputs)",
+                 pid=>self(), id => get(id), sent => Sent},
+               #{logger_formatter=>#{title=>"NEURON DEBUG"}})
+).
+-define(LOG_WAITING_NEURONS(State),
+    ?LOG_DEBUG(#{desc => "Neuron waiting for more signals", 
+                 waiting => #{forward  => State#state.forward_wait,
+                              backward => State#state.backward_wait},
+                 pid=>self(), id => get(id)}
                #{logger_formatter=>#{title=>"NEURON DEBUG"}})
 ).
 
@@ -124,15 +151,15 @@ init(Id, Cortex, Supervisor) ->
     put(activation,  elements:activation(Neuron)),
     put(aggregation, elements:aggregation(Neuron)),
     put(initializer, elements:initializer(Neuron)),
-    put(outputs,     init_outputs(Neuron)),
-    put(inputs,      init_inputs(Neuron)),
+    put(outputs,     Outputs = init_outputs(Neuron)),
+    put(inputs,      Inputs  = init_inputs(Neuron)),
     put(bias,        init_bias(Neuron)),
-    put(error,       ?INITIAL_ERROR),
-    calculate_tensor(),
-    calculate_soma(), 
-    calculate_signal(),
-    calculate_beta(),
-    propagate_recurrent(), 
+    Tensor = calculate_tensor(Inputs),
+    Soma   = calculate_soma(Tensor),
+    Signal = calculate_signal(Soma),
+    Error  = calculate_error(Outputs),
+    Beta   = calculate_beta(Error),
+    propagate_recurrent(Signal, Beta), 
     ?LOG_INFO(#{desc => "Neuron initiated", id => Id}),
     loop(internal, #state{
         forward_wait  = [Pid || Pid <- maps:keys(get(inputs ))],
@@ -146,38 +173,36 @@ init(Id, Cortex, Supervisor) ->
 %%--------------------------------------------------------------------
 % Receives a forward signal so updates its value in inputs
 loop({Pid,forward,S},  #state{forward_wait  = [Pid|Nx]} = State) ->
-    ?DEBUG_NEURON_MSG(forward, Pid, S),
+    ?LOG_FORWARD_MESSAGE_RECEIVED(Pid, S),
     #{Pid := Input} = Inputs = get(inputs),
     put(inputs, Inputs#{Pid := Input#input{s = S}}),
     loop(internal, State#state{forward_wait  = Nx});
 % Receives a backward signal so updates its error in outputs
 loop({Pid,backward,E}, #state{backward_wait = [Pid|Nx]} = State) ->
-    ?DEBUG_NEURON_MSG(backward, Pid, E),
+    ?LOG_BACKWARD_MESSAGE_RECEIVED(Pid, E),
     #{Pid := Output} = Outputs = get(outputs),
     put(outputs, Outputs#{Pid := Output#output{e = E}}),
     loop(internal, State#state{backward_wait = Nx});
 
 % If all forward signals have been received, state change to forward
 loop(internal, #state{forward_wait = []} = State) -> 
-    ?DEBUG_EVENT("Start forward propagation", State, #{}),
     forward_prop(internal, State);
 % If all backward signals have been received, state change to backward
 loop(internal, #state{backward_wait = []} = State) ->
-    ?DEBUG_EVENT("Start backward propagation", State, #{}),
     backward_prop(internal, State);
 % If there are signals in any waiting buffer collects the next signal
 loop(internal,                              State) -> 
-    ?DEBUG_EVENT("Neuron message processed", State, #{}),
     receive_next(internal, State).
 %%--------------------------------------------------------------------
 %% @doc Forwards the signal to the connected neurons. 
 %%
 %%--------------------------------------------------------------------
 forward_prop(internal, State) -> 
-    calculate_tensor(),
-    calculate_soma(),
-    calculate_signal(),
-    [forward(P, O) || {P, O} <- maps:to_list(get(outputs))],
+    Tensor = calculate_tensor(get(inputs)),
+    Soma   = calculate_soma(Tensor),
+    Signal = calculate_signal(Soma),
+    Sent = [forward(P,O,Signal)|| {P,O}<-maps:to_list(get(outputs))],
+    ?LOG_FORWARD_PROPAGATION(Sent),
     loop(internal, State#state{
         forward_wait = [Pid || Pid <- maps:keys(get(inputs))]
     }).
@@ -186,11 +211,13 @@ forward_prop(internal, State) ->
 %% 
 %%--------------------------------------------------------------------
 backward_prop(internal, State) ->
-    calculate_beta(),
-    calculate_weights(),
-    calculate_bias(),
-    [backward(P, I) || {P, I} <- maps:to_list(get(inputs))],
-   loop(internal, State#state{
+    Error = calculate_error(get(outputs)),
+    Beta  = calculate_beta(Error),
+    calculate_weights(Beta),
+    calculate_bias(Beta),
+    Sent = [backward(P,I,Beta)|| {P,I}<-maps:to_list(get(inputs))],
+    ?LOG_BACKWARD_PROPAGATION(Sent),
+    loop(internal, State#state{
         backward_wait = [Pid || Pid <- maps:keys(get(outputs))]
     }).
 %%--------------------------------------------------------------------
@@ -198,12 +225,13 @@ backward_prop(internal, State) ->
 %%
 %%--------------------------------------------------------------------
 receive_next(internal, State) ->
+    ?LOG_WAITING_NEURONS(State),
     #state{forward_wait=[Nf|_] , backward_wait = [Nb|_]} = State,
     receive {N,_,_}=Msg when N==Nf; N==Nb -> loop(Msg, State);
             {'EXIT',_,Reason}             -> terminate(Reason, State)
     after ?STDIDLE_TIMEOUT                ->
-        ?LOG_WARNING(#{desc => "neuron stuck", id => get(id)}),
-        terminate(unknown_message, State)
+        ?LOG_WARNING(#{desc => "Neuron stuck", id => get(id)}),
+        receive_next(internal, State)
     end.
 %%--------------------------------------------------------------------
 %% @end  
@@ -263,7 +291,7 @@ init_inputs(Neuron) ->
     maps:from_list(init_inputs(Coordinade, Inputs)).
 
 init_inputs(Coordinade, [{Id,uninitialized}|IdWix])          -> 
-    Wi = calculate_winit(),
+    Wi = calculate_winit(Coordinade),
     init_inputs(Coordinade, [{Id,Wi}|IdWix]);
 init_inputs(Coordinade, [{Id,Wi}|IdWix]) when is_float(Wi) -> 
     Input = #input{
@@ -281,8 +309,9 @@ init_inputs(_, []) ->
 %% @end
 %%--------------------------------------------------------------------
 init_bias(Neuron) ->
+    Coordinade = elements:coordinade(Neuron),
     case elements:bias(Neuron) of 
-        uninitialized          -> calculate_winit();
+        uninitialized          -> calculate_winit(Coordinade);
         Val when is_float(Val) -> Val
     end.
 
@@ -291,11 +320,13 @@ init_bias(Neuron) ->
 %% deadlock.  
 %% @end
 %%--------------------------------------------------------------------
-propagate_recurrent() -> 
-    OutputsList = maps:to_list(get(outputs)),
-    InputsList  = maps:to_list(get(outputs)),
-    [forward( P, O) || {P,#input{r = true} = O} <- OutputsList],
-    [backward(P, I) || {P,#input{r = true} = I} <- InputsList ].
+propagate_recurrent(Signal, Beta) -> 
+    OutputsL = maps:to_list(get(outputs)),
+    InputsL  = maps:to_list(get(outputs)),
+    SentO = [forward(P,O,Signal)|| {P,#input{r=true}=O} <- OutputsL],
+    ?LOG_FORWARD_PROPAGATION_RECURRENT_OUTPUTS(SentO),
+    SentI = [backward(P,I,Beta) || {P,#input{r=true}=I} <- InputsL ],
+    ?LOG_BACKWARD_PROPAGATION_RECURRENT_INPUTS(SentI).
 
 
 %%%===================================================================
@@ -306,69 +337,70 @@ propagate_recurrent() ->
 %% @doc Calculates the tensor.
 %% @end
 %%--------------------------------------------------------------------
-calculate_tensor() ->
-    TensorsList = [{Pid, {Input#input.w, Input#input.s}} 
-                      || {Pid, Input} <- maps:to_list(get(inputs))],
-    put(tensor, TensorsList).
+calculate_tensor(Inputs) ->
+    Tensors = [{Pid, {Input#input.w, Input#input.s}} 
+                   || {Pid, Input} <- maps:to_list(Inputs)],
+    put(tensor, Tensors), % Saves tensor for weights calculation
+    [WiXix || {_,WiXix} <- Tensors].
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the value of soma.
 %% @end
 %%--------------------------------------------------------------------
-calculate_soma() -> 
-    {_, WiXix} = lists:unzip(get(tensor)), 
-    put(soma, aggregation:func(get(aggregation), 
-                               WiXix, 
-                               get(bias       )
-    )).
+calculate_soma(WiXix) -> 
+    Soma = aggregation:func(get(aggregation), WiXix, get(bias)),
+    put(soma, Soma),   % Saves the soma value for the beta calculation
+    Soma.
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the value of soma.
 %% @end
 %%--------------------------------------------------------------------
-calculate_signal() -> 
-    put(signal, activation:func(get(activation), 
-                                 get(soma      )
-    )).
+calculate_signal(Soma) -> 
+    activation:func(get(activation), Soma).
+
+%%--------------------------------------------------------------------
+%% @doc Calculates the error from propagation.
+%% @end
+%%--------------------------------------------------------------------
+calculate_error(Outputs) ->
+    lists:sum([O#output.e || {_, O} <- maps:to_list(Outputs)]).
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the value of beta for back propagation).
 %% @end
 %%--------------------------------------------------------------------
-calculate_beta() -> 
-    put(beta, activation:beta(get(activation), 
-                              get(error     ), 
-                              get(soma      ) 
-    )).
+calculate_beta(Error) -> 
+    activation:beta(get(activation), Error, get(soma)).
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the new weights from back propagation of the error.
 %% @end
 %%--------------------------------------------------------------------
-calculate_weights() -> 
-    put(inputs, calculate_weights(get(tensor), get(inputs))).
+calculate_weights(Beta) -> 
+    put(inputs, calculate_weights(get(tensor), get(inputs), Beta)).
 
-calculate_weights([{Pid, {Wi,Xi}} | Tx], Inputs) -> 
+calculate_weights([{Pid, {Wi,Xi}} | Tx], Inputs, B) -> 
     I = maps:get(Pid, Inputs),
-    calculate_weights(Tx, Inputs#{Pid := I#input{w = Wi + dw(Xi)}});
-calculate_weights([], Inputs) -> 
+    calculate_weights(Tx, Inputs#{Pid:=I#input{w=Wi+dw(Xi,B)}}, B);
+calculate_weights([], Inputs, _) -> 
     Inputs.
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the new bias from back propagation of the error.
 %% @end
 %%--------------------------------------------------------------------
-calculate_bias() -> 
-    put(bias, get(bias) + dw(1.0)).
+calculate_bias(Beta) -> 
+    put(bias, get(bias) + dw(1.0, Beta)).
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the new bias from back propagation of the error.
 %% @end
 %%--------------------------------------------------------------------
-calculate_winit() -> 
+calculate_winit(Coordinade) -> 
     initializer:apply(get(initializer), #{
         cortex     => get(cortex), 
-        coordinade => elements:coordinade(get(id))
+        coordinade => Coordinade
     }).
 
 
@@ -387,7 +419,7 @@ calculate_winit() ->
 %       (Saturation and protection)
 
 % Weight variation calculation .......................................
-dw(Xi) -> ?LEARNING_FACTOR * get(beta) * Xi.
+dw(Xi, Beta) -> ?LEARNING_FACTOR * Beta * Xi.
 
 
 %%%===================================================================
@@ -395,13 +427,12 @@ dw(Xi) -> ?LEARNING_FACTOR * get(beta) * Xi.
 %%%===================================================================
 
 % ....................................................................
-forward(Pid, _Output) ->
-    Pid ! {self(), forward, get(signal)}.
+forward(Pid, _Output, Signal) ->
+    Pid ! {self(), forward, Signal}, 
+    {Pid, Signal}.
 
 % ....................................................................
-backward(Pid, Input) ->
-    Pid ! {self(), backward, Input#input.w * get(beta)}.
-
-
-    
-    
+backward(Pid, Input, Beta) ->
+    BP_Error = Input#input.w * Beta,
+    Pid ! {self(), backward, BP_Error},
+    {Pid, BP_Error}.
