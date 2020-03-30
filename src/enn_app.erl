@@ -17,6 +17,7 @@ start(_StartType, StartArgs) ->
     Tables = enn:attributes_table(),
     edb:create_tables(Tables),
     edb:start(Tables),
+    ok = create_project_directories(),
     enn_sup:start_link(StartArgs).
 
 %%--------------------------------------------------------------------
@@ -26,3 +27,8 @@ stop(_State) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+
+
+create_project_directories() ->
+	file:make_dir("logs").

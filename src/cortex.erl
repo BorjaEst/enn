@@ -202,7 +202,7 @@ init([Option | Rest]) ->
 init([]) -> 
     Id = get(id),
     ets:insert(get(tid_idpids), [{Id, self()}, {self(), Id}]),
-    process_flag(trap_exit, true), % Mandatory to catch supervisor exits
+    process_flag(trap_exit, true), % To catch supervisor 'EXIT'
     ?LOG_INFO(#{desc => "Cortex initiated", id => Id}),
     {ok, inactive, #state{wait = []},
      [{next_event, internal, start_nn}]}.
@@ -336,9 +336,7 @@ on_backpropagation(EventType, EventContent, State) ->
 %%--------------------------------------------------------------------
 handle_common(internal, _EventContent, State) ->
     {keep_state, State};
-handle_common({call,From}, {fan_inout, Coord}, State) ->
-    ?DEBUG_EVENT("Call for fan_inout", State, #{
-                 from=>element(1,From), coord=>Coord}),
+handle_common({call,From}, {fan_inout, Coord}, State) -> %% move this to an ets table  
     Reply = calc_fan_inout(Coord),
     {keep_state, State, {reply,From,Reply}};
 handle_common(EventType, EventContent, _State) ->
