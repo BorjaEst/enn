@@ -7,13 +7,16 @@
 %%%
 %%% The neuron waits until it receives all the input signals, 
 %%% processes those signals, and then passes the output forward.
+%%%
+%%%
+%%% TODO: Optimise network when shutdown (Part can be on the shutdown, 
+%%%       another in the clonation¿?)
+%%% TODO: fsm? with forward or other according to the best performance
+%%%
 %%% @end
 %%%-------------------------------------------------------------------
 -module(neuron).
 -compile([export_all, nowarn_export_all]). %% TODO: To delete after build
-
-% TODO: fsm?? with forward or other according to the best performance
-% TODO: Optimise network when shutdown (Part can be on the shutdown, another in the clonation¿?)
 
 -include_lib("math_constants.hrl").
 -include_lib("kernel/include/logger.hrl").
@@ -50,10 +53,21 @@
 
 -define(LEARNING_FACTOR, 0.01).  
 -define(MOMENTUM_FACTOR, 0.00).
--define(INITIAL_ERROR, 0.0).
+-define(INITIAL_ERROR,   0.00).
+
+-define(DEBUG_EVENT(Description, StateData, Context),
+    ?LOG_DEBUG(#{desc => Description, state_data => StateData,
+                 pid  => self(), id => get(id), context => Context},
+               #{logger_formatter=>#{title=>"NEURON DEBUG"}})
+).
+-define(DEBUG_NEURON_MSG(Type, From, Signal),
+    ?LOG_DEBUG(#{desc => "Neuron message received", type => Type,
+                 pid  => self(), id => get(id), from => From},
+               #{logger_formatter=>#{title=>"NEURON DEBUG"}})
+).
 
 
--ifdef(debug_mode).
+-ifdef(debug).
 -define(STDCALL_TIMEOUT, infinity).
 -define(STDIDLE_TIMEOUT, infinity).
 -else.
@@ -119,6 +133,7 @@ init(Id, Cortex, Supervisor) ->
     calculate_signal(),
     calculate_beta(),
     propagate_recurrent(), 
+    ?LOG_INFO(#{desc => "Neuron initiated", id => Id}),
     loop(internal, #state{
         forward_wait  = [Pid || Pid <- maps:keys(get(inputs ))],
         backward_wait = [Pid || Pid <- maps:keys(get(outputs))]
@@ -130,24 +145,29 @@ init(Id, Cortex, Supervisor) ->
 %%
 %%--------------------------------------------------------------------
 % Receives a forward signal so updates its value in inputs
-loop({N,forward,S},  #state{forward_wait  = [N|Nx]} = State) ->
-    #{N := Input} = Inputs = get(inputs),
-    put(inputs, Inputs#{N := Input#input{s = S}}),
+loop({Pid,forward,S},  #state{forward_wait  = [Pid|Nx]} = State) ->
+    ?DEBUG_NEURON_MSG(forward, Pid, S),
+    #{Pid := Input} = Inputs = get(inputs),
+    put(inputs, Inputs#{Pid := Input#input{s = S}}),
     loop(internal, State#state{forward_wait  = Nx});
 % Receives a backward signal so updates its error in outputs
-loop({N,backward,E}, #state{backward_wait = [N|Nx]} = State) -> 
-    #{N := Output} = Outputs = get(outputs),
-    put(outputs, Outputs#{N := Output#output{e = E}}),
+loop({Pid,backward,E}, #state{backward_wait = [Pid|Nx]} = State) ->
+    ?DEBUG_NEURON_MSG(backward, Pid, E),
+    #{Pid := Output} = Outputs = get(outputs),
+    put(outputs, Outputs#{Pid := Output#output{e = E}}),
     loop(internal, State#state{backward_wait = Nx});
 
 % If all forward signals have been received, state change to forward
 loop(internal, #state{forward_wait = []} = State) -> 
+    ?DEBUG_EVENT("Start forward propagation", State, #{}),
     forward_prop(internal, State);
 % If all backward signals have been received, state change to backward
 loop(internal, #state{backward_wait = []} = State) ->
+    ?DEBUG_EVENT("Start backward propagation", State, #{}),
     backward_prop(internal, State);
 % If there are signals in any waiting buffer collects the next signal
 loop(internal,                              State) -> 
+    ?DEBUG_EVENT("Neuron message processed", State, #{}),
     receive_next(internal, State).
 %%--------------------------------------------------------------------
 %% @doc Forwards the signal to the connected neurons. 
@@ -157,7 +177,7 @@ forward_prop(internal, State) ->
     calculate_tensor(),
     calculate_soma(),
     calculate_signal(),
-    [forward(Output) || Output <- maps:to_list(get(outputs))],
+    [forward(P, O) || {P, O} <- maps:to_list(get(outputs))],
     loop(internal, State#state{
         forward_wait = [Pid || Pid <- maps:keys(get(inputs))]
     }).
@@ -169,7 +189,7 @@ backward_prop(internal, State) ->
     calculate_beta(),
     calculate_weights(),
     calculate_bias(),
-    [backward(Input) || Input <- maps:to_list(get(inputs))],
+    [backward(P, I) || {P, I} <- maps:to_list(get(inputs))],
    loop(internal, State#state{
         backward_wait = [Pid || Pid <- maps:keys(get(outputs))]
     }).
@@ -182,7 +202,7 @@ receive_next(internal, State) ->
     receive {N,_,_}=Msg when N==Nf; N==Nb -> loop(Msg, State);
             {'EXIT',_,Reason}             -> terminate(Reason, State)
     after ?STDIDLE_TIMEOUT                ->
-        ?LOG_WARNING("neuron ~p stuck", [get(id)]),
+        ?LOG_WARNING(#{desc => "neuron stuck", id => get(id)}),
         terminate(unknown_message, State)
     end.
 %%--------------------------------------------------------------------
@@ -196,7 +216,8 @@ receive_next(internal, State) ->
 terminate(Reason, _State) ->
     % TODO: When saving the new state, those links with weights ~= 0, must be deleted (both neurons)
     % TODO: If the neuron has not at least 1 input or 1 output, it must be deleted (and bias forwarded)
-    Neuron = edb:read(get(id)),
+    Id     = get(id),
+    Neuron = edb:read(Id),
     edb:write(elements:edit(Neuron,
         #{
             outputs_ids => [O#output.id             
@@ -205,6 +226,7 @@ terminate(Reason, _State) ->
                             || {_, I} <- maps:to_list(get(inputs ))],
             bias        => get(bias)
         })),
+    ?LOG_INFO(#{desc => "Neuron terminated", id => Id}),
     exit(Reason).
 
 
@@ -272,8 +294,8 @@ init_bias(Neuron) ->
 propagate_recurrent() -> 
     OutputsList = maps:to_list(get(outputs)),
     InputsList  = maps:to_list(get(outputs)),
-    [forward(Output) || {_,#input{r = true}} = Output <- OutputsList],
-    [backward(Input) || {_,#input{r = true}} = Input  <- InputsList ].
+    [forward( P, O) || {P,#input{r = true} = O} <- OutputsList],
+    [backward(P, I) || {P,#input{r = true} = I} <- InputsList ].
 
 
 %%%===================================================================
@@ -373,11 +395,11 @@ dw(Xi) -> ?LEARNING_FACTOR * get(beta) * Xi.
 %%%===================================================================
 
 % ....................................................................
-forward({Pid, _Output}) ->
+forward(Pid, _Output) ->
     Pid ! {self(), forward, get(signal)}.
 
 % ....................................................................
-backward({Pid, Input}) ->
+backward(Pid, Input) ->
     Pid ! {self(), backward, Input#input.w * get(beta)}.
 
 

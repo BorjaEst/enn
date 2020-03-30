@@ -3,6 +3,11 @@
 %%% Author  :
 %%% Description :
 %%%
+%%%
+%%%
+%%% TODO: If you kill the nn sup/cortex/neuron, etc, the nn is
+%%%       destroyed, the nn_sup dead and is not restarted.
+%%%
 %%% Created :
 %%%-------------------------------------------------------------------
 -module(enn_SUITE).
@@ -29,7 +34,8 @@
 -define(TRAINING_LINES,      20).
 -define(PARALLEL_NN,          8).
 
-% TODO: If you kill the nn sup/cortex/neuron, etc, the nn is destroyed, the nn_sup dead and is not restarted
+-define(MODULES_TO_INFO, [activation, aggregation]).
+
 
 %%--------------------------------------------------------------------
 %% Function: suite() -> Info
