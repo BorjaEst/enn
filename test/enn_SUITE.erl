@@ -31,7 +31,7 @@
 
 -define(MAX_UNITS_PER_LAYER, 20).
 -define(MAX_NUMBER_LAYERS,    4).
--define(TRAINING_LINES,      20).
+-define(TRAINING_LINES,     200).
 -define(PARALLEL_NN,          8).
 
 -define(MODULES_TO_INFO, [activation, aggregation]).
@@ -51,6 +51,7 @@ suite() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
+    [logger:set_module_level(M, info) || M <- ?MODULES_TO_INFO],
     application:start(enn),
     application:start(datalog),
     Config.
@@ -60,6 +61,7 @@ init_per_suite(Config) ->
 %% Config0 = Config1 = [tuple()]
 %%--------------------------------------------------------------------
 end_per_suite(_Config) ->
+    [logger:set_module_level(M, debug) || M <- ?MODULES_TO_INFO],
     application:stop(enn),
     application:stop(datalog),
     ok.
