@@ -48,8 +48,8 @@
 }).
 
 
--define(INFO_STATE_CHANGE(OldState),
-    ?LOG_INFO(#{desc     => "Cortex state has changed", 
+-define(INFO_STATE_CHANGE(OldState, State),
+    ?LOG_INFO(#{descx=>"Cortex state has changed", state_data=>State,
                 new_state => ?FUNCTION_NAME, old_state => OldState},
               #{logger_formatter=>#{title=>"CORTEX STATE CHANGE"}})
 ).
@@ -65,7 +65,7 @@
 ).
 -define(DEBUG_NEURON_MSG(Type, From, Signal),
     ?LOG_DEBUG(#{desc => "Neuron message received", type => Type,
-                 from => From, signal => ?FUNCTION_NAME},
+                 from => From, state=> ?FUNCTION_NAME},
                #{logger_formatter=>#{title=>"CORTEX DEBUG"}})
 ).
 
@@ -264,7 +264,7 @@ format_status(_Opt, [_PDict, _StateName, _State]) ->
 %%
 %%--------------------------------------------------------------------
 inactive(enter, OldState, State) ->
-    ?INFO_STATE_CHANGE(OldState),
+    ?INFO_STATE_CHANGE(OldState, State),
     {keep_state, State};
 inactive({call, From}, {feedforward, ExtInputs}, State) ->
     ?INFO_EVENT("Feedforward request", State, #{inputs=>ExtInputs}),
@@ -293,7 +293,7 @@ inactive(EventType, EventContent, State) ->
 %%
 %%--------------------------------------------------------------------
 on_feedforward(enter, OldState, State) ->
-    ?INFO_STATE_CHANGE(OldState),
+    ?INFO_STATE_CHANGE(OldState, State),
     {keep_state, State};
 on_feedforward(info, {Pid, forward, Signal}, State) ->
     ?DEBUG_NEURON_MSG(forward, Pid, Signal),
@@ -304,7 +304,7 @@ on_feedforward(info, {Pid, forward, Signal}, State) ->
 on_feedforward(internal, forward, #state{wait = []} = State) ->
     ?DEBUG_EVENT("End of forward propagation", State, #{}),
     {next_state, inactive, State,
-     [{reply, get(from), [I#input.s || I <- get(inputs)]}]};
+     [{reply, get(from), [I#input.s || {_, I} <- get(inputs)]}]};
 on_feedforward(EventType, EventContent, State) ->
     handle_common(EventType, EventContent, State).
 %%--------------------------------------------------------------------
@@ -315,7 +315,7 @@ on_feedforward(EventType, EventContent, State) ->
 %%
 %%--------------------------------------------------------------------
 on_backpropagation(enter, OldState, State) ->
-    ?INFO_STATE_CHANGE(OldState),
+    ?INFO_STATE_CHANGE(OldState, State),
     {keep_state, State};
 on_backpropagation(info, {Pid, backward, BP_Err}, State) ->
     ?DEBUG_NEURON_MSG(backward, Pid, BP_Err),
@@ -326,7 +326,7 @@ on_backpropagation(info, {Pid, backward, BP_Err}, State) ->
 on_backpropagation(internal, backward, #state{wait = []} = State) ->
     ?DEBUG_EVENT("End of back propagation", State, #{}),
     {next_state, inactive, State,
-     [{reply, get(from), [O#output.e || O <- get(outputs)]}]};
+     [{reply, get(from), [O#output.e || {_, O} <- get(outputs)]}]};
 on_backpropagation(EventType, EventContent, State) ->
     handle_common(EventType, EventContent, State).
 %%--------------------------------------------------------------------
@@ -337,7 +337,8 @@ on_backpropagation(EventType, EventContent, State) ->
 handle_common(internal, _EventContent, State) ->
     {keep_state, State};
 handle_common({call,From}, {fan_inout, Coord}, State) ->
-    ?DEBUG_EVENT("Call for fan_inout", #{coord=>Coord}, State),
+    ?DEBUG_EVENT("Call for fan_inout", State, #{
+                 from=>element(1,From), coord=>Coord}),
     Reply = calc_fan_inout(Coord),
     {keep_state, State, {reply,From,Reply}};
 handle_common(EventType, EventContent, _State) ->
@@ -409,13 +410,15 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 % ....................................................................
 update_input_signal(Pid, Signal) -> 
     {value, {_, I}} = lists:keysearch(Pid, 1, get(inputs)),
-    Inputs = lists:keyreplace(Pid, 1, get(inputs), I#input{s=Signal}),
+    Inputs = lists:keyreplace(Pid, 1, get(inputs), 
+                             {Pid, I#input{s=Signal}}),
     put(inputs, Inputs).
 
 % ....................................................................
 update_output_error(Pid, Error) -> 
     {value, {_, O}} = lists:keysearch(Pid, 1, get(outputs)),
-    Outputs = lists:keyreplace(Pid,1,get(outputs),O#output{e=Error}),
+    Outputs = lists:keyreplace(Pid, 1, get(outputs),
+                              {Pid, O#output{e=Error}}),
     put(outputs, Outputs).
 
 % ....................................................................
