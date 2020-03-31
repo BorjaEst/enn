@@ -12,8 +12,8 @@
 -module(activation).
 
 -include_lib("math_constants.hrl").
+-include_lib("enn_logger.hrl").
 -include_lib("eunit/include/eunit.hrl").
--include_lib("kernel/include/logger.hrl").
 
 -define(EQUAL_TOLERANCE, 0.001).
 
@@ -36,9 +36,9 @@
 -spec func(Function :: func(), Soma :: float()) -> 
     Result :: float().
 func(Function, Soma) -> 
+    ?LOG_ACTIVATION_FUNCTION_REQUEST(Function, Soma),
     Result = apply_fun(Function, Soma),
-    ?LOG_DEBUG(#{desc => "Activation function calculation",
-                func  => Function, result => Result, soma => Soma}),
+    ?LOG_ACTIVATION_FUNCTION_RESULT(Function, Result),
     Result.
 
 apply_fun(sigmoid,  Soma) -> sigmoid(Soma);
@@ -57,9 +57,9 @@ apply_fun(_Ref,    _Soma) -> error(not_defined).
 -spec dfun(Function :: func(), Soma :: float()) -> 
     Result :: float().
 dfun(Function, Soma) -> 
+    ?LOG_ACTIVATION_DERIVADE_REQUEST(Function, Soma),
     Result = apply_dfun(Function, Soma),
-    ?LOG_DEBUG(#{desc => "Derivade of activation function",
-                 func  => Function, result => Result, soma => Soma}),
+    ?LOG_ACTIVATION_DERIVADE_RESULT(Function, Result),
     Result.
 
 apply_dfun(sigmoid,  Soma) -> d_sigmoid(Soma);
