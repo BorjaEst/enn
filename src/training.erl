@@ -150,7 +150,7 @@ when Cyc rem ceil(Size/10) == 0 ->
     Errors = maps:get(errors, Data),
     Report = [Cyc, Cyc/Size, "acu:",lists:sum(Errors)/length(Errors)],
     Print  = reports:progress_line(2, Report, ?PROGRESS_BAR),
-    io:format(Print ++ "\n"),
+    io:format([Print | "\n"]),
     results(maps:remove(print, Options), Data, State);
 results(#{log := LogRef} = Options, Data, State) ->
     datalog:write(LogRef, Data),
