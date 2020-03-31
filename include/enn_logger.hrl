@@ -5,6 +5,7 @@
 %%% logging the whole system. The current tags allowed are:
 %%%     - debug_enn_all: Enable all debugs.
 %%%     - debug_activation: Activation function requests and results.
+%%%     - debug_aggregation: Aggregation function req. and results.
 %%%     - debug_cortex_states: Log cortex status changes.
 %%%     - debug_cortex_requests: Log cortex requests.
 %%%     - debug_propagation: Debug propagation messages.
@@ -69,6 +70,26 @@
 -define(LOG_ACTIVATION_BETA_RESULT(F, V),      F,  V).
 -endif.
 
+%%--------------------------------------------------------------------
+%% @doc Enables logs on aggregation functions.
+%% @end
+%%--------------------------------------------------------------------
+-ifdef(debug_aggregation).
+-define(LOG_AGGREGATION_FUNCTION_REQUEST(Function, Tensor, Bias),
+    ?LOG_DEBUG(#{desc => "Aggregation function calculation request",
+                 func => Function, tensor => Tensor, bias => Bias, 
+                 pid  => self()},
+               #{logger_formatter=>#{title=>"AGGREGATION FUNCTION"}}) 
+).
+-define(LOG_AGGREGATION_FUNCTION_RESULT(Function, Result), 
+    ?LOG_DEBUG(#{desc => "Aggregation calculation result",
+                 func => Function, result => Result, pid  => self()},
+               #{logger_formatter=>#{title=>"AGGREGATION FUNCTION"}}) 
+).
+-else.
+-define(LOG_AGGREGATION_FUNCTION_REQUEST(F, T, V), F,T,V).
+-define(LOG_AGGREGATION_FUNCTION_RESULT(F, V),     F,  V).
+-endif.
 
 %%--------------------------------------------------------------------
 %% @doc Enables logs on cortex state changes.
@@ -83,7 +104,6 @@
 -else.
 -define(LOG_STATE_CHANGE(OldState), OldState).
 -endif.
-
 
 %%--------------------------------------------------------------------
 %% @doc Enables logs on cortex requests.
@@ -110,7 +130,6 @@
 -define(LOG_EVENT_BACKFORWARD(Errors), Errors).
 -define(LOG_EVENT_START_NEURONS_NETWORK, ok).
 -endif.
-
 
 %%--------------------------------------------------------------------
 %% @doc Enables logs on propagations.
@@ -156,7 +175,6 @@
 -define(LOG_BACKWARD_PROPAGATION_RECURRENT_INPUTS(Sent), Sent).
 -endif.
 
-
 %%--------------------------------------------------------------------
 %% @doc Enables logs on neurons states.
 %% @end
@@ -184,5 +202,4 @@
 -define(LOG_WAITING_NEURONS(State), State).
 -define(LOG_NEURON_TERMINATING, ok).
 -endif.
-
 

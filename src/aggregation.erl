@@ -2,13 +2,16 @@
 %%% @author borja
 %%% @doc
 %%%
+%%%
+%%%
+%%% TODO: Remove get and put (find a better solution).
 %%% @end
 %%%-------------------------------------------------------------------
 -module(aggregation).
 
 -include_lib("math_constants.hrl").
+-include_lib("enn_logger.hrl").
 -include_lib("eunit/include/eunit.hrl").
--include_lib("kernel/include/logger.hrl").
 
 %% API
 -export([func/3]).
@@ -23,7 +26,8 @@
 
 
 %%--------------------------------------------------------------------
-%% @doc Applies the indicated activation funtion.
+%% @doc Applies the indicated aggregation funtion.
+%% Note "direct" should be used only by inputs and outputs.
 %% @end
 %%--------------------------------------------------------------------
 -spec func(Function, Tensor, Bias) ->  Result when 
@@ -32,15 +36,11 @@
     Bias     :: float(),
     Result   :: float().
 func(Function, Tensor, Bias) ->
+    ?LOG_AGGREGATION_FUNCTION_REQUEST(Function, Tensor, Bias),
     Result = apply_fun(Function, Tensor, Bias),
-    ?LOG_DEBUG(#{desc   => "Aggregation function calculation",
-                 func   => Function, result => Result, 
-                 tensor => Tensor,   bias   => Bias}),
+    ?LOG_AGGREGATION_FUNCTION_RESULT(Function, Result),
     Result.
 
-% ....................................................................
-% TODO: Define specs and comments
-% Notes; Direct should be used only by inputs and outputs
 apply_fun(    direct, Tensor, Bias) ->       direct(Tensor, Bias); 
 apply_fun(   dotprod, Tensor, Bias) ->  dot_product(Tensor, Bias);
 apply_fun(  diffprod, Tensor, Bias) -> diff_product(Tensor, Bias);
