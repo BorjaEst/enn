@@ -85,11 +85,11 @@ new(Coordinade, Properties) ->
 %% @doc Neuron id start function for supervisor. 
 %% @end
 %%--------------------------------------------------------------------
--spec start_link(Id :: id(), Cortex :: pid()) -> 
+-spec start_link(Id :: id(), NN_Id :: cortex:id()) -> 
     gen_statem:start_ret().
-start_link(Id, Cortex) ->
+start_link(Id, NN_Id) ->
     Supervisor = self(),
-    proc_lib:start_link(?MODULE, init, [Id, Cortex, Supervisor]).
+    proc_lib:start_link(?MODULE, init, [Id, NN_Id, Supervisor]).
 
 
 %%%===================================================================
@@ -100,21 +100,21 @@ start_link(Id, Cortex) ->
 %% @doc The neuron initialization.  
 %% @end
 %%--------------------------------------------------------------------
-init(Id, Cortex, Supervisor) ->
+init(Id, NN_Id, Supervisor) ->
     Neuron = edb:read(Id),
     [_|_] = elements:inputs_idps(Neuron),
     [_|_] = elements:outputs_ids(Neuron),
     process_flag(trap_exit, true),           % Catch supervisor exits
     proc_lib:init_ack(Supervisor, {ok, self()}),   % Supervisor synch
     receive {continue_init, TId} -> put(tid, TId) end, % Resume synch
-    put(cortex,      Cortex),
+    put(nn_id,       NN_Id),
     put(id,          elements:id(Neuron)),
     put(activation,  elements:activation(Neuron)),
     put(aggregation, elements:aggregation(Neuron)),
     put(initializer, elements:initializer(Neuron)),
     put(outputs,     Outputs = init_outputs(Neuron)),
-    put(inputs,      Inputs  = init_inputs(Neuron)),
-    put(bias,        init_bias(Neuron)),
+    put(inputs,      Inputs  = init_inputs(Neuron, NN_Id)),
+    put(bias,        init_bias(Neuron, NN_Id)),
     Tensor = calculate_tensor(Inputs),
     Soma   = calculate_soma(Tensor),
     Signal = calculate_signal(Soma),
@@ -251,22 +251,22 @@ init_outputs(_, []) ->
 %% a synchronised request is sent to the cortex to receive a value.  
 %% @end
 %%--------------------------------------------------------------------
-init_inputs(Neuron) -> 
+init_inputs(Neuron, NN_Id) -> 
     Coordinade = elements:coordinade(Neuron),
     Inputs     = elements:inputs_idps(Neuron),
-    maps:from_list(init_inputs(Coordinade, Inputs)).
+    maps:from_list(init_inputs(Coordinade, Inputs, NN_Id)).
 
-init_inputs(Coordinade, [{Id,uninitialized}|IdWix])        -> 
-    Wi = calculate_winit(Coordinade),
-    init_inputs(Coordinade, [{Id,Wi}|IdWix]);
-init_inputs(Coordinade, [{Id,Wi}|IdWix]) when is_float(Wi) -> 
+init_inputs(Coordinade, [{Id,uninitialized}|IdWix], NN_Id)        -> 
+    Wi = calculate_winit(Coordinade, NN_Id),
+    init_inputs(Coordinade, [{Id,Wi}|IdWix], NN_Id);
+init_inputs(Coordinade, [{Id,Wi}|IdWix], NN_Id) when is_float(Wi) -> 
     Input = #input{
         id = Id, 
         w  = Wi, 
         r  = not elements:is_dir_input(Coordinade, Id)
     },
-    [{?PID(Id), Input} | init_inputs(Coordinade, IdWix)];
-init_inputs(_, []) -> 
+    [{?PID(Id), Input} | init_inputs(Coordinade, IdWix, NN_Id)];
+init_inputs(_, [], _) -> 
     [].
 
 %%--------------------------------------------------------------------
@@ -274,10 +274,10 @@ init_inputs(_, []) ->
 %% a synchronised request is sent to the cortex to receive a value.  
 %% @end
 %%--------------------------------------------------------------------
-init_bias(Neuron) ->
+init_bias(Neuron, NN_Id) ->
     Coordinade = elements:coordinade(Neuron),
     case elements:bias(Neuron) of 
-        uninitialized          -> calculate_winit(Coordinade);
+        uninitialized          -> calculate_winit(Coordinade, NN_Id);
         Val when is_float(Val) -> Val
     end.
 
@@ -363,10 +363,11 @@ calculate_bias(Beta) ->
 %% @doc Calculates the new bias from back propagation of the error.
 %% @end
 %%--------------------------------------------------------------------
-calculate_winit(Coordinade) -> 
+calculate_winit(Coordinade, NN_Id) -> 
+    {Fan_In, Fan_Out} = cortex:fan_inout(NN_Id, Coordinade),
     initializer:apply(get(initializer), #{
-        cortex     => get(cortex), 
-        coordinade => Coordinade
+        fan_in  => Fan_In,
+        fan_out => Fan_Out
     }).
 
 
