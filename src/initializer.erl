@@ -24,8 +24,8 @@
 -type arguments() :: #{
     distribution => normal | uniform,
     mode         => fan_in | fan_out | fan_all | fan_avg,
-    coordinade   => Coordinade  :: float(),
-    cortex       => Cortex      :: pid(),
+    fan_in       => Fan_In      :: float(),
+    fan_out      => Fan_Out     :: float(),
     mean         => Mean        :: float(),
     stddev       => Stddev      :: float(),
     scale        => Scale       :: float(),
@@ -109,16 +109,12 @@ random_test() ->
 % ....................................................................
 % TODO: Define specs and comment
 vscaling(Arg) -> 
-    {Fan_In, Fan_Out} = cortex:fan_inout(
-        ?ARG(cortex,     Arg),
-        ?ARG(coordinade, Arg)
-    ),
     Scale = ?ARG(scale, Arg, 1.0),
     N = case ?ARG(mode, Arg, fan_in) of
-        fan_in  ->  Fan_In;
-        fan_out ->  Fan_Out;
-        fan_all ->  Fan_In + Fan_Out;
-        fan_avg -> (Fan_In + Fan_Out)/2
+        fan_in  ->  ?ARG(fan_in, Arg);
+        fan_out ->  ?ARG(fan_out, Arg);
+        fan_all ->  ?ARG(fan_in, Arg) + ?ARG(fan_out, Arg);
+        fan_avg -> (?ARG(fan_in, Arg) + ?ARG(fan_out, Arg))/2
     end,
     case ?ARG(distribution, Arg, normal) of 
         normal  ->  

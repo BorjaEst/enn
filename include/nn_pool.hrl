@@ -14,8 +14,13 @@
     {keypos, #nn.id}    % The key of the record must be the id
 ]).
 -record(nn, {
-    id  :: cortex:id(), % Neural network identtification
-    sup :: pid(),       % Pid of the supervisor
-    cx  :: pid()        % Pid of the cortex 
+    id          :: cortex:id(), % Neural network identtification
+    supervisor  :: pid(),       % Pid of the supervisor
+    cortex      :: pid(),       % Pid of the cortex 
+    idpidT      :: ets:tid(),   % ETS table with neurons id<->pid 
+    % forward_cycles  = 0 :: integer(), % Number of FP performed cycles
+    % backward_cycles = 0 :: integer(), % Number of BP performed cycles
+    dimensions = #{} :: #{Coordinade :: float() => Size :: integer()}
+    % last_bperr = []  :: [float()]  % Last back propagation errors
 }).
 

@@ -197,7 +197,7 @@ check_nn(Cortex_Id) ->
 
 % ....................................................................
 cortex_pid(Cortex_Id) -> 
-    ets:lookup_element(?NN_POOL, Cortex_Id, #nn.cx).
+    ets:lookup_element(?NN_POOL, Cortex_Id, #nn.cortex).
 
 % ....................................................................
 check_links(Cortex, Neurons) -> %TODO: Check using elements:link

@@ -8,11 +8,13 @@
 %%
 %%
 %%  TODO: Try to move the ets table to the nn_sup 
+%%  TODO: probably the fan_in fan_out function is not correct
 %%% @end
 %%%-------------------------------------------------------------------
 -module(cortex).
 -compile([export_all, nowarn_export_all]). %% TODO: To delete after build
 
+-include_lib("nn_pool.hrl").
 -include_lib("math_constants.hrl").
 -include_lib("enn_logger.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -86,14 +88,7 @@ get_outputs(CompiledLayers) ->
 %%--------------------------------------------------------------------
 -spec start_link(Cortex_Id :: id()) -> gen_statem:start_ret().
 start_link(Cortex_Id) -> 
-    NNSup_Pid = self(),
-    TId_IdPids = ets:new(nn_idpids, [{read_concurrency, true}, public]),
-    gen_statem:start_link(?MODULE,
-        [
-            {id, Cortex_Id},
-            {nn_sup, NNSup_Pid},
-            {tid_idpids, TId_IdPids} 
-        ], []).
+    gen_statem:start_link(?MODULE, [Cortex_Id], []).
 
 %%--------------------------------------------------------------------
 %% @doc Makes a prediction using the external inputs.
@@ -139,14 +134,20 @@ nn_pid2id(Neuron_Pid, TId_IdPids) ->
 %% @doc Returns the id of a neuron from its pid.
 %% @end
 %%--------------------------------------------------------------------
--spec fan_inout(Cortex_Pid, Coordinade) -> {Fan_In, Fan_Out} when 
-    Cortex_Pid :: pid(),
+-spec fan_inout(Cortex_Id, Coordinade) -> {Fan_In, Fan_Out} when 
+    Cortex_Id  :: id(),
     Coordinade :: float(),
     Fan_In     :: float(),
     Fan_Out    :: float().
-fan_inout(Cortex_Pid, Coordinade) -> 
-    gen_statem:call(Cortex_Pid, {fan_inout, Coordinade}, 
-                    ?STDCALL_TIMEOUT).
+fan_inout(Cortex_Id, Coordinade) ->
+    Dim = ets:lookup_element(?NN_POOL, Cortex_Id, #nn.dimensions), 
+    case [ X || X <- maps:keys(Dim), X < Coordinade] of
+        []          -> PrevCoord = -1.0;
+        LowerLayers -> PrevCoord = lists:last(LowerLayers)
+    end,   
+    Fan_out = maps:get(Coordinade, Dim),
+    Fan_in  = maps:get(PrevCoord,  Dim),
+    {Fan_in, Fan_out}. 
 
 
 %%%===================================================================
@@ -166,24 +167,16 @@ fan_inout(Cortex_Pid, Coordinade) ->
 %%                     {stop, StopReason}
 %% @end
 %%--------------------------------------------------------------------
-init([Option | Rest]) ->
-    case Option of
-        {id, Cortex_Id} ->
-            put(id,     Cortex_Id),
-            put(cortex, edb:read(Cortex_Id));
-        {nn_sup, NNSup_Pid} ->
-             put(nn_sup, NNSup_Pid);
-        {tid_idpids, TId_IdPids} ->
-             put(tid_idpids, TId_IdPids)
-    end,
-    init(Rest);
-init([]) -> 
-    Id = get(id),
-    ets:insert(get(tid_idpids), [{Id, self()}, {self(), Id}]),
+init([Id]) -> 
+    Pid  = self(),
+    [NN] = ets:lookup(?NN_POOL, Id),
+    true = ets:insert(NN#nn.idpidT, [{Id, Pid}, {Pid, Id}]),
+    true = ets:update_element(?NN_POOL, Id, {#nn.cortex, Pid}),
     process_flag(trap_exit, true), % To catch supervisor 'EXIT'
+    put(    id,               Id),
     ?LOG_STATE_CHANGE(undefined),
     {ok, inactive, #state{wait = []},
-     [{next_event, internal, start_nn}]}.
+        {next_event, internal, {start_nn, NN}}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -260,9 +253,9 @@ inactive({call, From}, {backprop, Errors}, State) ->
     {next_state, on_backpropagation, State#state{
         wait = [Pid || {Pid, _}  <- get(outputs)]
     }};
-inactive(internal, start_nn, State) ->
+inactive(internal, {start_nn, NN}, State) ->
     ?LOG_EVENT_START_NEURONS_NETWORK,
-    handle_start_nn(),
+    handle_start(NN),
     {keep_state, State};
 inactive(EventType, EventContent, State) ->
     handle_common(EventType, EventContent, State).
@@ -314,9 +307,6 @@ on_backpropagation(EventType, EventContent, State) ->
 %%--------------------------------------------------------------------
 handle_common(internal, _EventContent, State) ->
     {keep_state, State};
-handle_common({call,From}, {fan_inout, Coord}, State) -> %% move this to an ets table  
-    Reply = calc_fan_inout(Coord),
-    {keep_state, State, {reply,From,Reply}};
 handle_common(EventType, EventContent, _State) ->
     error({"Unknown event", EventType, EventContent}).
 %%--------------------------------------------------------------------
@@ -406,40 +396,27 @@ backward(Input_Pid, Error) ->
     {Input_Pid, Error}.
 
 % ....................................................................
-handle_start_nn() ->
-    Cortex     = get(cortex), 
-    RefIdT     = get(tid_idpids),
-    Neuron_Ids = elements:neurons(Cortex),
-    Neurons = [ start_neuron( Id, RefIdT) || Id  <- Neuron_Ids],
-    _       = [resume_neuron(Pid, RefIdT) || Pid <- Neurons],
-    put(inputs,  [{nn_id2pid(Id, RefIdT), #input{ }} 
+handle_start(NN) ->
+    Cortex_Id  = NN#nn.id,
+    Cortex     = edb:read(Cortex_Id), 
+    Layers     = elements:layers(Cortex),
+    Neuron_Ids = elements:neurons(Layers),
+    Neurons = [start_neuron( Id, NN) || Id  <- Neuron_Ids],
+    put(inputs,  [{nn_id2pid(Id, NN#nn.idpidT), #input{ }} 
                      || Id <- elements:inputs_ids( Cortex)]),
-    put(outputs, [{nn_id2pid(Id, RefIdT), #output{}}
+    put(outputs, [{nn_id2pid(Id, NN#nn.idpidT), #output{}}
                      || Id <- elements:outputs_ids(Cortex)]),
+    true = ets:update_element(?NN_POOL, Cortex_Id, 
+        {#nn.dimensions, elements:dimensions(Layers)}
+    ),
+    [resume_neuron(Pid, NN) || Pid <- Neurons],
     ok.
 
-start_neuron(Id, RefIdT) ->
-    nn_sup:start_neuron(get(nn_sup), Id, RefIdT).
+start_neuron(Id, NN) ->
+    nn_sup:start_neuron(Id, NN).
 
-resume_neuron(Pid, RefIdT) -> 
-    Pid ! {continue_init, RefIdT}.
-
-% ....................................................................
-calc_fan_inout(Coordinade) ->
-     case [X||X<-elements:coordinades(get(cortex)),X<Coordinade] of
-        []          -> PrevCoordinade = -1.0;
-        LowerLayers -> PrevCoordinade = lists:last(LowerLayers)
-    end,   
-    Fan_out = len_layer(Coordinade),
-    Fan_in  = tot_inputs(Coordinade) / len_layer(PrevCoordinade),
-    {Fan_in, Fan_out}. 
-
-tot_inputs(Coordinade) -> 
-    Neurons = edb:read(elements:neurons(get(cortex), Coordinade)),
-    lists:sum([length(elements:inputs_idps(N)) || N <- Neurons]).
-
-len_layer(Coordinade) -> 
-    length(elements:neurons(get(cortex), Coordinade)).
+resume_neuron(Pid, NN) -> 
+    Pid ! {continue_init, NN#nn.idpidT}.
 
 
 %%====================================================================

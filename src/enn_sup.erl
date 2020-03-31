@@ -27,7 +27,7 @@
 -define(NN_SUP_ID(Cortex_Id), {element(1, Cortex_Id), nn_sup}).
 -define(SPECS_NN_SUP(Cortex_Id), #{
     id       => ?NN_SUP_ID(Cortex_Id),
-    start    => {nn_sup, start_link, []},
+    start    => {nn_sup, start_link, [Cortex_Id]},
     restart  => temporary,
     type     => supervisor,
     modules  => [supervisor]}).
@@ -50,10 +50,10 @@ start_link(StartArgs) ->
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
 start_nn(Cortex_Id) ->
+    true = ets:insert(?NN_POOL, #nn{id = Cortex_Id}),
     {ok, NN_Pid} = supervisor:start_child(?SERVER, 
                                           ?SPECS_NN_SUP(Cortex_Id)),
-    {ok, Cx_Pid} = nn_sup:start_cortex(NN_Pid, Cortex_Id),
-    ets:insert(?NN_POOL, #nn{id=Cortex_Id, sup=NN_Pid, cx=Cx_Pid}),
+    {ok, _}      = nn_sup:start_cortex(NN_Pid, Cortex_Id),
     ok. 
 
 %%--------------------------------------------------------------------
@@ -83,7 +83,7 @@ init([]) ->
     ChildSpecs = [
         ?SPECS_DATALOG
     ],
-    start_pool(),
+    start_nn_pool(),
     {ok, {SupFlags, ChildSpecs}}.
 
     
@@ -91,7 +91,7 @@ init([]) ->
 %% Internal functions
 %%====================================================================
 
-start_pool() ->  
+start_nn_pool() ->  
     ets:new(?NN_POOL, ?NN_POOL_OPTIONS).
 
 
