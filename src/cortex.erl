@@ -14,8 +14,8 @@
 -compile([export_all, nowarn_export_all]). %% TODO: To delete after build
 
 -include_lib("math_constants.hrl").
+-include_lib("enn_logger.hrl").
 -include_lib("eunit/include/eunit.hrl").
--include_lib("kernel/include/logger.hrl").
 
 -behaviour(gen_statem).
 
@@ -46,18 +46,6 @@
 -record(state, {
     wait = [] :: [term()]
 }).
-
-
--define(LOG_STATE_CHANGE(OldState),
-    ?LOG_INFO(#{desc => "Cortex state has changed", 
-                new_state => ?FUNCTION_NAME, old_state => OldState},
-              #{logger_formatter=>#{title=>"CORTEX STATE CHANGE"}})
-).
--define(LOG_EVENT(Description, Context),
-    ?LOG_DEBUG(#{desc => Description, state => ?FUNCTION_NAME,
-                 context => Context},
-               #{logger_formatter=>#{title=>"CORTEX EVENT"}})
-).
 
 
 -ifdef(debug_mode).
@@ -193,7 +181,7 @@ init([]) ->
     Id = get(id),
     ets:insert(get(tid_idpids), [{Id, self()}, {self(), Id}]),
     process_flag(trap_exit, true), % To catch supervisor 'EXIT'
-    ?LOG_INFO(#{desc => "Cortex initiated", id => Id}),
+    ?LOG_STATE_CHANGE(undefined),
     {ok, inactive, #state{wait = []},
      [{next_event, internal, start_nn}]}.
 
@@ -256,22 +244,24 @@ format_status(_Opt, [_PDict, _StateName, _State]) ->
 inactive(enter, OldState, State) ->
     ?LOG_STATE_CHANGE(OldState),
     {keep_state, State};
-inactive({call, From}, {feedforward, ExtInputs}, State) ->
-    ?LOG_EVENT("Feedforward request", #{ext_inputs=>ExtInputs}),
-    forward(ExtInputs),
+inactive({call, From}, {feedforward, Inputs}, State) ->
+    ?LOG_EVENT_FEEDFORWARD(Inputs),
+    Sent = [forward(P,S)||{{P,_},S}<-lists:zip(get(outputs),Inputs)],
+    ?LOG_FORWARD_PROPAGATION(Sent),
     put(from, From),
     {next_state, on_feedforward, State#state{
         wait = [Pid || {Pid, _} <- get(inputs)]
     }};
 inactive({call, From}, {backprop, Errors}, State) ->
-    ?LOG_EVENT("Backprop request", #{errors => Errors}),
-    backward(Errors),
+    ?LOG_EVENT_BACKFORWARD(Errors),
+    Sent = [backward(P,E)||{{P,_},E}<-lists:zip(get(inputs),Errors)],
+    ?LOG_BACKWARD_PROPAGATION(Sent),
     put(from, From),
     {next_state, on_backpropagation, State#state{
         wait = [Pid || {Pid, _}  <- get(outputs)]
     }};
 inactive(internal, start_nn, State) ->
-    ?LOG_EVENT("Network neurons start request", #{}),
+    ?LOG_EVENT_START_NEURONS_NETWORK,
     handle_start_nn(),
     {keep_state, State};
 inactive(EventType, EventContent, State) ->
@@ -285,15 +275,14 @@ inactive(EventType, EventContent, State) ->
 on_feedforward(enter, OldState, State) ->
     ?LOG_STATE_CHANGE(OldState),
     {keep_state, State};
-on_feedforward(info, {Pid, forward, Signal}=Msg, State) ->
-    ?LOG_EVENT("Forward received from neuron", #{message => Msg}),
+on_feedforward(info, {Pid, forward, Signal}, State) ->
+    ?LOG_FORWARD_MESSAGE_RECEIVED(Pid, Signal),
     update_input_signal(Pid, Signal),
     on_feedforward(internal, forward, State#state{
         wait = lists:delete(Pid, State#state.wait)
     });
 on_feedforward(internal, forward, #state{wait = []} = State) ->
     Signals = [I#input.s || {_, I} <- get(inputs)],
-    ?LOG_EVENT("End of forward propagation", #{signals => Signals}),
     {next_state, inactive, State, {reply, get(from), Signals}};
 on_feedforward(EventType, EventContent, State) ->
     handle_common(EventType, EventContent, State).
@@ -307,15 +296,14 @@ on_feedforward(EventType, EventContent, State) ->
 on_backpropagation(enter, OldState, State) ->
     ?LOG_STATE_CHANGE(OldState),
     {keep_state, State};
-on_backpropagation(info, {Pid, backward, BP_Err}=Msg, State) ->
-    ?LOG_EVENT("Backward received from neuron", #{message => Msg}),
+on_backpropagation(info, {Pid, backward, BP_Err}, State) ->
+    ?LOG_BACKWARD_MESSAGE_RECEIVED(Pid, BP_Err),
     update_output_error(Pid, BP_Err),
     on_backpropagation(internal, backward, State#state{
         wait = lists:delete(Pid, State#state.wait)
     });
 on_backpropagation(internal, backward, #state{wait = []} = State) ->
     BP_Err = [O#output.e || {_, O} <- get(outputs)],
-    ?LOG_EVENT("End of back propagation", #{bp_err => BP_Err}),
     {next_state, inactive, State, {reply, get(from), BP_Err}};
 on_backpropagation(EventType, EventContent, State) ->
     handle_common(EventType, EventContent, State).
@@ -373,9 +361,8 @@ handle_event(_EventType, _EventContent, _StateName, State) ->
 %% @spec terminate(Reason, StateName, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(Reason, StateName, _State) ->
-    ?LOG_INFO(#{desc   => "Cortex terminating", id => get(id), 
-                reason => Reason,       state_name => StateName}),
+terminate(_Reason, OldState, _State) ->
+    ?LOG_STATE_CHANGE(OldState),
     ok.
 
 %%--------------------------------------------------------------------
@@ -409,18 +396,14 @@ update_output_error(Pid, Error) ->
     put(outputs, Outputs).
 
 % ....................................................................
-forward(ExtInputs) ->
-    [forward(P,S) || {{P,_},S} <- lists:zip(get(outputs), ExtInputs)].
-
 forward(Output_Pid, Signal) ->
-    Output_Pid ! {self(), forward, Signal}.
+    Output_Pid ! {self(), forward, Signal},
+    {Output_Pid, Signal}.
 
 % ....................................................................
-backward(Errors) -> 
-    [backward(P,E) || {{P,_},E} <- lists:zip(get(inputs), Errors)].
-
 backward(Input_Pid, Error) ->
-    Input_Pid ! {self(), backward, Error}.
+    Input_Pid ! {self(), backward, Error},
+    {Input_Pid, Error}.
 
 % ....................................................................
 handle_start_nn() ->

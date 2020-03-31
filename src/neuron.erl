@@ -19,7 +19,7 @@
 -compile([export_all, nowarn_export_all]). %% TODO: To delete after build
 
 -include_lib("math_constants.hrl").
--include_lib("kernel/include/logger.hrl").
+-include_lib("enn_logger.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 %% API
@@ -54,45 +54,6 @@
 -define(LEARNING_FACTOR, 0.01).  
 -define(MOMENTUM_FACTOR, 0.00).
 -define(INITIAL_ERROR,   0.00).
-
--define(LOG_FORWARD_MESSAGE_RECEIVED(From, Signal),
-    ?LOG_DEBUG(#{desc => "Forward message received", 
-                 pid => self(), id => get(id), From => Signal},
-               #{logger_formatter=>#{title=>"NEURON DEBUG"}})
-).
--define(LOG_BACKWARD_MESSAGE_RECEIVED(From, Error),
-    ?LOG_DEBUG(#{desc => "Backward message received", 
-                 pid => self(), id => get(id), From => Error},
-               #{logger_formatter=>#{title=>"NEURON DEBUG"}})
-).
--define(LOG_FORWARD_PROPAGATION(Sent),
-    ?LOG_DEBUG(#{desc => "Forward propagation trigger", 
-                 pid=>self(), id => get(id), sent => Sent},
-               #{logger_formatter=>#{title=>"NEURON DEBUG"}})
-).
--define(LOG_FORWARD_PROPAGATION_RECURRENT_OUTPUTS(Sent),
-    ?LOG_DEBUG(#{desc => "Forward prop trigger (recurrent outputs)",
-                 pid=>self(), id => get(id), sent => Sent},
-               #{logger_formatter=>#{title=>"NEURON DEBUG"}})
-).
--define(LOG_BACKWARD_PROPAGATION(Sent),
-    ?LOG_DEBUG(#{desc => "Backward propagation trigger", 
-                 pid=>self(), id => get(id), sent => Sent},
-               #{logger_formatter=>#{title=>"NEURON DEBUG"}})
-).
--define(LOG_BACKWARD_PROPAGATION_RECURRENT_INPUTS(Sent),
-    ?LOG_DEBUG(#{desc => "Backward prop trigger (recurrent inputs)",
-                 pid=>self(), id => get(id), sent => Sent},
-               #{logger_formatter=>#{title=>"NEURON DEBUG"}})
-).
--define(LOG_WAITING_NEURONS(State),
-    ?LOG_DEBUG(#{desc => "Neuron waiting for more signals", 
-                 waiting => #{forward  => State#state.forward_wait,
-                              backward => State#state.backward_wait},
-                 pid=>self(), id => get(id)},
-               #{logger_formatter=>#{title=>"NEURON DEBUG"}})
-).
-
 
 -ifdef(debug).
 -define(STDCALL_TIMEOUT, infinity).
@@ -160,7 +121,7 @@ init(Id, Cortex, Supervisor) ->
     Error  = calculate_error(Outputs),
     Beta   = calculate_beta(Error),
     propagate_recurrent(Signal, Beta), 
-    ?LOG_INFO(#{desc => "Neuron initiated", id => Id}),
+    ?LOG_NEURON_STARTED,
     loop(internal, #state{
         forward_wait  = [Pid || Pid <- maps:keys(get(inputs ))],
         backward_wait = [Pid || Pid <- maps:keys(get(outputs))]
@@ -186,9 +147,11 @@ loop({Pid,backward,E}, #state{backward_wait = [Pid|Nx]} = State) ->
 
 % If all forward signals have been received, state change to forward
 loop(internal, #state{forward_wait  = []} = State) -> 
+    ?LOG_WAITING_NEURONS(State),
     forward_prop(internal, State);
 % If all backward signals have been received, state change to backward
 loop(internal, #state{backward_wait = []} = State) ->
+    ?LOG_WAITING_NEURONS(State),
     backward_prop(internal, State);
 % If there are signals in any waiting buffer collects the next signal
 loop(internal,                              State) -> 
@@ -257,7 +220,7 @@ terminate(Reason, _State) ->
                             || {_, I} <- maps:to_list(get(inputs ))],
             bias        => get(bias)
         })),
-    ?LOG_INFO(#{desc => "Neuron terminated", id => Id}),
+    ?LOG_NEURON_TERMINATING,
     exit(Reason).
 
 
