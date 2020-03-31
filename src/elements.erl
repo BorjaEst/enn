@@ -6,6 +6,7 @@
 %%%-------------------------------------------------------------------
 -module(elements).
 -compile([export_all, nowarn_export_all]). %% TODO: To delete after build
+-compile({no_auto_import, [size/1, apply/3]}).
 
 -include_lib("math_constants.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -149,23 +150,6 @@ edit_cortex(Cortex, []) ->
     Cortex.
 
 
-%%--------------------------------------------------------------------
-%% @doc Returns all the networks of the Neural Network related to the
-%% cortex.
-%% @end
-%%--------------------------------------------------------------------
--spec neurons(Cortex :: cortex()) -> [Neuron_Id :: neuron:id()].
-neurons(Cortex) ->
-    lists:append(maps:values(layers(Cortex))).
-
--spec neurons(Cortex :: cortex(), Coordinade :: float() | hidden) -> 
-    [Neuron_Id :: neuron:id()].
-neurons(Cortex, hidden) ->
-    [_|HiddenLy] = lists:droplast(maps:values(layers(Cortex))),
-    lists:append(HiddenLy);
-neurons(Cortex, Coordinade) ->
-    maps:get(Coordinade, layers(Cortex)).
-
 %%-------------------------------------------------------------------
 %% @doc Returns the layers of the Neural Network related to the
 %% cortex. The return is ordered from lower to higher.
@@ -175,6 +159,71 @@ neurons(Cortex, Coordinade) ->
     Layers :: #{Coordinade :: float() => [neuron:neuron_id()]}.
 layers(Cortex) ->
     Cortex#cortex.layers.
+
+%%--------------------------------------------------------------------
+%% @doc Returns the number of neurons inside a network under the scope
+%% of the specified cortex.
+%% @end
+%%--------------------------------------------------------------------
+-spec dimensions(CortexOrLayer) -> Dimensions when 
+    CortexOrLayer :: cortex() | #{Coordinade::float()=>[neuron:id()]},
+    Dimensions    :: #{Coordinade :: float() => Size :: integer()}.
+dimensions(Layers) ->
+    maps:map(fun(_, Nx) -> length(Nx) end, Layers).
+
+dimensions_test() -> 
+    Layers = #{
+        -1.0 => lists:seq(1,10), 
+         0.0 => lists:seq(1,12), 
+         1.0 => lists:seq(1, 6)
+    },
+    ?assertEqual(#{-1.0=>10,0.0=>12,1.0=>6}, dimensions(Layers)).
+
+%%--------------------------------------------------------------------
+%% @doc Returns the number of neurons inside a network under the scope
+%% of the specified cortex.
+%% @end
+%%--------------------------------------------------------------------
+-spec size(CortexOrLayer) -> Size when 
+    CortexOrLayer :: cortex() | #{Coordinade::float()=>[neuron:id()]},
+    Size :: integer().
+size(Cortex) when is_record(Cortex, cortex) ->
+    size(layers(Cortex));
+size(Layers) when is_map(Layers) ->
+    lists:sum(maps:values(dimensions(Layers))).
+
+size_test() -> 
+    Layers = #{
+        -1.0 => lists:seq(1,10), 
+         0.0 => lists:seq(1,12), 
+         1.0 => lists:seq(1, 6)
+    },
+    ?assertEqual(10+12+6, size(Layers)).
+
+%%--------------------------------------------------------------------
+%% @doc Returns all the networks of the Neural Network related to the
+%% cortex.
+%% @end
+%%--------------------------------------------------------------------
+-spec neurons(CortexOrLayer) -> Neurons when 
+    CortexOrLayer :: cortex() | #{Coordinade::float()=>[neuron:id()]},
+    Neurons       :: [Neuron_Id :: neuron:id()].
+neurons(Cortex) when is_record(Cortex, cortex) ->
+    neurons(layers(Cortex));
+neurons(Layer) when is_map(Layer) -> 
+    lists:append(maps:values(Layer)).
+
+-spec neurons(CortexOrLayer, Control) -> Neurons when
+    CortexOrLayer :: cortex() | #{Coordinade::float()=>[neuron:id()]},
+    Control       :: float() | hidden,
+    Neurons       :: [Neuron_Id :: neuron:id()].
+neurons(Cortex, Control) when is_record(Cortex, cortex) ->
+    neurons(layers(Cortex), Control);
+neurons(Layers, hidden) when is_map(Layers) ->
+    [_|HiddenLy] = lists:droplast(maps:values(Layers)),
+    lists:append(HiddenLy);
+neurons(Layers, Coordinade) ->
+    maps:get(Coordinade, Layers).
 
 %%-------------------------------------------------------------------
 %% @doc Returns the inputs links of the specified list of neurons. 
@@ -188,36 +237,6 @@ links([Neuron | Neurons]) ->
         || In <- inputs_ids(Neuron)] ++ links(Neurons);
 links([]) ->
     [].
-
-%%--------------------------------------------------------------------
-%% @doc Returns the number of neurons inside a network under the scope
-%% of the specified cortex.
-%% @end
-%%--------------------------------------------------------------------
--spec size(Cortex :: cortex()) -> Size :: integer().
-size(Cortex) ->
-    Layers = maps:values(layers(Cortex)),
-    Neurons_per_layer = [length(Neurons) || Neurons <- Layers],
-    lists:sum(Neurons_per_layer).
-
-%%--------------------------------------------------------------------
-%% @doc Returns the number of neurons inside a network under the scope
-%% of the specified cortex.
-%% @end
-%%--------------------------------------------------------------------
--spec dimensions(Cortex :: cortex()) -> 
-    Dimensions :: #{Coordinade :: float() => Size :: integer()}.
-dimensions(Cortex) ->
-    SizeF = fun(_, Neurons) -> length(Neurons) end,
-    maps:map(SizeF, layers(Cortex)).
-
-dimensions_test() -> 
-    Cortex = cortex(#{
-        -1.0 => lists:seq(1,10), 
-         0.0 => lists:seq(1,12), 
-         1.0 => lists:seq(1, 6)
-    }, #{}),
-    ?assertEqual(#{-1.0=>10,0.0=>12,1.0=>6}, dimensions(Cortex)).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the element id.
