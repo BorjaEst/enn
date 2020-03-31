@@ -89,7 +89,7 @@
     ?LOG_DEBUG(#{desc => "Neuron waiting for more signals", 
                  waiting => #{forward  => State#state.forward_wait,
                               backward => State#state.backward_wait},
-                 pid=>self(), id => get(id)}
+                 pid=>self(), id => get(id)},
                #{logger_formatter=>#{title=>"NEURON DEBUG"}})
 ).
 
@@ -185,7 +185,7 @@ loop({Pid,backward,E}, #state{backward_wait = [Pid|Nx]} = State) ->
     loop(internal, State#state{backward_wait = Nx});
 
 % If all forward signals have been received, state change to forward
-loop(internal, #state{forward_wait = []} = State) -> 
+loop(internal, #state{forward_wait  = []} = State) -> 
     forward_prop(internal, State);
 % If all backward signals have been received, state change to backward
 loop(internal, #state{backward_wait = []} = State) ->
@@ -221,13 +221,16 @@ backward_prop(internal, State) ->
         backward_wait = [Pid || Pid <- maps:keys(get(outputs))]
     }).
 %%--------------------------------------------------------------------
-%% @doc Receives the next messages and sends it to loop. 
+%% @doc Receives the next messages and sends it to loop. It only 
+%% passes the messages that would be matched, the rest are stored on 
+%% the inbox (as they will be used later). 
 %%
 %%--------------------------------------------------------------------
 receive_next(internal, State) ->
     ?LOG_WAITING_NEURONS(State),
     #state{forward_wait=[Nf|_] , backward_wait = [Nb|_]} = State,
-    receive {N,_,_}=Msg when N==Nf; N==Nb -> loop(Msg, State);
+    receive {N,forward, _}=Msg when N==Nf -> loop(Msg, State);
+            {N,backward,_}=Msg when N==Nb -> loop(Msg, State);
             {'EXIT',_,Reason}             -> terminate(Reason, State)
     after ?STDIDLE_TIMEOUT                ->
         ?LOG_WARNING(#{desc => "Neuron stuck", id => get(id)}),
@@ -290,7 +293,7 @@ init_inputs(Neuron) ->
     Inputs     = elements:inputs_idps(Neuron),
     maps:from_list(init_inputs(Coordinade, Inputs)).
 
-init_inputs(Coordinade, [{Id,uninitialized}|IdWix])          -> 
+init_inputs(Coordinade, [{Id,uninitialized}|IdWix])        -> 
     Wi = calculate_winit(Coordinade),
     init_inputs(Coordinade, [{Id,Wi}|IdWix]);
 init_inputs(Coordinade, [{Id,Wi}|IdWix]) when is_float(Wi) -> 
@@ -322,10 +325,10 @@ init_bias(Neuron) ->
 %%--------------------------------------------------------------------
 propagate_recurrent(Signal, Beta) -> 
     OutputsL = maps:to_list(get(outputs)),
-    InputsL  = maps:to_list(get(outputs)),
-    SentO = [forward(P,O,Signal)|| {P,#input{r=true}=O} <- OutputsL],
+    InputsL  = maps:to_list(get(inputs )),
+    SentO = [forward(P,O,Signal)|| {P,#output{r=true}=O} <- OutputsL],
     ?LOG_FORWARD_PROPAGATION_RECURRENT_OUTPUTS(SentO),
-    SentI = [backward(P,I,Beta) || {P,#input{r=true}=I} <- InputsL ],
+    SentI = [backward(P,I,Beta) || {P,#input{ r=true}=I} <- InputsL ],
     ?LOG_BACKWARD_PROPAGATION_RECURRENT_INPUTS(SentI).
 
 
