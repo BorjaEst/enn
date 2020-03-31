@@ -35,7 +35,7 @@
                #{logger_formatter=>#{title=>"ACTIVATION FUNCTION"}}) 
 ).
 -define(LOG_ACTIVATION_FUNCTION_RESULT(Function, Result), 
-    ?LOG_DEBUG(#{desc => "Activation function calculation result",
+    ?LOG_DEBUG(#{desc => "Activation calculation result",
                  func => Function, result => Result, pid  => self()},
                #{logger_formatter=>#{title=>"ACTIVATION FUNCTION"}}) 
 ).
@@ -45,15 +45,28 @@
                #{logger_formatter=>#{title=>"ACTIVATION FUNCTION"}}) 
 ).
 -define(LOG_ACTIVATION_DERIVADE_RESULT(Function, Result), 
-    ?LOG_DEBUG(#{desc => "Derivade of activation function result",
+    ?LOG_DEBUG(#{desc => "Derivade calculation result",
+                 func => Function, result => Result, pid  => self()},
+               #{logger_formatter=>#{title=>"ACTIVATION FUNCTION"}}) 
+).
+-define(LOG_ACTIVATION_BETA_REQUEST(Function, Error, Soma), 
+    ?LOG_DEBUG(#{desc => "Beta function calculation request",
+                 func => Function, error => Error, soma => Soma, 
+                 pid  => self()},
+               #{logger_formatter=>#{title=>"ACTIVATION FUNCTION"}}) 
+).
+-define(LOG_ACTIVATION_BETA_RESULT(Function, Result), 
+    ?LOG_DEBUG(#{desc => "Beta calculation result",
                  func => Function, result => Result, pid  => self()},
                #{logger_formatter=>#{title=>"ACTIVATION FUNCTION"}}) 
 ).
 -else.
--define(LOG_ACTIVATION_FUNCTION_REQUEST(F, V), F,V).
--define(LOG_ACTIVATION_FUNCTION_RESULT(F, V),  F,V).
--define(LOG_ACTIVATION_DERIVADE_REQUEST(F, V), F,V).
--define(LOG_ACTIVATION_DERIVADE_RESULT(F, V),  F,V).
+-define(LOG_ACTIVATION_FUNCTION_REQUEST(F, V), F,  V).
+-define(LOG_ACTIVATION_FUNCTION_RESULT(F, V),  F,  V).
+-define(LOG_ACTIVATION_DERIVADE_REQUEST(F, V), F,  V).
+-define(LOG_ACTIVATION_DERIVADE_RESULT(F, V),  F,  V).
+-define(LOG_ACTIVATION_BETA_REQUEST(F, E, V),  F,E,V).
+-define(LOG_ACTIVATION_BETA_RESULT(F, V),      F,  V).
 -endif.
 
 
@@ -65,7 +78,7 @@
 -define(LOG_STATE_CHANGE(OldState),
     ?LOG_INFO(#{desc => "Cortex state has changed", 
                 state_new => ?FUNCTION_NAME, old_state => OldState},
-              #{logger_formatter=>#{title=>"CORTEX STATE CHANGE"}})
+              #{logger_formatter=>#{title=>"CORTEX STATE"}})
 ).
 -else.
 -define(LOG_STATE_CHANGE(OldState), OldState).
@@ -80,17 +93,17 @@
 -define(LOG_EVENT_FEEDFORWARD(ExtInputs),
     ?LOG_DEBUG(#{desc => "Feedforward request",
                  ext_inputs => ExtInputs, state => ?FUNCTION_NAME},
-               #{logger_formatter=>#{title=>"CORTEX EVENT"}})
+               #{logger_formatter=>#{title=>"CORTEX REQUEST"}})
 ).
 -define(LOG_EVENT_BACKFORWARD(Errors),
     ?LOG_DEBUG(#{desc => "Backforward request",
                  ext_errors => Errors, state => ?FUNCTION_NAME},
-               #{logger_formatter=>#{title=>"CORTEX EVENT"}})
+               #{logger_formatter=>#{title=>"CORTEX REQUEST"}})
 ).
 -define(LOG_EVENT_START_NEURONS_NETWORK,
     ?LOG_DEBUG(#{desc => "Neurons network start request",
                  state => ?FUNCTION_NAME},
-               #{logger_formatter=>#{title=>"CORTEX EVENT"}})
+               #{logger_formatter=>#{title=>"CORTEX REQUEST"}})
 ).
 -else.
 -define(LOG_EVENT_FEEDFORWARD(ExtInputs), ExtInputs).
@@ -152,19 +165,19 @@
 -define(LOG_NEURON_STARTED,
     ?LOG_DEBUG(#{desc => "Neuron started", 
                  pid  => self(), id => get(id)},
-               #{logger_formatter=>#{title=>"NEURON STATE DEBUG"}})
+               #{logger_formatter=>#{title=>"NEURON STATUS"}})
 ).
 -define(LOG_WAITING_NEURONS(State),
     ?LOG_DEBUG(#{desc => "Neuron waiting for these signals", 
                  waiting => #{forward  => State#state.forward_wait,
                               backward => State#state.backward_wait},
                  pid=>self(), id => get(id)},
-               #{logger_formatter=>#{title=>"NEURON STATE DEBUG"}})
+               #{logger_formatter=>#{title=>"NEURON STATUS"}})
 ).
 -define(LOG_NEURON_TERMINATING,
     ?LOG_DEBUG(#{desc => "Neuron terminating", 
                  pid  => self(), id => get(id)},
-               #{logger_formatter=>#{title=>"NEURON STATE DEBUG"}})
+               #{logger_formatter=>#{title=>"NEURON STATUS"}})
 ).
 -else.
 -define(LOG_NEURON_STARTED, ok).
