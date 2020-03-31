@@ -62,6 +62,7 @@ Please make sure to update tests as appropriate.
 ### Improvement ideas
 In progress:
 -Momentum, not well implemented on enn, review. This helps a lot when not using batch normalisation.
+-He initialisation using truncated normal Gaussian distribution, with Xavier algorithm.
 
 Erlang performance:
 - Replace the usage of keylists by maps on Cortex and neuron modules.
@@ -71,7 +72,7 @@ Speed-up training:
 - ELU activation function seems by papers to perform better than Sigmoid and ReLU. Leaky ReLU is good as well.
 
 Find correct solution:
-- He initialisation using truncated normal Gaussian distribution, with Xavier algorithm.
+- 
 
 
 Importants to be clasified:
