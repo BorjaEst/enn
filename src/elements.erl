@@ -172,7 +172,7 @@ neurons(Cortex, Coordinade) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec layers(Cortex :: cortex()) -> 
-    #{Coordinade :: float() => [neuron:neuron_id()]}.
+    Layers :: #{Coordinade :: float() => [neuron:neuron_id()]}.
 layers(Cortex) ->
     Cortex#cortex.layers.
 
@@ -199,6 +199,25 @@ size(Cortex) ->
     Layers = maps:values(layers(Cortex)),
     Neurons_per_layer = [length(Neurons) || Neurons <- Layers],
     lists:sum(Neurons_per_layer).
+
+%%--------------------------------------------------------------------
+%% @doc Returns the number of neurons inside a network under the scope
+%% of the specified cortex.
+%% @end
+%%--------------------------------------------------------------------
+-spec dimensions(Cortex :: cortex()) -> 
+    Dimensions :: #{Coordinade :: float() => Size :: integer()}.
+dimensions(Cortex) ->
+    SizeF = fun(_, Neurons) -> length(Neurons) end,
+    maps:map(SizeF, layers(Cortex)).
+
+dimensions_test() -> 
+    Cortex = cortex(#{
+        -1.0 => lists:seq(1,10), 
+         0.0 => lists:seq(1,12), 
+         1.0 => lists:seq(1, 6)
+    }, #{}),
+    ?assertEqual(#{-1.0=>10,0.0=>12,1.0=>6}, dimensions(Cortex)).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the element id.
