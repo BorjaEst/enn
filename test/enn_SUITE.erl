@@ -149,10 +149,10 @@ groups() ->
 %%--------------------------------------------------------------------
 all() ->
     [ % NOTE THAT GROUPS CANNOT BE DEBUGGED WITH {step, ?STEP_OPTS}
-        {group, test_simple_architectures}
-        % {group, test_complex_architectures},
+        {group, test_simple_architectures},
+        {group, test_complex_architectures},
         % {group, test_error_networks},
-        % {group, test_parallel_networks}
+        {group, test_parallel_networks}
     ].
 
 %%--------------------------------------------------------------------
@@ -184,7 +184,6 @@ xor_gate_static_inputs(_Config) ->
         _Model = test_architectures:xor_gate(),
         _Data  = fun test_data_generators:static_xor_of_inputs/3
     ),
-    ok = nok,
     console_print_loss(?FUNCTION_NAME, Loss10).
 
 % ....................................................................
