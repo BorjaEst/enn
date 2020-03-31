@@ -156,22 +156,23 @@ edit_cortex(Cortex, []) ->
 %%--------------------------------------------------------------------
 -spec neurons(Cortex :: cortex()) -> [Neuron_Id :: neuron:id()].
 neurons(Cortex) ->
-    lists:append(maps:values(Cortex#cortex.layers)).
+    lists:append(maps:values(layers(Cortex))).
 
 -spec neurons(Cortex :: cortex(), Coordinade :: float() | hidden) -> 
     [Neuron_Id :: neuron:id()].
 neurons(Cortex, hidden) ->
-    [_|HiddenLy] = lists:droplast(maps:values(Cortex#cortex.layers)),
+    [_|HiddenLy] = lists:droplast(maps:values(layers(Cortex))),
     lists:append(HiddenLy);
 neurons(Cortex, Coordinade) ->
-    maps:get(Coordinade, Cortex#cortex.layers).
+    maps:get(Coordinade, layers(Cortex)).
 
 %%-------------------------------------------------------------------
 %% @doc Returns the layers of the Neural Network related to the
 %% cortex. The return is ordered from lower to higher.
 %% @end
 %%--------------------------------------------------------------------
--spec layers(Cortex :: cortex()) -> [Coordinade :: float()].
+-spec layers(Cortex :: cortex()) -> 
+    #{Coordinade :: float() => [neuron:neuron_id()]}.
 layers(Cortex) ->
     Cortex#cortex.layers.
 
@@ -195,7 +196,7 @@ links([]) ->
 %%--------------------------------------------------------------------
 -spec size(Cortex :: cortex()) -> Size :: integer().
 size(Cortex) ->
-    Layers = maps:values(Cortex#cortex.layers),
+    Layers = maps:values(layers(Cortex)),
     Neurons_per_layer = [length(Neurons) || Neurons <- Layers],
     lists:sum(Neurons_per_layer).
 
