@@ -59,3 +59,9 @@ only_from_modules(                                 _,    []) ->
     stop.
 
 
+%%%===================================================================
+%%% Report call backs
+%%%===================================================================
+
+report_in_csv(#{what:=What, pid:=Pid, id:=Id, details:=Details}) -> 
+    {";~0p;~0p;~0p;~0p;~n", [Pid, What, Id, Details]}.
