@@ -75,24 +75,21 @@ apply_dfun(_Ref,    _Soma) -> error(not_defined).
 %% @doc Applies the beta calculation for the activation funtion.
 %% @end
 %%--------------------------------------------------------------------
-
 -spec beta(Function :: func(), Error :: float(), Soma :: float()) -> 
     Result :: float().
-beta(Function, Error, Soma) when Error =< 0 ->
-    if
-        Soma =< 0 -> Result = Error * dfun(Function, Soma);
-        true      -> Result = Error
-    end,
-    ?LOG_DEBUG(#{desc=>"Beta function calculation", func=>Function,
-                 result => Result, soma => Soma, error => Error}),
-    Result;
-beta(Function, Error, Soma) ->
-    ?LOG_DEBUG(#{desc => "Beta soma and error inverted (*-1)",
-                 soma => Soma, error => Error}),
-    Result = - beta(Function, -Error, -Soma),
-    ?LOG_DEBUG(#{desc => "Beta result inverted (*-1)",
-                 result => Result}),
+beta(Function, Error, Soma) -> 
+    ?LOG_ACTIVATION_BETA_REQUEST(Function, Error, Soma),
+    Result = apply_beta(Function, Error, Soma),
+    ?LOG_ACTIVATION_BETA_RESULT(Function, Result),
     Result.
+
+apply_beta(Function, Error, Soma) when Error =< 0 ->
+    if
+        Soma =< 0 -> Error * dfun(Function, Soma);
+        true      -> Error
+    end;
+apply_beta(Function, Error, Soma) ->
+    - apply_beta(Function, -Error, -Soma).
 
 
 %%====================================================================
