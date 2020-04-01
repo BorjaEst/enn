@@ -65,9 +65,9 @@ dense(Units, Prop) ->
 input(Units, Prop) ->
     #{
         units       => Units,
-        activation  => maps:get(activation,  Prop, tanh),
+        activation  => maps:get(activation,  Prop, direct),
         aggregation => maps:get(aggregation, Prop, direct),
-        initializer => maps:get(initializer, Prop, glorot)
+        initializer => maps:get(initializer, Prop, ones  )
     }.
 
 %%--------------------------------------------------------------------

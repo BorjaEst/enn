@@ -54,8 +54,8 @@ apply_fun(      _Ref,_Tensor,_Bias) ->        error(not_defined).
 
 % ....................................................................
 % TODO: Define specs and comments
-direct(Tensor, Bias) -> %% TODO: Evaluate if better without Bias
-    lists:sum([Input || {_, Input} <- Tensor]) + Bias.
+direct(Tensor, _Bias) -> %% TODO:Add bias if separated init for inputs 
+    lists:sum([Input || {_, Input} <- Tensor]).
 
 % ....................................................................
 % TODO: Define specs and comments

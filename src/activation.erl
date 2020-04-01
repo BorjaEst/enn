@@ -41,6 +41,7 @@ func(Function, Soma) ->
     ?LOG_ACTIVATION_FUNCTION_RESULT(Function, Result),
     Result.
 
+apply_fun(direct,   Soma) -> direct(Soma);
 apply_fun(sigmoid,  Soma) -> sigmoid(Soma);
 apply_fun(tanh,     Soma) -> tanh(Soma);
 apply_fun(softplus, Soma) -> softplus(Soma);
@@ -62,6 +63,7 @@ dfun(Function, Soma) ->
     ?LOG_ACTIVATION_DERIVADE_RESULT(Function, Result),
     Result.
 
+apply_dfun(direct,   Soma) -> d_direct(Soma);
 apply_dfun(sigmoid,  Soma) -> d_sigmoid(Soma);
 apply_dfun(tanh,     Soma) -> d_tanh(Soma);
 apply_dfun(softplus, Soma) -> d_softplus(Soma);
@@ -95,6 +97,13 @@ apply_beta(Function, Error, Soma) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+% ....................................................................
+% TODO: Define specs and comments
+direct(X) -> X.
+
+% TODO: Define specs and comments
+d_direct(_) -> 1.0.
 
 % ....................................................................
 % TODO: Define specs and comments
