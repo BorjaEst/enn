@@ -31,7 +31,7 @@
 
 -define(MAX_UNITS_PER_LAYER, 20).
 -define(MAX_NUMBER_LAYERS,    4).
--define(TRAINING_LINES,     200).
+-define(TRAINING_LINES,    8000).
 -define(PARALLEL_NN,          8).
 
 
@@ -40,7 +40,7 @@
 %% Info = [tuple()]
 %%--------------------------------------------------------------------
 suite() ->
-    [{timetrap, {seconds, 4}}].
+    [{timetrap, {seconds, 8}}].
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config0) ->
