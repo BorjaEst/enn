@@ -365,7 +365,7 @@ calculate_bias(Beta) ->
 %%--------------------------------------------------------------------
 calculate_winit(Coordinade, NN_Id) -> 
     {Fan_In, Fan_Out} = cortex:fan_inout(NN_Id, Coordinade),
-    initializer:apply(get(initializer), #{
+    initializer:value(get(initializer), #{
         fan_in  => Fan_In,
         fan_out => Fan_Out
     }).

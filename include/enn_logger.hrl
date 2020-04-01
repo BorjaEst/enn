@@ -6,6 +6,7 @@
 %%%     - debug_enn_all: Enable all debugs.
 %%%     - debug_activation: Activation function requests and results.
 %%%     - debug_aggregation: Aggregation function req. and results.
+%%%     - debug_initialization: Initialization values.
 %%%     - debug_cortex_states: Log cortex status changes.
 %%%     - debug_cortex_requests: Log cortex requests.
 %%%     - debug_propagation: Debug propagation messages.
@@ -17,11 +18,13 @@
 -include_lib("kernel/include/logger.hrl").
 
 -ifdef(debug_enn_all).
--define(debug_activation, true).
--define(debug_cortex_states, true).
+-define(     debug_activation, true).
+-define(    debug_aggregation, true).
+-define( debug_initialization, true).
+-define(  debug_cortex_states, true).
 -define(debug_cortex_requests, true).
--define(debug_propagation, true).
--define(debug_neurons_status, true).
+-define(    debug_propagation, true).
+-define( debug_neurons_status, true).
 -endif.
 
 
@@ -82,19 +85,41 @@
 -ifdef(debug_aggregation).
 -define(LOG_AGGREGATION_FUNCTION_REQUEST(Function, Tensor, Bias),
     ?LOG_DEBUG(#{what => "Aggregation function calculation request",
-                 pid=>self(), id => get(id), details => #{
+                 pid  => self(), id => get(id), details => #{
                      func=>Function, tensor=>Tensor, bias=>Bias}},
-               #{logger_formatter=>#{title=>"AGGREGATION FUNCTION"}}) 
+               #{logger_formatter=>#{title=>"AGGREGATION FUNCTION"}})
 ).
 -define(LOG_AGGREGATION_FUNCTION_RESULT(Function, Result), 
     ?LOG_DEBUG(#{what => "Aggregation calculation result",
-                 pid=>self(), id => get(id),
+                 pid  => self(), id => get(id),
                  details => #{func => Function, result => Result}},
-               #{logger_formatter=>#{title=>"AGGREGATION FUNCTION"}}) 
+               #{logger_formatter=>#{title=>"AGGREGATION FUNCTION"}})
 ).
 -else.
 -define(LOG_AGGREGATION_FUNCTION_REQUEST(F, T, V), F,T,V).
 -define(LOG_AGGREGATION_FUNCTION_RESULT(F, V),     F,  V).
+-endif.
+
+%%--------------------------------------------------------------------
+%% @doc Enables logs on initialization functions.
+%% @end
+%%--------------------------------------------------------------------
+-ifdef(debug_initialization).
+-define(LOG_INITIALIZATION_REQUEST(Function, Arg),
+    ?LOG_DEBUG(#{what => "Initialization value calculation request",
+                 pid  => self(), id => get(id), 
+                 details => #{func => Function, arg => Arg}},
+            #{logger_formatter=>#{title=>"INITIALIZATION FUNCTION"}})
+).
+-define(LOG_INITIALIZATION_RESULT(Function, Result), 
+    ?LOG_DEBUG(#{what => "Initialization value result",
+                 pid  => self(), id => get(id),
+                 details => #{func => Function, result => Result}},
+            #{logger_formatter=>#{title=>"INITIALIZATION FUNCTION"}})
+).
+-else.
+-define(LOG_INITIALIZATION_REQUEST(F, V), F,V).
+-define(LOG_INITIALIZATION_RESULT(F, V),  F,V).
 -endif.
 
 %%--------------------------------------------------------------------

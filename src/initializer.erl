@@ -9,11 +9,12 @@
 %%%-------------------------------------------------------------------
 -module(initializer).
 
+-include_lib("enn_logger.hrl").
 -include_lib("math_constants.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 %% API
--export([apply/2]).
+-export([value/2]).
 -export_type([func/0, arguments/0]).
 
 -type func() :: zeros | ones | constant | random | lecun | glorot |
@@ -37,18 +38,28 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
+%%--------------------------------------------------------------------
+%% @doc Applies the beta calculation for the activation funtion.
+%% @end
+%%--------------------------------------------------------------------
+-spec value(Function :: func(), Arg :: arguments()) -> 
+    Result :: float().
+value(Function, Arg) -> 
+    ?LOG_INITIALIZATION_REQUEST(Function, Arg),
+    Result = apply_init(Function, Arg),
+    ?LOG_INITIALIZATION_RESULT(Function, Result),
+    Result.
 
-% ....................................................................
-% TODO: Define specs and comments
-apply(zeros,    Arg) -> zeros(Arg);
-apply(ones,     Arg) -> ones(Arg);
-apply(constant, Arg) -> constant(Arg);
-apply(random,   Arg) -> random(Arg);
-apply(lecun,    Arg) -> vscaling(Arg#{mode => fan_in,  scale => 1.0});
-apply(glorot,   Arg) -> vscaling(Arg#{mode => fan_all, scale => 2.0});
-apply(he,       Arg) -> vscaling(Arg#{mode => fan_in,  scale => 2.0});
-apply(variance_scaling, Arg) -> vscaling(Arg);
-apply(_Ref,     _) -> error(not_defined).
+
+apply_init(zeros,    Arg) -> zeros(Arg);
+apply_init(ones,     Arg) -> ones(Arg);
+apply_init(constant, Arg) -> constant(Arg);
+apply_init(random,   Arg) -> random(Arg);
+apply_init(lecun,    Arg) -> vscal(Arg#{mode=>fan_in,  scale=>1.0});
+apply_init(glorot,   Arg) -> vscal(Arg#{mode=>fan_all, scale=>2.0});
+apply_init(he,       Arg) -> vscal(Arg#{mode=>fan_in,  scale=>2.0});
+apply_init(variance_scaling, Arg) -> vscal(Arg);
+apply_init(_Ref,     _) -> error(not_defined).
 
 
 %%====================================================================
@@ -108,7 +119,7 @@ random_test() ->
     
 % ....................................................................
 % TODO: Define specs and comment
-vscaling(Arg) -> 
+vscal(Arg) -> 
     Scale = ?ARG(scale, Arg, 1.0),
     N = case ?ARG(mode, Arg, fan_in) of
         fan_in  ->  ?ARG(fan_in, Arg);
