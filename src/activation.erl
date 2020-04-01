@@ -85,13 +85,19 @@ beta(Function, Error, Soma) ->
     ?LOG_ACTIVATION_BETA_RESULT(Function, Result),
     Result.
 
-apply_beta(Function, Error, Soma) when Error =< 0 ->
-    if
-        Soma =< 0 -> Error * dfun(Function, Soma);
-        true      -> Error
-    end;
-apply_beta(Function, Error, Soma) ->
-    - apply_beta(Function, -Error, -Soma).
+% apply_beta(Function, Error, Soma) when Error =< 0 ->
+%     if
+%         Soma =< 0 -> Error * dfun(Function, Soma);
+%         true      -> Error
+%     end;
+% apply_beta(Function, Error, Soma) ->
+%     - apply_beta(Function, -Error, -Soma).
+
+
+apply_beta(Function, Error, Soma)->
+    Error * dfun(Function, Soma).
+
+
 
 
 %%====================================================================
