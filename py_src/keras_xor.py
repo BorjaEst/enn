@@ -20,12 +20,12 @@ Outputs = OLogic.reshape(-1,1).astype(float)*2 -1
 # Setup the layers
 model = Sequential([
     Dense(2, input_shape=(2,),
-          kernel_initializer='random_uniform',
-        #   bias_initializer='zeros',
+          # kernel_initializer='random_uniform',
+          # bias_initializer='zeros',
           activation='elu'),
     Dense(1,
-          kernel_initializer='random_uniform',
-        #   bias_initializer='zeros',
+          # kernel_initializer='random_uniform',
+          # bias_initializer='zeros',
           activation='elu')
 ])
 
@@ -44,7 +44,16 @@ model.compile(optimizer=Optimizer,
 # =============================================================
 # Train the model
 # =============================================================
+print("Initialitation values Layers: ")
+for layer in model.layers:
+    print(layer.get_weights())
+
 model.fit(Inputs, Outputs, epochs=1, batch_size=1)
+
+print("After training values Layers: ")
+for layer in model.layers:
+    print(layer.get_weights())
+
 
 # =============================================================
 # Make predictions
@@ -56,7 +65,3 @@ Results = list(zip(Inputs.tolist(), Outputs.tolist(), Predictions.tolist()))
 print("Results: ")
 for aTuple in Results:
     print(aTuple)
-
-print("Layers: ")
-for layer in model.layers:
-    print(layer.get_weights())
