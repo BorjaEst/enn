@@ -48,7 +48,7 @@ example() ->
 % TODO: Define specs and comments
 xor_gate() ->
     _Model = enn:sequential([
-                                ?input( 2, #{activation => elu}),
+                                ?input( 2),
                                 ?dense( 2, #{activation => elu}),
                                 ?output(1, #{activation => elu})
                             ]).
