@@ -103,7 +103,7 @@ random(#{distribution := normal} = Arg) ->
 random(#{distribution := uniform} = Arg) -> 
     Maxval = ?ARG(maxval, Arg, +0.05),
     Minval = ?ARG(minval, Arg, -0.05),
-    (Maxval - Minval)*rand:uniform() - Minval.
+    (Maxval - Minval)*rand:uniform() + Minval.
 
 random_test() -> 
     % Test the normal distribution 
@@ -127,13 +127,14 @@ vscal(Arg) ->
         fan_all ->  ?ARG(fan_in, Arg) + ?ARG(fan_out, Arg);
         fan_avg -> (?ARG(fan_in, Arg) + ?ARG(fan_out, Arg))/2
     end,
-    case ?ARG(distribution, Arg, normal) of 
+    case ?ARG(distribution, Arg, uniform) of 
         normal  ->  
             Stddev = math:sqrt(Scale/N),
             random(Arg#{stddev => Stddev, distribution => normal});
         uniform -> 
             Limit = math:sqrt(3*Scale/N),
-            random(Arg#{maxval => Limit,  minval => -Limit})
+            random(Arg#{maxval => Limit,  minval => -Limit, 
+                        distribution => uniform})
     end.
 
 vscaling_test() -> 
