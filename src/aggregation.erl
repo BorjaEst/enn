@@ -17,7 +17,7 @@
 -export([func/3]).
 -export_type([func/0]).
 
--type func() :: dotprod | diffprod | diffprod | diff_power.
+-type func() :: dot_prod | diff_prod | diff_prod | diff_power.
 
 
 %%%===================================================================
@@ -41,11 +41,14 @@ func(Function, Tensor, Bias) ->
     ?LOG_AGGREGATION_FUNCTION_RESULT(Function, Result),
     Result.
 
-apply_fun(    direct, Tensor, Bias) ->       direct(Tensor, Bias); 
-apply_fun(   dotprod, Tensor, Bias) ->  dot_product(Tensor, Bias);
-apply_fun(  diffprod, Tensor, Bias) -> diff_product(Tensor, Bias);
-apply_fun(diff_power, Tensor, Bias) ->   diff_power(Tensor, Bias);
-apply_fun(      _Ref,_Tensor,_Bias) ->        error(not_defined).
+apply_fun(      direct, Tensor, Bias) ->       direct(Tensor, Bias); 
+apply_fun(    dot_prod, Tensor, Bias) ->  dot_product(Tensor, Bias);
+apply_fun(   diff_prod, Tensor, Bias) -> diff_product(Tensor, Bias);
+apply_fun(  diff_power, Tensor, Bias) ->   diff_power(Tensor, Bias);
+apply_fun(     product, Tensor, Bias) ->      product(Tensor, Bias);
+apply_fun(   dot_power, Tensor, Bias) ->    dot_power(Tensor, Bias);
+apply_fun(  diff_power, Tensor, Bias) ->   diff_power(Tensor, Bias);
+apply_fun(        _Ref,_Tensor,_Bias) ->        error(not_defined).
 
 
 %%====================================================================
@@ -78,6 +81,13 @@ diff_product([{W, I} | TAcc], [{_, Prev_I} | Prev_TAcc], Acc) ->
     Diff = I - Prev_I,
     diff_product(TAcc, Prev_TAcc, (W * Diff) + Acc);
 diff_product([], [], Acc) ->
+    Acc.
+
+% ....................................................................
+% TODO: Define specs and comments
+product([{_, Input} | TensorAcc], Acc) ->
+    product(TensorAcc, Input * Acc);
+product([], Acc) ->
     Acc.
 
 % ....................................................................

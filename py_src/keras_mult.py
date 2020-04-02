@@ -5,9 +5,9 @@ import numpy as np
 # =============================================================
 # Prepare data set
 # =============================================================
-N_Loops   = 2000
+N_Loops   = 8000
 
-Inputs  = np.random.rand(N_Loops,2)
+Inputs  = 2*np.random.rand(N_Loops,2) -1
 OSum    = np.multiply(Inputs[:,0], Inputs[:,1])
 Outputs = OSum.reshape([-1,1])
 
@@ -18,13 +18,12 @@ Outputs = OSum.reshape([-1,1])
 # _____________________________________________________________
 # Setup the layers
 model = Sequential([
-    Dense(4, input_shape=(2,)),
-    Dense(1, activation='relu')
+    Dense(1, input_shape=(2,))
 ])
 
 # _____________________________________________________________
 # Compile the model
-model.compile(optimizer='adam',
+model.compile(optimizer='sgd',
               loss='mean_squared_error',
               metrics=['accuracy'])
 

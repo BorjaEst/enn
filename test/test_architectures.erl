@@ -58,13 +58,18 @@ xor_gate() ->
 addition() ->
     _Model = enn:sequential([
                                 ?input(2),
-                                ?output(1)
+                                ?output(1, #{activation => direct})
                             ]).
 
 % ......................................................................................................................
 % TODO: Define specs and comments
 multiplication() ->
-    _Model = ok.
+    _Model = enn:sequential([
+                                ?input(2),
+                                ?output(1, #{
+                                    aggregation => product,
+                                    activation  => direct})
+                            ]).
 
 % ......................................................................................................................
 % TODO: Define specs and comments

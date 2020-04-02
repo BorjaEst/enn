@@ -50,7 +50,7 @@ dense(Units, Prop) ->
     #{
         units       => Units,
         activation  => maps:get(activation,  Prop, sigmoid),
-        aggregation => maps:get(aggregation, Prop, dotprod),
+        aggregation => maps:get(aggregation, Prop, dot_prod),
         initializer => maps:get(initializer, Prop, glorot)
     }.
 
@@ -82,7 +82,7 @@ output(Units, Prop) ->
     #{
         units       => Units,
         activation  => maps:get(activation,  Prop, tanh),
-        aggregation => maps:get(aggregation, Prop, dotprod),
+        aggregation => maps:get(aggregation, Prop, dot_prod),
         initializer => maps:get(initializer, Prop, glorot)
     }.
 

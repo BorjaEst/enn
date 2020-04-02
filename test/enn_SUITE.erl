@@ -125,8 +125,9 @@ groups() ->
         },
         {test_complex_architectures, [sequence],
          [
-            weights_0_network,
-            sequence_1_input
+            mult_random_inputs,
+            sequence_1_input,
+            weights_0_network
          ]
         },
         {test_error_networks, [parallel],
@@ -150,9 +151,9 @@ groups() ->
 all() ->
     [ % NOTE THAT GROUPS CANNOT BE DEBUGGED WITH {step, ?STEP_OPTS}
         {group, test_simple_architectures},
-        {group, test_complex_architectures},
+        {group, test_complex_architectures}
         % {group, test_error_networks},
-        {group, test_parallel_networks}
+        % {group, test_parallel_networks}
     ].
 
 %%--------------------------------------------------------------------
@@ -213,6 +214,16 @@ addition_random_inputs(_Config) ->
     {ok, Loss10} = ?TEST_MODEL(
         _Model = test_architectures:addition(),
         _Data  = fun test_data_generators:random_sum_of_inputs/3
+    ),
+    console_print_loss(?FUNCTION_NAME, Loss10).
+
+% ....................................................................
+mult_random_inputs() ->
+    [].
+mult_random_inputs(_Config) ->
+    {ok, Loss10} = ?TEST_MODEL(
+        _Model = test_architectures:multiplication(),
+        _Data  = fun test_data_generators:random_mult_of_inputs/3
     ),
     console_print_loss(?FUNCTION_NAME, Loss10).
 

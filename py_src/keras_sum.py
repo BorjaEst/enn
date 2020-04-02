@@ -7,7 +7,7 @@ import numpy as np
 # =============================================================
 N_Inputs  = 2
 N_Outputs = 1
-N_Loops   = 2000
+N_Loops   = 8000
 
 Inputs  = np.random.rand(N_Loops,N_Inputs) -0.5
 OSum    = np.sum(Inputs, axis=1)
@@ -20,7 +20,11 @@ Outputs = np.repeat(OSum.reshape([-1,1]),N_Outputs,axis=1)
 # _____________________________________________________________
 # Setup the layers
 model = Sequential([
-    Dense(1, activation='elu', input_shape=(N_Inputs,))
+    Dense(1, input_shape=(N_Inputs,), 
+          # kernel_initializer='random_uniform',
+          # bias_initializer='zeros',
+          # activation='elu'
+          )
 ])
 
 # _____________________________________________________________
