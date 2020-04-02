@@ -29,6 +29,14 @@
 % ......................................................................................................................
 % TODO: Define specs and comments
 static_xor_of_inputs(2, 1, N_Loops) ->
+    Static_Inputs  = [-1, +1],
+    Inputs = [Static_Inputs || _ <- lists:seq(1, N_Loops)],
+    Outputs = [[do_xor(In1, In2)] || [In1, In2] <- Inputs],
+    {Inputs, Outputs}.
+
+% ......................................................................................................................
+% TODO: Define specs and comments
+cyclic_xor_of_inputs(2, 1, N_Loops) ->
     In = [[-1, -1], [-1, 1], [1, -1], [1, 1]],
     Inputs = lists:append(lists:duplicate(N_Loops div 4, In)) ++ element(1, lists:split(N_Loops rem 4, In)),
     Outputs = [[do_xor(In1, In2)] || [In1, In2] <- Inputs],

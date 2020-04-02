@@ -150,9 +150,9 @@ groups() ->
 %%--------------------------------------------------------------------
 all() ->
     [ % NOTE THAT GROUPS CANNOT BE DEBUGGED WITH {step, ?STEP_OPTS}
-        {group, test_simple_architectures},
-        {group, test_complex_architectures}
-        % {group, test_error_networks},
+        {group, test_simple_architectures}
+        % {group, test_complex_architectures}
+        % {group, test_error_networks}
         % {group, test_parallel_networks}
     ].
 
