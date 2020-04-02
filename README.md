@@ -62,10 +62,8 @@ Please make sure to update tests as appropriate.
 ### Improvement ideas
 In progress:
 -Momentum, not well implemented on enn, review. This helps a lot when not using batch normalisation.
--He initialisation using truncated normal Gaussian distribution, with Xavier algorithm.
 
 Erlang performance:
-- Replace the usage of keylists by maps on Cortex and neuron modules.
 - Use binary for long messages to speedup communications.
 
 Speed-up training:
@@ -88,7 +86,6 @@ Importants to be clasified:
     - Power scheduling
 - Weights close to 0 must be set to 0, so in the next construction are removed
 - Implement optimisers:
-    
     -Nesterov Accelerated Gradient, performs better than momentum
     -AdaGrad, good idea but not efficient on the last steps
     -RMSProp, improvement of AdaGrad
@@ -107,7 +104,6 @@ Nice to try:
 
 Others:
 - Implement reusage of networks for drivers etc. Normally the lower layers are the important.
-- Batch normalisation.
 - OPC UA client to get inputs from industry
 
 
