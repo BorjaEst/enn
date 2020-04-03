@@ -168,7 +168,13 @@ terminate(State) ->
 % --------------------------------------------------------------------
 options(#{print:={Each,Size}}=Options, Data, #state{cycle=Cyc}=State)
 when Cyc rem Each == 0 -> 
-    Report = [Cyc, Cyc/Size, "loss:", Data#data.loss],
+    Report = try
+        {LossList, _} = lists:split(Each-1, State#state.lossList),
+        LossVal       = lists:sum(LossList) / Each,
+        [Cyc, Cyc/Size, "loss:", LossVal]
+    catch
+        error:badarith -> [Cyc, Cyc/Size, "loss:", "?.???"]
+    end,
     Print  = reports:progress_line(2, Report, ?PROGRESS_BAR),
     io:format([Print | "\n"]),
     options(maps:remove(print, Options), Data, State);
