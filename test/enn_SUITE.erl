@@ -282,7 +282,7 @@ correct_model_compilation(Model) ->
 % ....................................................................
 correct_model_start() ->
     ?HEAD("Correct neural network start form a cortex id .........."),
-    ok = enn:start(get(cx_id)),
+    _Cortex_Id = enn:start(get(cx_id)), % Ret Cx_id for non_comp start
     ?END(ok).
 
 % ....................................................................
