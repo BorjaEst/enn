@@ -29,7 +29,7 @@
 % ......................................................................................................................
 % TODO: Define specs and comments
 random_dense(Max_Units, Max_Layers) ->
-    _Model = enn:sequential(
+    _Model = model:sequential(
         [?input(rand:uniform(Max_Units))] ++
         [?dense(rand:uniform(Max_Units)) || _ <- lists:seq(1, rand:uniform(Max_Layers - 1))] ++
         [?output(rand:uniform(Max_Units))]
@@ -38,7 +38,7 @@ random_dense(Max_Units, Max_Layers) ->
 % ......................................................................................................................
 % TODO: Define specs and comments
 example() ->
-    _Model = enn:sequential([
+    _Model = model:sequential([
                                 ?input(10),
                                 ?dense(10, #{activation => sigmoid}),
                                 ?output(1)
@@ -47,7 +47,7 @@ example() ->
 % ......................................................................................................................
 % TODO: Define specs and comments
 xor_gate() ->
-    _Model = enn:sequential([
+    _Model = model:sequential([
                                 ?input( 2),
                                 ?dense( 2, #{activation => elu}),
                                 ?output(1, #{activation => elu})
@@ -56,7 +56,7 @@ xor_gate() ->
 % ......................................................................................................................
 % TODO: Define specs and comments
 addition() ->
-    _Model = enn:sequential([
+    _Model = model:sequential([
                                 ?input(2),
                                 ?output(1, #{activation => direct})
                             ]).
@@ -64,7 +64,7 @@ addition() ->
 % ......................................................................................................................
 % TODO: Define specs and comments
 multiplication() ->
-    _Model = enn:sequential([
+    _Model = model:sequential([
                                 ?input(2),
                                 ?output(1, #{
                                     aggregation => product,
@@ -74,7 +74,7 @@ multiplication() ->
 % ......................................................................................................................
 % TODO: Define specs and comments
 network_0_weights() ->
-    _Model = enn:sequential([
+    _Model = model:sequential([
                                 ?input(1),
                                 ?dense(2, #{activation => tanh}),
                                 ?output(1)
@@ -83,7 +83,7 @@ network_0_weights() ->
 % ......................................................................................................................
 % TODO: Define specs and comments
 sequence() ->
-    _Model = enn:recurrent([
+    _Model = model:recurrent([
                                ?input(1, #{activation => sigmoid}),
                                ?dense(2, #{activation => sigmoid}),
                                ?output(1, #{activation => tanh})

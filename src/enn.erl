@@ -42,25 +42,6 @@ attributes_table() ->
     ].
 
 %%--------------------------------------------------------------------
-%% @doc Returns a sequential model from the defined layers.
-%% @end
-%%--------------------------------------------------------------------
--spec sequential([Layer :: layer()]) -> 
-    Model_specifications :: model().
-sequential(Layers) ->
-    model:sequential(Layers).
-
-%%--------------------------------------------------------------------
-%% @doc Returns a recurrent model from the defined layers.
-%% @end
-%%--------------------------------------------------------------------
--spec recurrent(Layers :: [layer()], 
-                RLevel :: integer()) ->
-    Model_specifications :: model().
-recurrent(Layers, RLevel) ->
-    model:recurrent(Layers, RLevel).
-
-%%--------------------------------------------------------------------
 %% @doc Compiles and stores a model returning its network id.
 %% @end
 %%--------------------------------------------------------------------
@@ -155,11 +136,12 @@ clone({_, cortex} = Cortex_Id) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec start(Network :: model() | id()) ->
-    ok.
+    Network_id :: id().
 start(Model) when is_map(Model) ->
     start(compile(Model));
 start(Cortex_Id) ->
-    enn_sup:start_nn(Cortex_Id).
+    ok = enn_sup:start_nn(Cortex_Id),
+    Cortex_Id.
 
 %%--------------------------------------------------------------------
 %% @doc Stops a neural network.
