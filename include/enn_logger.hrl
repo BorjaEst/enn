@@ -224,8 +224,15 @@
     ?LOG_DEBUG(#{what => "Neuron waiting for these signals", 
                  details => #{forward  => State#state.forward_wait,
                               backward => State#state.backward_wait},
-                 pid=>self(), id => get(id)},
+                 pid  => self(), id => get(id)},
                #{logger_formatter=>#{title=>"NEURON STATUS"}})
+).
+-define(LOG_NEURON_IDLE(State),
+    ?LOG_WARNING(#{what => "Neuron idle or stock", 
+                   details=>#{forward  => State#state.forward_wait,
+                              backward => State#state.backward_wait},
+                   pid  => self(), id => get(id)},
+                 #{logger_formatter=>#{title=>"NEURON STATUS"}})
 ).
 -define(LOG_NEURON_TERMINATING,
     ?LOG_DEBUG(#{what => "Neuron terminating", 
@@ -235,6 +242,7 @@
 -else.
 -define(LOG_NEURON_STARTED, ok).
 -define(LOG_WAITING_NEURONS(State), State).
+-define(LOG_NEURON_IDLE(State), State).
 -define(LOG_NEURON_TERMINATING, ok).
 -endif.
 

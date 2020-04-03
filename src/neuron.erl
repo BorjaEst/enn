@@ -196,7 +196,7 @@ receive_next(internal, State) ->
             {N,backward,_}=Msg when N==Nb -> loop(Msg, State);
             {'EXIT',_,Reason}             -> terminate(Reason, State)
     after ?STDIDLE_TIMEOUT                ->
-        ?LOG_WARNING(#{desc => "Neuron stuck", id => get(id)}),
+        ?LOG_NEURON_IDLE(State),
         receive_next(internal, State)
     end.
 %%--------------------------------------------------------------------
