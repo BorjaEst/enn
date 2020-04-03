@@ -9,6 +9,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 %% API
+-export([dense/1, input/1, output/1]).
 -export([dense/2, input/2, output/2, compile/2]).
 -export_type([specifications/0, compiled/0]).
 
@@ -42,6 +43,12 @@
 %% @doc Returns the complilation specifications for a dense layer.
 %% @end
 %%--------------------------------------------------------------------
+-spec dense(Units) -> DenseLayer when 
+    Units      :: integer(),
+    DenseLayer :: specifications().
+dense(Units) ->
+    dense(Units, #{}).
+
 -spec dense(Units, Properties) -> DenseLayer when 
     Units      :: integer(),
     Properties :: properties(),
@@ -58,6 +65,12 @@ dense(Units, Prop) ->
 %% @doc Returns the compilation specifications for an input layer.
 %% @end
 %%--------------------------------------------------------------------
+-spec input(Units) -> InputsLayer when 
+    Units      :: integer(),
+    InputsLayer :: specifications().
+input(Units) -> 
+    input(Units, #{}).
+
 -spec input(Units, Properties) -> InputsLayer when 
     Units      :: integer(),
     Properties :: properties(),
@@ -74,6 +87,12 @@ input(Units, Prop) ->
 %% @doc Returns the compilation specifications for an output layer.
 %% @end
 %%--------------------------------------------------------------------
+-spec output(Units) -> OutputsLayer when 
+    Units      :: integer(),
+    OutputsLayer :: specifications().
+output(Units) -> 
+    output(Units, #{}).
+
 -spec output(Units, Properties) -> OutputsLayer when 
     Units      :: integer(),
     Properties :: properties(),
