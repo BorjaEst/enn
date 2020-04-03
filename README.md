@@ -31,21 +31,125 @@ $ rebar3 release
 
 
 ## Usage
-All user functions are defined inside the module enn:
-```
-TBW
+Load the app using your prefered method. For example in the project folder executing  rebar3 shell:
+```sh
+$ rebar3 shell
+===> Booted enn
 ```
 
->To simplify usage you can load the predefined makros at layers.hrl: 
-```
--include_lib("enn/include/layers.hrl").
 
-Model_Example = enn:sequential(
-    [
-        ?input(10),
-        ?dense(10, #{activation => sigmoid}),
-        ?output(2)
-    ]).
+All user functions are defined inside the module [src/enn](https://github.com/BorjaEst/enn/blob/master/src/enn.erl), however here is an example:
+
+
+
+### Measure performance and resources
+First of all I woudl initialize the observer, so you can see the loads of the 
+system and the ETS tables:
+```erl
+1> observer:start().
+ok
+```
+> Here you can find a table nn_pool with all the currently enabled neural netwroks.
+
+### Define and start your erlang neural network
+You can create a neural network simply with enn:start/1:
+```erl
+2> Network_id = enn:start(
+2>     model:sequential([
+2>         layer:input( 2                       ),
+2>         layer:dense( 3, #{activation => tanh}),
+2>         layer:output(2                       )
+2>     ])).
+{#Ref<0.367976965.4190896130.201756>,cortex}
+```
+> It is important to save the "Network id", you will need it to stop the network.
+
+Another option is to first compile the model and run it after in 2 steps:
+```erl
+2> Network_id = enn:compile(
+2>     model:sequential([
+2>         layer:input( 2                       ),
+2>         layer:dense( 3, #{activation => tanh}),
+2>         layer:output(2                       )
+2>     ])),
+2> enn:start(Network_id).
+{#Ref<0.367976965.4190896130.204258>,cortex}
+```
+
+### Generate/load your training data
+Then you should gerenate your training, for example:
+```erl
+3> Loops  = 2000,
+3> Inputs = [[rand:uniform()-0.5, rand:uniform()-0.5] || _ <- lists:seq(1, Loops)],
+3> Optima = [[I1+I2, I1-I2] || [I1, I2] <- Inputs],
+3> ok.
+ok
+```
+
+### Train your neural network
+This operation is done by enn:fit/3:
+```erl
+4> enn:fit(Network_id, Inputs, Optima),
+4> ok.
+200     [==>.................]  loss:   0.7023357850785679      
+400     [====>...............]  loss:   0.4756651445573089      
+600     [======>.............]  loss:   0.4007308266912763      
+800     [========>...........]  loss:   0.352693640197892       
+1000    [==========>.........]  loss:   0.2836852528877784      
+1200    [============>.......]  loss:   0.23039384337127725     
+1400    [==============>.....]  loss:   0.18402347148602524     
+1600    [================>...]  loss:   0.14579458406750548     
+1800    [==================>.]  loss:   0.1043275109902257      
+2000    [====================]  loss:   0.08482314127899158    
+ok
+```
+
+### Do some predictions
+This operation is done by enn:predict/2:
+```erl
+5> enn:predict(Network_id, [
+5>     [0.1, 0.6],
+5>     [0.3, 0.2],
+5>     [0.1, 0.1]
+5> ]).
+[[0.5807413412972212,-0.453551952162384],
+ [0.4702901667692009,0.18243722520393055],
+ [0.1914040508238413,0.051403340047410706]]
+```
+
+> For more options such log the cycles, or do not do not print the results, explore the options in the function enn:run/4. 
+
+
+### Stop your neural network
+You can easily do it with enn:stop/1:
+```erl
+6> enn:stop(Network_id).
+ok
+```
+You will see in the observer window the network is gone.
+> You can resume your network with enn:start/1, the last network status is saved!
+
+
+### Clone your work into a different network
+Just call enn:clone/1
+```erl
+7> Clone_id = enn:clone(Network_id).
+{#Ref<0.367976965.4190896130.204297>,cortex}
+```
+
+
+### Resume your neural network
+
+```erl
+8> enn:start(Network_id),
+8> enn:predict(Network_id, [
+8>     [0.1, 0.6],
+8>     [0.3, 0.2],
+8>     [0.1, 0.1]
+8> ]).
+[[0.5807413412972212,-0.453551952162384],
+ [0.4702901667692009,0.18243722520393055],
+ [0.1914040508238413,0.051403340047410706]]
 ```
 
 
@@ -59,7 +163,7 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 Please make sure to update tests as appropriate.
 
 
-### Improvement ideas
+### Improvement ideas and requests
 In progress:
 -Momentum, not well implemented on enn, review. This helps a lot when not using batch normalisation.
 
@@ -70,7 +174,7 @@ Speed-up training:
 - ELU activation function seems by papers to perform better than Sigmoid and ReLU. Leaky ReLU is good as well.
 
 Find correct solution:
-- 
+- none for now
 
 
 Importants to be clasified:
