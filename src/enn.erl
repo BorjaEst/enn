@@ -71,9 +71,9 @@ predict(Cortex_Id, InputsList) ->
           OptimaList :: [float()]) ->
     Errors :: [float()].
 fit(Cortex_Id, InputsList, OptimaList) ->
-    Options = [{return, [errors]}],
-    [Errors] = run(Cortex_Id, InputsList, OptimaList, Options),
-    Errors.
+    Options = [{return, [loss]}, {print, 10}],
+    [Loss] = run(Cortex_Id, InputsList, OptimaList, Options),
+    Loss.
 
 %%--------------------------------------------------------------------
 %% @doc Runs an ANN with the criteria defined at the options.

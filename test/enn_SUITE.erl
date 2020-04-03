@@ -289,7 +289,7 @@ correct_model_start() ->
 correct_model_training(FileName, Training) ->
     ?HEAD("Correct fit of model using backpropagation ............."),
     Cx_Id = get(cx_id),
-    Options = [loss, print, {log, FileName}, {return, [loss]}],
+    Options = [{print, 3}, {log, FileName}, {return, [loss]}],
     {Inputs, Optimas} = Training(enn:inputs(Cx_Id), 
                                  enn:outputs(Cx_Id), 
                                  ?TRAINING_LINES),
