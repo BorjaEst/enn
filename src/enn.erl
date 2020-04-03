@@ -17,6 +17,11 @@
 
 %% API
 -export([]).
+-export_types([model/0, layer/0]).
+
+-type id()    :: cortex:id().
+-type model() :: model:specifications().
+-type layer() :: layer:specifications().
 
 
 %%====================================================================
@@ -40,8 +45,8 @@ attributes_table() ->
 %% @doc Returns a sequential model from the defined layers.
 %% @end
 %%--------------------------------------------------------------------
--spec sequential([Layer :: layer:specifications()]) -> 
-    Model_specifications :: model:specifications().
+-spec sequential([Layer :: layer()]) -> 
+    Model_specifications :: model().
 sequential(Layers) ->
     model:sequential(Layers).
 
@@ -49,18 +54,18 @@ sequential(Layers) ->
 %% @doc Returns a recurrent model from the defined layers.
 %% @end
 %%--------------------------------------------------------------------
--spec recurrent(Layers :: [layer:specifications()], 
+-spec recurrent(Layers :: [layer()], 
                 RLevel :: integer()) ->
-    Model_specifications :: model:specifications().
+    Model_specifications :: model().
 recurrent(Layers, RLevel) ->
     model:recurrent(Layers, RLevel).
 
 %%--------------------------------------------------------------------
-%% @doc Compiles and stores a model in the DB returning its cortex_id.
+%% @doc Compiles and stores a model returning its network id.
 %% @end
 %%--------------------------------------------------------------------
--spec compile(Model :: model:specifications()) -> 
-    Cortex_id :: cortex:id().
+-spec compile(Model :: model()) -> 
+    Network_id :: id().
 compile(Model) ->
     model:compile(Model).
 
@@ -69,7 +74,7 @@ compile(Model) ->
 %% the cortex pid.
 %% @end
 %%--------------------------------------------------------------------
--spec predict(Cortex_Id :: cortex:id(), InputsList :: [[float()]]) ->
+-spec predict(Network_id :: id(), InputsList :: [[float()]]) ->
     [Prediction :: [float()]].
 predict(Cortex_Id, InputsList) ->
     Options = [{return, [prediction]}],
@@ -81,7 +86,7 @@ predict(Cortex_Id, InputsList) ->
 %% OptimalOutputs. Returns the errors between prediction and optima.
 %% @end
 %%--------------------------------------------------------------------
--spec fit(Cortex_Id :: cortex:id(), InputsList :: [float()], 
+-spec fit(Network_id :: id(), InputsList :: [float()], 
           OptimaList :: [float()]) ->
     Errors :: [float()].
 fit(Cortex_Id, InputsList, OptimaList) ->
@@ -93,7 +98,7 @@ fit(Cortex_Id, InputsList, OptimaList) ->
 %% @doc Runs an ANN with the criteria defined at the options.
 %% @end
 %%--------------------------------------------------------------------
--spec run(Cortex_Id :: cortex:id(), InputsList :: [float()], 
+-spec run(Network_id :: id(), InputsList :: [float()], 
           OptimaList :: [float()], Options :: [training:option()]) ->
     Errors :: [float()].
 run(Cortex_Id, InputsList, OptimaList, Options) ->
@@ -101,10 +106,10 @@ run(Cortex_Id, InputsList, OptimaList, Options) ->
     training:start_link(Cortex_Pid, InputsList, OptimaList, Options).
 
 %%--------------------------------------------------------------------
-%% @doc Returns the number of inputs a Model/Cortex expects.
+%% @doc Returns the number of inputs a network expects.
 %% @end
 %%--------------------------------------------------------------------
--spec inputs(ANN :: model:specifications() | cortex:id()) ->
+-spec inputs(Network :: model() | id()) ->
     NumberOfInputs :: integer().
 inputs(Model) when is_map(Model) ->
     #{layers := #{-1.0 := #{units := N_Inputs}}} = Model,
@@ -115,10 +120,10 @@ inputs({_, cortex} = Cortex_Id) ->
     length(elements:outputs_ids(Cortex)). 
 
 %%--------------------------------------------------------------------
-%% @doc Returns the number of outputs a Model/Cortex expects.
+%% @doc Returns the number of outputs a network expects.
 %% @end
 %%--------------------------------------------------------------------
--spec outputs(ANN :: model:specifications() | cortex:id()) ->
+-spec outputs(Network :: model() | id()) ->
     NumberOfOtputs :: integer().
 outputs(Model) when is_map(Model) ->
     #{layers := #{1.0 := #{units := N_Outputs}}} = Model,
@@ -133,8 +138,8 @@ outputs({_, cortex} = Cortex_Id) ->
 %% the mnesia database but with a different id.
 %% @end
 %%--------------------------------------------------------------------
--spec clone(Cortex_Id :: cortex:id()) -> 
-    CortexClone_Id :: cortex:id().
+-spec clone(Network_id :: id()) -> 
+    Cloned_Id :: id().
 clone({_, cortex} = Cortex_Id) ->
     Cortex = edb:read(Cortex_Id),
     {Clone, ConversionETS} = elements:clone_cortex(Cortex),
@@ -149,19 +154,21 @@ clone({_, cortex} = Cortex_Id) ->
 %% @doc Start a neural network, ready to receive inputs or training.
 %% @end
 %%--------------------------------------------------------------------
--spec start_nn(Cortex_Id :: cortex:id()) -> 
+-spec start(Network :: model() | id()) ->
     ok.
-start_nn(Cortex_Id) ->
+start(Model) when is_map(Model) ->
+    start(compile(Model));
+start(Cortex_Id) ->
     enn_sup:start_nn(Cortex_Id).
 
 %%--------------------------------------------------------------------
 %% @doc Stops a neural network.
 %% @end
 %%--------------------------------------------------------------------
--spec stop_nn(Cortex_Id :: cortex:id()) -> Result when
+-spec stop(Network_id :: id()) -> Result when
       Result :: 'ok' | {'error', Error},
       Error :: 'not_found' | 'simple_one_for_one'.
-stop_nn(Cortex_Id) ->
+stop(Cortex_Id) ->
     enn_sup:terminate_nn(Cortex_Id).
 
 %%--------------------------------------------------------------------

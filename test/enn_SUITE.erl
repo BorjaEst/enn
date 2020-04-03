@@ -282,7 +282,7 @@ correct_model_compilation(Model) ->
 % ....................................................................
 correct_model_start() ->
     ?HEAD("Correct neural network start form a cortex id .........."),
-    ok = enn:start_nn(get(cx_id)),
+    ok = enn:start(get(cx_id)),
     ?END(ok).
 
 % ....................................................................
@@ -300,7 +300,7 @@ correct_model_training(FileName, Training) ->
 correct_model_stop() ->
     ?HEAD("Correct neural network stop form a cortex id ..........."),
     Neuron_BeforeTraining = edb:read(get(n_id)), 
-    ok = enn:stop_nn(get(cx_id)),
+    ok = enn:stop(get(cx_id)),
     Neuron_AfterTraining  = edb:read(get(n_id)), 
     ?INFO("Neuron before training", Neuron_BeforeTraining),
     ?INFO("Neuron  after training", Neuron_AfterTraining),
