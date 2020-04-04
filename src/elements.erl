@@ -10,7 +10,6 @@
 
 -include_lib("math_constants.hrl").
 -include_lib("eunit/include/eunit.hrl").
--include_lib("kernel/include/logger.hrl").
 
 %% API
 %%-export([]).
@@ -18,8 +17,8 @@
 -export_type([weight/0, link/0]).
 
 %%% Neuronal networks are composed mostly by 2 types:
--type type()   :: cortex | neuron.
--type id()     :: neuron:id() | cortex:id().
+-type type()   ::      cortex |      neuron.
+-type id()     :: cortex:id() | neuron:id().
 -type weight() :: float() | uninitialized.
 -type link()   :: {From :: id(), To :: id()}.
 
@@ -47,12 +46,6 @@
 }).  
 -type neuron() :: #neuron{}.
 
-
--ifdef(debug_mode).
--define(STDCALL_TIMEOUT, infinity).
--else.
--define(STDCALL_TIMEOUT, 5000).
--endif.
 
 %%%===================================================================
 %%% API
