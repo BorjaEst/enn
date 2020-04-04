@@ -102,7 +102,7 @@ cortex(CompiledLayers, Properties) ->
 is_cortex(Cortex) -> is_record(Cortex, cortex).
 
 %%--------------------------------------------------------------------
-%% @doc Edits an element using some options.
+%% @doc Edits an element using some properties.
 %% @end
 %%--------------------------------------------------------------------
 -spec edit(Element, Properties) -> EditedElement when
@@ -236,10 +236,8 @@ links([]) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec id(Element :: neuron() | cortex()) -> id().
-id(Neuron) when is_record(Neuron, neuron) ->
-    Neuron#neuron.id;
-id(Cortex) when is_record(Cortex, cortex) ->
-    Cortex#cortex.id.
+id(Neuron) when is_record(Neuron, neuron) -> Neuron#neuron.id;
+id(Cortex) when is_record(Cortex, cortex) -> Cortex#cortex.id.
 
 %%--------------------------------------------------------------------
 %% @doc Retruns the coordinade form an element (or its id). The 
