@@ -103,7 +103,7 @@ recurrent_connection(Layers, RLevel) ->
 recurrent_connection_aux([_Last_Layer], _RLevel) ->
     [];
 recurrent_connection_aux([Layer_A | Rest], RLevel) when length(Rest) >= RLevel ->
-    {ToConnect, _} = lists:split(RLevel, Rest),
+    ToConnect = lists:sublist(Rest, RLevel),
     [{all, Layer_A, ToConnect} | recurrent_connection_aux(Rest, RLevel)];
 recurrent_connection_aux([Layer_A | Rest], RLevel) ->
     [{all, Layer_A, Rest} | recurrent_connection_aux(Rest, RLevel)].

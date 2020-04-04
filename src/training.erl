@@ -169,7 +169,7 @@ terminate(State) ->
 options(#{print:={Each,Size}}=Options, Data, #state{cycle=Cyc}=State)
 when Cyc rem Each == 0 -> 
     Report = try
-        {LossList, _} = lists:split(Each-1, State#state.lossList),
+        LossList = lists:sublist(State#state.lossList, Each-1),
         LossVal       = lists:sum(LossList) / Each,
         [Cyc, Cyc/Size, "loss:", LossVal]
     catch
