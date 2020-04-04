@@ -17,7 +17,7 @@ Then in your project path find rebar.config file and add enn as dependency under
 ```
 
 Then using compile command, rebar3 will fetch the defined dependencies and compile them as well for your application.
-``sh
+```sh
 $ rebar3 compile
 ```
 
