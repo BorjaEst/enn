@@ -154,7 +154,7 @@ Just call enn:clone/1
 
 
 ## Examples
-The folder test indludes a module *test_architectures.erl* where you can find a lot of useful examples of models. Feel free to propose yours.
+The folder test includes a module *test_architectures.erl* where you can find a lot of useful examples of models. Feel free to propose yours.
 
 
 ## Contributing

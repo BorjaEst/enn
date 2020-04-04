@@ -10,18 +10,18 @@
 %%%-------------------------------------------------------------------
 -module(enn).
 -author("borja").
--compile([export_all, nowarn_export_all]). %%TODO: To delete after build
 
 -include_lib("nn_pool.hrl").
 -include_lib("kernel/include/logger.hrl").
 
 %% API
--export([]).
--export_types([model/0, layer/0]).
+-export([start/1, stop/1, predict/2, fit/3, clone/1]).
+-export([compile/1, run/4, inputs/1, outputs/1, pformat/1]).
+-export([attributes_table/0, check_nn/1]).
+-export_types([id/0, model/0]).
 
 -type id()    :: cortex:id().
 -type model() :: model:specifications().
--type layer() :: layer:specifications().
 
 
 %%====================================================================
