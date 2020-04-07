@@ -23,14 +23,15 @@
     start    => {cortex, start_link, [Cortex_Id]},
     restart  => permanent,
     shutdown => 1000,
-    modules  => [gen_statem]}).
-
+    modules  => [gen_statem]
+}).
 -define(SPECS_NEURON(Neuron_Id, NN), #{
     id       => Neuron_Id,
     start    => {neuron, start_link, [Neuron_Id, NN#nn.id]},
     restart  => permanent,
     shutdown => 500,
-    modules  => [neuron]}).
+    modules  => [neuron]
+ }).
 
 -define(ETS_TABLE_SPECS, [{read_concurrency, true}, public]).
 
@@ -40,9 +41,7 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Starts the supervisor
-%%
+%% @doc Starts the supervisor
 %% @end
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
@@ -50,9 +49,7 @@ start_link(Cortex_Id) ->
     supervisor:start_link(?MODULE, [Cortex_Id]).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Starts the neural network cortex
-%%
+%% @doc Starts the neural network cortex
 %% @end
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
@@ -60,9 +57,7 @@ start_cortex(Supervisor, Cortex_Id) ->
     ?START_CHILD(Supervisor, ?SPECS_CORTEX(Cortex_Id)).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% Starts the neural network cortex
-%%
+%% @doc Starts the neural network cortex
 %% @end
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
@@ -81,9 +76,9 @@ start_neuron(Id, NN) ->
 %% Before OTP 18 tuples must be used to specify a child. e.g.
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init([Cortex_Id]) ->
-    SupFlags = #{strategy => one_for_all, %% If an element dies, all must shutdown
-                 intensity => 0, %% Restart is not allowed
-                 period => 10}, %% Any as intensity = 0
+    SupFlags = #{strategy  => one_for_all, %% All down if one down
+                 intensity => 0,   %% Restart is not allowed
+                 period    => 10}, %% Any as intensity = 0
     ChildSpecs = [],
     register_in_pool(Cortex_Id),
     {ok, {SupFlags, ChildSpecs}}.
@@ -97,6 +92,5 @@ register_in_pool(Cortex_Id) ->
     true = ets:update_element(?NN_POOL, Cortex_Id, [
         {#nn.supervisor, self()},
         {#nn.idpidT,     ets:new(unnamed, ?ETS_TABLE_SPECS)}
-    ]),
-    ok.
+    ]).
 

@@ -22,15 +22,16 @@
     start    => {datalog, start_link, []},
     restart  => permanent,
     shutdown => 500,
-    modules  => [gen_server]}).
-
+    modules  => [gen_server]
+}).
 -define(NN_SUP_ID(Cortex_Id), {element(1, Cortex_Id), nn_sup}).
 -define(SPECS_NN_SUP(Cortex_Id), #{
     id       => ?NN_SUP_ID(Cortex_Id),
     start    => {nn_sup, start_link, [Cortex_Id]},
     restart  => temporary,
     type     => supervisor,
-    modules  => [supervisor]}).
+    modules  => [supervisor]
+}).
 
 %%====================================================================
 %% API functions

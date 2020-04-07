@@ -74,8 +74,7 @@
 %%--------------------------------------------------------------------
 -spec new(Coordinade, Properties) -> id() when
     Coordinade :: float(),
-    Properties :: #{Property => Value :: term()},
-    Property   :: elements:neuron_property().
+    Properties :: properties().
 new(Coordinade, Properties) ->
     Neuron = elements:neuron(Coordinade, Properties),
     edb:write(Neuron),

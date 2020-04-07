@@ -44,7 +44,6 @@ func(Function, Tensor, Bias) ->
 apply_fun(      direct, Tensor, Bias) ->       direct(Tensor, Bias); 
 apply_fun(    dot_prod, Tensor, Bias) ->  dot_product(Tensor, Bias);
 apply_fun(   diff_prod, Tensor, Bias) -> diff_product(Tensor, Bias);
-apply_fun(  diff_power, Tensor, Bias) ->   diff_power(Tensor, Bias);
 apply_fun(     product, Tensor, Bias) ->      product(Tensor, Bias);
 apply_fun(   dot_power, Tensor, Bias) ->    dot_power(Tensor, Bias);
 apply_fun(  diff_power, Tensor, Bias) ->   diff_power(Tensor, Bias);
