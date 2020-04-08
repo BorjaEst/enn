@@ -165,7 +165,9 @@ Please make sure to update tests as appropriate.
 
 ### Improvement ideas and requests
 In progress:
--Momentum, not well implemented on enn, review. This helps a lot when not using batch normalisation.
+- Momentum, not well implemented on enn, review. This helps a lot when not using batch normalisation.
+- Boolean activation function.
+- Try which derivade behaves better (and if can be common to some activations).
 
 Erlang performance:
 - Use binary for long messages to speedup communications.
