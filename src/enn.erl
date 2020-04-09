@@ -17,6 +17,7 @@
 %% API
 -export([start/1, stop/1, predict/2, fit/3, clone/1]).
 -export([compile/1, run/4, inputs/1, outputs/1, pformat/1]).
+-export([link_network/1, cortex_pid/1]).
 -export([attributes_table/0, check_nn/1]).
 -export_types([id/0, model/0]).
 
@@ -154,6 +155,24 @@ stop(Cortex_Id) ->
     enn_sup:terminate_nn(Cortex_Id).
 
 %%--------------------------------------------------------------------
+%% @doc Links the caller to the network supervisor so if the caller 
+%% dies because of an exception, the newtwork die shutdown as well.
+%% @end
+%%--------------------------------------------------------------------
+-spec link_network(Network_id :: id()) -> true.
+link_network(Cortex_Id) -> 
+    Pid = ets:lookup_element(?NN_POOL, Cortex_Id, #nn.supervisor),
+    link(Pid).
+
+%%--------------------------------------------------------------------
+%% @doc Returns the pid of the cortex.
+%% @end
+%%--------------------------------------------------------------------
+-spec cortex_pid(Network_id :: id()) -> pid().
+cortex_pid(Cortex_Id) -> 
+    ets:lookup_element(?NN_POOL, Cortex_Id, #nn.cortex).
+
+%%--------------------------------------------------------------------
 %% @doc Returns a character list that represents the element of the Id
 %% formatted in accordance with Format.
 %% @end
@@ -183,10 +202,6 @@ check_nn(Cortex_Id) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-
-% ....................................................................
-cortex_pid(Cortex_Id) -> 
-    ets:lookup_element(?NN_POOL, Cortex_Id, #nn.cortex).
 
 % ....................................................................
 check_links(Cortex, Neurons) -> %TODO: Check using elements:link
