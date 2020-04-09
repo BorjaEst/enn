@@ -11,8 +11,9 @@
 
 %% API
 %%-export([]).
--export_type([specifications/0]).
+-export_type([nature/0, specifications/0]).
 
+-type nature() :: sequential | recurrent.
 -type connections() :: {
     Type :: all, %% TODO: to define more types (half, random, etc)
     LayerId_From :: float(),
