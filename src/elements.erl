@@ -84,7 +84,7 @@ is_neuron(Neuron) -> is_record(Neuron, neuron).
 %%
 %% Note that when a cortex is created, all inputs and outputs are 
 %% empty. Those are completed during the connection phase and carried
-%% on in cortex:new by the mutation library.
+%% on in cortex:new by the transform library.
 %% @end
 %%--------------------------------------------------------------------
 -spec cortex(CompiledLayers, Properties) -> cortex() when

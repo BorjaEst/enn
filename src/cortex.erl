@@ -70,10 +70,10 @@
     Properties     :: properties().
 new(CompiledLayers, Properties) ->
     Cortex = elements:cortex(CompiledLayers, Properties),
-    edb:write(Cortex), % Saved before mutations to avoid overwriting
-    [mutation:create_link(  elements:id(Cortex), To) 
+    edb:write(Cortex), % Saved before transforms to avoid overwriting
+    [transform:create_link(  elements:id(Cortex), To) 
         ||   To <- get_inputs( CompiledLayers)],
-    [mutation:create_link(From, elements:id(Cortex)) 
+    [transform:create_link(From, elements:id(Cortex)) 
         || From <- get_outputs(CompiledLayers)],
     elements:id(Cortex).
 

@@ -11,7 +11,7 @@
          initializer,
          layer,
          model,
-         mutation,
+         transform,
          neuron,
          nn_sup,
          training

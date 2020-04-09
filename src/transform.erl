@@ -4,7 +4,7 @@
 %%%
 %%% @end
 %%%-------------------------------------------------------------------
--module(mutation).
+-module(transform).
 -compile([export_all, nowarn_export_all]). %%TODO: To delete after build
 
 -include_lib("eunit/include/eunit.hrl").
@@ -14,7 +14,7 @@
 %%-export([]).
 
 %%%===================================================================
-%%% API - LEVEL 1 mutations
+%%% API - LEVEL 1 transforms
 %%%===================================================================
 %% Features:
 %%      - Frequency: High
@@ -51,7 +51,7 @@ edit_bias({_, neuron} = Neuron_Id, NewValue) ->
 
 
 %%%===================================================================
-%%% API - LEVEL 2 mutations
+%%% API - LEVEL 2 transforms
 %%%===================================================================
 %% Features:
 %%      - Frequency: medium
@@ -119,7 +119,7 @@ change_aggregation({_, neuron} = Neuron_Id, NewAggrFun) ->
 
 
 %%%===================================================================
-%%% API - LEVEL 3 mutations
+%%% API - LEVEL 3 transforms
 %%%===================================================================
 %% Features:
 %%      - Frequency: Low

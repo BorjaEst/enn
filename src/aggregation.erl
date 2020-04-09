@@ -73,7 +73,7 @@ diff_product(TensorAcc, Bias) ->
         Prev_TensorAcc = put(diff_product, TensorAcc),
         diff_product(TensorAcc, Prev_TensorAcc, Bias)
     catch
-        error:function_clause -> Bias % TODO: To evaluate only on undefined diff_prod, or mutation affected
+        error:function_clause -> Bias % TODO: To evaluate only on undefined diff_prod, or transform affected
     end.
 
 diff_product([{W, I} | TAcc], [{_, Prev_I} | Prev_TAcc], Acc) ->

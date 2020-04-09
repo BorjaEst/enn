@@ -120,7 +120,7 @@ connect_layers([], _Elements) ->
 
 %.......................................................................................................................
 connect(all, Elements_From, Elements_To) ->
-    [mutation:create_link(From, To) || From <- Elements_From, To <- Elements_To].
+    [transform:create_link(From, To) || From <- Elements_From, To <- Elements_To].
 
 
 %%====================================================================

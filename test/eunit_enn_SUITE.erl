@@ -102,7 +102,7 @@ all() ->
         eunit_model,
         eunit_layer,
         eunit_elements,
-        eunit_mutation,
+        eunit_transform,
         eunit_activation,
         eunit_aggregation,
         eunit_cortex
@@ -128,8 +128,8 @@ eunit_layer(_Config) -> ok = eunit:test([layer]).
 eunit_elements() -> [].
 eunit_elements(_Config) -> ok = eunit:test([elements]).
 
-eunit_mutation() -> [].
-eunit_mutation(_Config) -> ok = eunit:test([mutation]).
+eunit_transform() -> [].
+eunit_transform(_Config) -> ok = eunit:test([transform]).
 
 eunit_activation() -> [].
 eunit_activation(_Config) -> ok = eunit:test([activation]).
