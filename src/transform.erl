@@ -48,11 +48,11 @@ reset_links(ToId, FromIds) ->
 %% @doc Edits the weight of a neuron bias.
 %% @end
 %%--------------------------------------------------------------------
--spec edit_bias(Neuron_Id, Weight) -> no_return() when 
-    Neuron_Id :: neuron:id(),
+-spec edit_bias(NeuronId, Weight) -> no_return() when 
+    NeuronId :: neuron:id(),
     Weight    :: float().
-edit_bias(Neuron_Id, Weight) ->
-    Neuron = edb:read(Neuron_Id),
+edit_bias(NeuronId, Weight) ->
+    Neuron = edb:read(NeuronId),
     Edited = elements:edit_bias(Neuron, Weight),
     edb:write(Edited).
 
@@ -60,10 +60,10 @@ edit_bias(Neuron_Id, Weight) ->
 %% @doc Edits the weight of a neuron bias.
 %% @end
 %%--------------------------------------------------------------------
--spec reset_bias(Neuron_Id) -> no_return() when 
-    Neuron_Id :: neuron:id().
-reset_bias(Neuron_Id) ->
-    Neuron = edb:read(Neuron_Id),
+-spec reset_bias(NeuronId) -> no_return() when 
+    NeuronId :: neuron:id().
+reset_bias(NeuronId) ->
+    Neuron = edb:read(NeuronId),
     Edited = elements:reset_bias(Neuron),
     edb:write(Edited).
 
@@ -76,40 +76,42 @@ reset_bias(Neuron_Id) ->
 %%      - Effects: Creates, removes connections and modifies neuron functions
 
 %%--------------------------------------------------------------------
-%% @doc
-%% % TODO: To make description
-%%
+%% @doc Creates a link between to neuron Id. Note the Id can be the 
+%% same for auto recurrency.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: Define specs
-create_link(SameElement_Id, SameElement_Id) ->
-    SameElement = edb:read(SameElement_Id),
-    U1_SameElement = link_only_From(SameElement, SameElement),
-    U2_SameElement = link_only_To(U1_SameElement, U1_SameElement),
-    edb:write(U2_SameElement);
-create_link(FromElement_Id, ToElement_Id) ->
-    [FromElement, ToElement] = edb:read([FromElement_Id, ToElement_Id]),
-    U_FromElement = link_only_From(FromElement, ToElement),
-    U_ToElement   = link_only_To(U_FromElement, ToElement),
-    edb:write([U_FromElement, U_ToElement]).
+-spec create_link(From, To) -> no_return() when 
+    From  :: neuron:id() | cortex:id(),
+    To    :: neuron:id() | cortex:id().
+create_link(SameId, SameId) ->
+    Element = edb:read(SameId),
+    U1_Element = link_only_From( Element,    Element),
+    U2_Element = link_only_To(U1_Element, U1_Element),
+    edb:write(U2_Element);
+create_link(FromId, ToId) ->
+    [From, To] = edb:read([FromId, ToId]),
+    U_From = link_only_From(From, To),
+    U_To   = link_only_To(U_From, To),
+    edb:write([U_From, U_To]).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% % TODO: To make description
-%%
+%% @doc Removes a link between to neuron Id. Note the Id can be the 
+%% same for auto recurrency.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: Define specs
-remove_link(SameElement_Id, SameElement_Id) ->
-    SameElement = edb:read(SameElement_Id),
-    U1_SameElement = unlink_only_From(SameElement, SameElement),
-    U2_SameElement = unlink_only_To(U1_SameElement, U1_SameElement),
-    edb:write(U2_SameElement);
-remove_link(FromElement_Id, ToElement_Id) ->
-    [FromElement, ToElement] = edb:read([FromElement_Id, ToElement_Id]),
-    U_FromElement = unlink_only_From(FromElement, ToElement),
-    U_ToElement   = unlink_only_To(U_FromElement, ToElement),
-    edb:write([U_FromElement, U_ToElement]).
+-spec remove_link(From, To) -> no_return() when 
+    From  :: neuron:id() | cortex:id(),
+    To    :: neuron:id() | cortex:id().
+remove_link(SameId, SameId) ->
+    Element = edb:read(SameId),
+    U1_Element = unlink_only_From(Element, Element),
+    U2_Element = unlink_only_To(U1_Element, U1_Element),
+    edb:write(U2_Element);
+remove_link(FromId, ToId) ->
+    [From, To] = edb:read([FromId, ToId]),
+    U_From = unlink_only_From(From, To),
+    U_To   = unlink_only_To(U_From, To),
+    edb:write([U_From, U_To]).
 
 %%--------------------------------------------------------------------
 %% @doc
