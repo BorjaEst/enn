@@ -304,6 +304,15 @@ edit_bias(Neuron, Weight) ->
     Neuron#neuron{bias = Weight}.
 
 %%--------------------------------------------------------------------
+%% @doc Resets the neuron bias.
+%% @end
+%%--------------------------------------------------------------------
+-spec reset_bias(Neuron :: neuron()) -> 
+    EditedNeuron :: neuron().
+reset_bias(Neuron) -> 
+    Neuron#neuron{bias = uninitialized}.
+
+%%--------------------------------------------------------------------
 %% @doc Returns the output ids from an element. 
 %% @end
 %%--------------------------------------------------------------------
