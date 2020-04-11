@@ -295,6 +295,15 @@ bias(Neuron) ->
     Neuron#neuron.bias.
 
 %%--------------------------------------------------------------------
+%% @doc Edits the neuron bias.
+%% @end
+%%--------------------------------------------------------------------
+-spec edit_bias(Neuron :: neuron(), Weight :: float()) -> 
+    EditedNeuron :: neuron().
+edit_bias(Neuron, Weight) -> 
+    Neuron#neuron{bias = Weight}.
+
+%%--------------------------------------------------------------------
 %% @doc Returns the output ids from an element. 
 %% @end
 %%--------------------------------------------------------------------
