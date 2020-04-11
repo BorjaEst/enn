@@ -7,9 +7,6 @@
 -module(transform).
 -compile([export_all, nowarn_export_all]). %%TODO: To delete after build
 
--include_lib("eunit/include/eunit.hrl").
--include_lib("kernel/include/logger.hrl").
-
 %% API
 %%-export([]).
 
@@ -20,34 +17,55 @@
 %%      - Frequency: High
 %%      - Effects: Only a link is modified
 
-%%--------------------------------------------------------------------
-%% @doc
-%% % TODO: To make description
-%%
+%%-------------------------------------------------------------------
+%% @doc Edits the weight of a neuron link.
 %% @end
-%%--------------------------------------------------------------------
-% TODO: Define specs
-edit_link(FromElement_Id, {_, neuron} = ToNeuron_Id, NewWeight) ->
-    ToNeuron = edb:read(ToNeuron_Id),
-    ToInputs = elements:inputs_ids(ToNeuron),
-    case lists:member(FromElement_Id, ToInputs) of
-        true ->
-            edb:write(elements:edit_input(ToNeuron, FromElement_Id, NewWeight));
-        false ->
-            exit({not_member, FromElement_Id, ToInputs})
-    end.
+%%-------------------------------------------------------------------
+-spec edit_link(From, To, Weight) -> no_return() when 
+    From   :: neuron:id() | cortex:id(),
+    To     :: neuron:id(),
+    Weight :: float().
+edit_link(FromId, ToId, Weight) ->
+    To     = edb:read(ToId),
+    Edited = elements:edit_input(To, FromId, Weight),
+    edb:write(Edited).
+
+%%-------------------------------------------------------------------
+%% @doc Resets the indicated links of a neuron.
+%% @end
+%%-------------------------------------------------------------------
+-spec reset_links(From, To) -> no_return() when 
+    From  :: [neuron:id() | cortex:id()],
+    To    :: neuron:id().
+reset_links(ToId, FromIds) ->
+    Edited = lists:foldl(
+        fun(FromId,To) -> elements:reset_input(To, FromId) end,
+        edb:read(ToId), FromIds
+    ),
+    edb:write(Edited).
 
 %%--------------------------------------------------------------------
-%% @doc
-%% % TODO: To make description
-%%
+%% @doc Edits the weight of a neuron bias.
 %% @end
 %%--------------------------------------------------------------------
-% TODO: Define specs
-edit_bias({_, neuron} = Neuron_Id, NewValue) ->
+-spec edit_bias(Neuron_Id, Weight) -> no_return() when 
+    Neuron_Id :: neuron:id(),
+    Weight    :: float().
+edit_bias(Neuron_Id, Weight) ->
     Neuron = edb:read(Neuron_Id),
-    NewNeuron = elements:edit(Neuron, #{bias => NewValue}),
-    edb:write(NewNeuron).
+    Edited = elements:edit_bias(Neuron, Weight),
+    edb:write(Edited).
+
+%%--------------------------------------------------------------------
+%% @doc Edits the weight of a neuron bias.
+%% @end
+%%--------------------------------------------------------------------
+-spec reset_bias(Neuron_Id) -> no_return() when 
+    Neuron_Id :: neuron:id().
+reset_bias(Neuron_Id) ->
+    Neuron = edb:read(Neuron_Id),
+    Edited = elements:reset_bias(Neuron),
+    edb:write(Edited).
 
 
 %%%===================================================================
@@ -234,36 +252,15 @@ prev_of2(Element, [_ | Rest], If_Last)               -> prev_of2(Element, Rest, 
 
 % ----------------------------------------------------------------------------------------------------------------------
 % TESTS DESCRIPTIONS ---------------------------------------------------------------------------------------------------
-eunit_example_test_() ->
-    % {setup, Where, Setup, Cleanup, Tests | Instantiator}
-    [
-        {"Eunit example test",
-         {setup, local, fun no_setup/0, fun no_cleanup/1, fun test_example/1}}
-    ].
 
 % ----------------------------------------------------------------------------------------------------------------------
 % SPECIFIC SETUP FUNCTIONS ---------------------------------------------------------------------------------------------
-no_setup() ->
-    ok.
-
-no_cleanup(_) ->
-    ok.
 
 % ----------------------------------------------------------------------------------------------------------------------
 % ACTUAL TESTS ---------------------------------------------------------------------------------------------------------
-test_example(_) ->
-    True = true,
-    [
-        ?_assert(True)
-    ].
 
 % ----------------------------------------------------------------------------------------------------------------------
 % SPECIFIC HELPER FUNCTIONS --------------------------------------------------------------------------------------------
-
-
-
-
-
 
 
 
