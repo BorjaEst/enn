@@ -199,6 +199,8 @@ Importants to be clasified:
 
 
 Nice to try:
+- New Input attribute; Correlation, measures how much the input changed in relation with the error. For example a neuron with inputs A,B,C but optima is A+B, C would have a "correlation" near to 0 and should be deleted.
+
 - Residual Network?, add a transfer function to the activation function to make it time dependent
 - Max-Norm regularisation,.      ||w||2 <= r
 - Training with Kalman filter
