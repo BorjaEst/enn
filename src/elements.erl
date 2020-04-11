@@ -488,6 +488,18 @@ edit_input(Neuron, FromId, W) when is_record(Neuron, neuron) ->
     Neuron#neuron{inputs_idps = Inputs_IdPs}.
 
 %%--------------------------------------------------------------------
+%% @doc Resets the input weight of an input.
+%% @end
+%%--------------------------------------------------------------------
+-spec reset_input(Neuron :: neuron(), FromId :: id()) -> 
+    EditedNeuron :: neuron().
+reset_input(Neuron, FromId) when is_record(Neuron, neuron) -> 
+    Inputs_IdPs = lists:keyreplace(
+        FromId, 1, 
+        Neuron#neuron.inputs_idps, {FromId,uninitialized}),
+    Neuron#neuron{inputs_idps = Inputs_IdPs}.
+
+%%--------------------------------------------------------------------
 %% @doc Clones a cortex and generates a map inside using an ETS table 
 %% for the a new id for each neuron and the original neuron id. Note
 %% it does not clone any neuron nor modifies the original cortex and
