@@ -20,7 +20,7 @@
     LayerIds_To :: [float()]
 }.
 -type specifications() :: #{
-    connections := connections(),
+    connections := [connections()],
     layers      := #{
         Coordinade :: float() => Specs :: layer:specifications()
     }
@@ -72,32 +72,32 @@ recurrent(Layers, RLevel) when length(Layers) > 1 ->
 -spec compile(Model :: specifications()) -> 
     Cortex_id :: cortex:id().
 compile(Model) ->
-    #{
-        connections := Connections,
-        layers := Layers
-    } = Model,
+    #{connections:=Connections, layers:=Layers} = Model,
     CompiledLayers = maps:map(fun layer:compile/2, Layers),
-    Cortex_Id = cortex:new(CompiledLayers, #{}),
-    ok = connect_layers(Connections, CompiledLayers),
-    Cortex_Id.
+    cortex:new(#{
+        outputs => maps:get(+1.0, CompiledLayers),
+        inputs  => maps:get(-1.0, CompiledLayers),
+        neurons => lists:append(maps:values(CompiledLayers)),
+        links   => links(CompiledLayers, Connections, #{})
+     }).
 
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
 
-%.......................................................................................................................
+% -------------------------------------------------------------------
 linspace(From, To, N) ->
     Step = (To - From) / (N - 1),
     [round((From + Step * X) * 100) / 100 || X <- lists:seq(0, N - 1)].
 
-% ......................................................................................................................
+% -------------------------------------------------------------------
 sequential_connection([Layer_A, Layer_B | Rest] = _Layers) ->
     [{all, Layer_A, [Layer_B]} | sequential_connection([Layer_B | Rest])];
 sequential_connection([_Layer_A] = _Layers) ->
     [].
 
-% ......................................................................................................................
+% -------------------------------------------------------------------
 recurrent_connection(Layers, RLevel) ->
     recurrent_connection_aux(lists:reverse(Layers), RLevel).
 
@@ -109,26 +109,32 @@ recurrent_connection_aux([Layer_A | Rest], RLevel) when length(Rest) >= RLevel -
 recurrent_connection_aux([Layer_A | Rest], RLevel) ->
     [{all, Layer_A, Rest} | recurrent_connection_aux(Rest, RLevel)].
 
-%.......................................................................................................................
-connect_layers([{Type, Layer_A, Layers_To} | Rest], Elements) ->
-    connect(Type, 
-            maps:get(Layer_A, Elements), % Elements from layer A
-            lists:append([maps:get(L_To, Elements) || L_To <- Layers_To])),
-    connect_layers(Rest, Elements);
-connect_layers([], _Elements) ->
-    ok.
+% -------------------------------------------------------------------
+links(CLayers, [{Type,IFrom,IxTo} | Connections], Links) -> 
+    To     = lists:append([maps:get(X, CLayers) || X <- IxTo]),
+    From   = maps:get(IFrom, CLayers),
+    links(CLayers, Connections, add_links(Type,Links,From,To));
+links(_CLayers, [], Links) ->
+    Links.
 
-%.......................................................................................................................
-connect(all, Elements_From, Elements_To) ->
-    [transform:create_link(From, To) || From <- Elements_From, To <- Elements_To].
+add_links(all, Links, From, To) -> 
+    AddMap = maps:from_list([{X, uninitialize} || X <- From]),
+    Add    = fun(Map) -> maps:merge(Map, AddMap) end,
+    update_links(Links, Add, AddMap, To).
+
+update_links(Links,  Add,  From, [To|Tox]) -> 
+    UpdatedLinks = maps:update_with(To, Add, From, Links),
+    update_links(UpdatedLinks, Add, From, Tox);
+update_links(Links, _Fun, _Add, []) -> 
+    Links.
 
 
 %%====================================================================
 %% Eunit white box tests
 %%====================================================================
 
-% ----------------------------------------------------------------------------------------------------------------------
-% TESTS DESCRIPTIONS ---------------------------------------------------------------------------------------------------
+% -------------------------------------------------------------------
+% TESTS DESCRIPTIONS ------------------------------------------------
 linspace_test_() ->
     % {setup, Where, Setup, Cleanup, Tests | Instantiator}
     [
@@ -140,16 +146,16 @@ linspace_test_() ->
          {setup, local, fun no_setup/0, fun no_cleanup/1, fun test_for_recurrent_connection/1}}
     ].
 
-% ----------------------------------------------------------------------------------------------------------------------
-% SPECIFIC SETUP FUNCTIONS ---------------------------------------------------------------------------------------------
+% -------------------------------------------------------------------
+% SPECIFIC SETUP FUNCTIONS ------------------------------------------
 no_setup() ->
     ok.
 
 no_cleanup(_) ->
     ok.
 
-% ----------------------------------------------------------------------------------------------------------------------
-% ACTUAL TESTS ---------------------------------------------------------------------------------------------------------
+% -------------------------------------------------------------------
+% ACTUAL TESTS ------------------------------------------------------
 test_for_linspace(_) ->
     [
         ?_assertEqual([-1.0, 0.0, 1.0, 2.0], linspace(-1, 2, 4)),
@@ -184,7 +190,7 @@ test_for_recurrent_connection(_) ->
                       ], recurrent_connection(Layers, _RLevel = 2))
     ].
 
-% ----------------------------------------------------------------------------------------------------------------------
-% SPECIFIC HELPER FUNCTIONS --------------------------------------------------------------------------------------------
+% -------------------------------------------------------------------
+% SPECIFIC HELPER FUNCTIONS -----------------------------------------
 
 
