@@ -11,7 +11,7 @@
 -module(enn).
 -author("borja").
 
--include_lib("nn_pool.hrl").
+-include_lib("network.hrl").
 -include_lib("kernel/include/logger.hrl").
 
 %% API
@@ -154,6 +154,18 @@ start(Cortex_Id) ->
 stop(Cortex_Id) ->
     enn_sup:terminate_nn(Cortex_Id).
 
+
+%%--------------------------------------------------------------------
+%% @doc Returns the pid of the cortex.
+%% @end
+%%--------------------------------------------------------------------
+-spec network_info(Network_Id :: id()) -> network().
+network_info(Network_Id) -> 
+    case ets:lookup(?NN_POOL, Network_Id) of 
+        [Network] -> Network;
+        []        -> error(not_started)
+    end.
+
 %%--------------------------------------------------------------------
 %% @doc Links the caller to the network supervisor so if the caller 
 %% dies because of an exception, the newtwork die shutdown as well.
@@ -161,7 +173,7 @@ stop(Cortex_Id) ->
 %%--------------------------------------------------------------------
 -spec link_network(Network_id :: id()) -> true.
 link_network(Cortex_Id) -> 
-    Pid = ets:lookup_element(?NN_POOL, Cortex_Id, #nn.supervisor),
+    Pid = ets:lookup_element(?NN_POOL, Cortex_Id, #network.supervisor),
     link(Pid).
 
 %%--------------------------------------------------------------------
@@ -170,7 +182,17 @@ link_network(Cortex_Id) ->
 %%--------------------------------------------------------------------
 -spec cortex_pid(Network_id :: id()) -> pid().
 cortex_pid(Cortex_Id) -> 
-    ets:lookup_element(?NN_POOL, Cortex_Id, #nn.cortex).
+    ets:lookup_element(?NN_POOL, Cortex_Id, #network.cortex).
+
+
+
+
+
+
+
+
+
+
 
 %%--------------------------------------------------------------------
 %% @doc Returns a character list that represents the element of the Id
@@ -199,11 +221,56 @@ check_nn(Cortex_Id) ->
     ok.
 
 
+
+
+
+
+
+
+
+
+
+[Network] = ets:lookup(?NN_POOL, Network_Id),
+Network.
+
+
+
+
+mount_graph(Network_Id) -> 
+    Network = edb:read(Network_Id),
+    deserialize_graph(Nerwork#network.graph).
+
+deserialize_graph({VL, EL, NL, B}) ->       
+    DG = {digraph, V, E, N, B} = case B of 
+       true -> digraph:new();
+       false -> digraph:new([acyclic])
+    end,
+    % ets:delete_all_objects(V)
+    % ets:delete_all_objects(L)
+    % ets:delete_all_objects(N)
+    ets:insert(V, VL),
+    ets:insert(E, EL),
+    ets:insert(N, NL),
+    DG.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
 
-% ....................................................................
+% -------------------------------------------------------------------
 check_links(Cortex, Neurons) -> %TODO: Check using elements:link
     InL = lists:append(
         [[{In, elements:id(Cortex)} || In <- elements:inputs_ids(Cortex)] |
@@ -218,7 +285,7 @@ check_links(Cortex, Neurons) -> %TODO: Check using elements:link
             error(broken_nn)
     end.
 
-% ....................................................................
+% -------------------------------------------------------------------
 check_inputs(Cortex, Neurons) ->
     is_broken_at_inputs(Cortex),
     case lists:any(fun is_broken_at_inputs/1, Neurons) of
@@ -238,7 +305,7 @@ is_broken_at_inputs(Element) ->
             false
     end.
 
-% ....................................................................
+% -------------------------------------------------------------------
 check_outputs(Cortex, Neurons) ->
     is_broken_at_outputs(Cortex),
     case lists:any(fun is_broken_at_outputs/1, Neurons) of

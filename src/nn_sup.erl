@@ -6,7 +6,7 @@
 -module(nn_sup).
 -behaviour(supervisor).
 
--include_lib("nn_pool.hrl").
+-include_lib("network.hrl").
 
 
 %% API
@@ -27,7 +27,7 @@
 }).
 -define(SPECS_NEURON(Neuron_Id, NN), #{
     id       => Neuron_Id,
-    start    => {neuron, start_link, [Neuron_Id, NN#nn.id]},
+    start    => {neuron, start_link, [Neuron_Id, NN#network.id]},
     restart  => permanent,
     shutdown => 500,
     modules  => [neuron]
@@ -62,8 +62,8 @@ start_cortex(Supervisor, Cortex_Id) ->
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
 start_neuron(Id, NN) ->
-    {ok, Pid} = ?START_CHILD(NN#nn.supervisor, ?SPECS_NEURON(Id, NN)),
-    true = ets:insert(NN#nn.idpidT, [{Id, Pid}, {Pid, Id}]),
+    {ok, Pid} = ?START_CHILD(NN#network.supervisor, ?SPECS_NEURON(Id, NN)),
+    true = ets:insert(NN#network.pid_pool, [{Id, Pid}, {Pid, Id}]),
     Pid.
 
 
@@ -90,7 +90,7 @@ init([Cortex_Id]) ->
 register_in_pool(Cortex_Id) -> 
     % The nn key in the nn_pool is the cortex id 
     true = ets:update_element(?NN_POOL, Cortex_Id, [
-        {#nn.supervisor, self()},
-        {#nn.idpidT,     ets:new(unnamed, ?ETS_TABLE_SPECS)}
+        {#network.supervisor, self()},
+        {#network.pid_pool,     ets:new(unnamed, ?ETS_TABLE_SPECS)}
     ]).
 

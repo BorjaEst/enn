@@ -14,7 +14,8 @@
 -module(cortex).
 -compile([export_all, nowarn_export_all]). %% TODO: To delete after build
 
--include_lib("nn_pool.hrl").
+-include_lib("network.hrl").
+-include_lib("cortex.hrl").
 -include_lib("math_constants.hrl").
 -include_lib("enn_logger.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -31,10 +32,7 @@
 -export([inactive/3, on_feedforward/3, on_backpropagation/3]).
 
 -type id() :: {Ref :: reference(), cortex}.
--type property()   :: id | layers | outputs_ids | inputs_idps.
--type properties() :: #{
-    OptionalProperty :: property() => Value :: term()
-}.
+-type serialized_graph() :: term().
 
 -record(input,  {
     id      :: id(),        % Neuron id (input)
@@ -50,12 +48,6 @@
 }).
 
 
--ifdef(debug_mode).
--define(STDCALL_TIMEOUT, infinity).
--else.
--define(STDCALL_TIMEOUT, 1000).
--endif.
-
 %%%===================================================================
 %%% API
 %%%===================================================================
@@ -65,22 +57,18 @@
 %% the database and returns its cortex id.
 %% @end
 %%--------------------------------------------------------------------
--spec new(CompiledLayers, Properties) -> id() when
-    CompiledLayers :: #{integer() => layer:compiled()},
-    Properties     :: properties().
-new(CompiledLayers, Properties) ->
-    Cortex = elements:cortex(CompiledLayers, Properties),
-    edb:write(Cortex), % Saved before transforms to avoid overwriting
-    [transform:create_link(  elements:id(Cortex), To) 
-        ||   To <- get_inputs( CompiledLayers)],
-    [transform:create_link(From, elements:id(Cortex)) 
-        || From <- get_outputs(CompiledLayers)],
-    elements:id(Cortex).
-
-get_inputs(CompiledLayers) ->
-    maps:get(-1.0, CompiledLayers).
-get_outputs(CompiledLayers) ->
-    maps:get(+1.0, CompiledLayers).
+-spec new(NInputs, NOutputs, SerialisedGraph) -> cortex_id() when 
+    NInputs         :: integer(),
+    NOutputs        :: integer(),
+    SerialisedGraph :: serialized_graph().
+new(NInputs, NOutputs, SerialisedGraph) ->
+    Cortex = #cortex{
+        inputs           = NInputs,
+        outputs          = NOutputs,
+        serialised_graph = SerialisedGraph
+    },
+    edb:write(Cortex),
+    Cortex#cortex.id.
 
 %%--------------------------------------------------------------------
 %% @doc Cortex id start function for supervisor. 
@@ -97,8 +85,7 @@ start_link(Cortex_Id) ->
 -spec predict(Cortex_Pid :: pid(), ExternalInputs :: [float()]) ->
     Predictions :: [float()].
 predict(Cortex_Pid, ExternalInputs) ->
-    gen_statem:call(Cortex_Pid, {feedforward, ExternalInputs}, 
-                    ?STDCALL_TIMEOUT).
+    gen_statem:call(Cortex_Pid, {feedforward, ExternalInputs}).
 
 %%--------------------------------------------------------------------
 %% @doc Performs a single NN training using back propagation.
@@ -107,47 +94,30 @@ predict(Cortex_Pid, ExternalInputs) ->
 -spec fit(Cortex_Pid :: pid(), Errors :: [float()]) ->
     BP_Errors :: [float()].
 fit(Cortex_Pid, Errors) ->
-    gen_statem:call(Cortex_Pid, {backprop, Errors}, 
-                    ?STDCALL_TIMEOUT).
+    gen_statem:call(Cortex_Pid, {backprop, Errors}).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the pid of a neuron from its id.
 %% @end
 %%--------------------------------------------------------------------
--spec nn_id2pid(Neuron_Id :: neuron:id(), TId_IdPids :: ets:tid()) ->
-    Neuron_Pid :: pid().
-nn_id2pid(Neuron_Id, TId_IdPids) ->
-    [{Neuron_Id, Neuron_Pid}] = ets:lookup(TId_IdPids, Neuron_Id),
-    Neuron_Pid.
+-spec nn_id2pid(Id, Network) -> pid() when 
+    Id      :: neuron:id() | cortex:id(),
+    Network :: network().
+nn_id2pid(Id, Network) ->
+    {Id, Pid} = digraph:vertex(Network#network.graph, Id),
+    Pid.
 
 %%--------------------------------------------------------------------
 %% @doc Returns the id of a neuron from its pid.
 %% @end
 %%--------------------------------------------------------------------
--spec nn_pid2id(Neuron_Pid :: pid(), TId_IdPids :: ets:tid()) ->
-    Neuron_Id :: neuron:id().
-nn_pid2id(Neuron_Pid, TId_IdPids) ->
-    [{Neuron_Pid, Neuron_Id}] = ets:lookup(TId_IdPids, Neuron_Pid),
-    Neuron_Id.
-
-%%--------------------------------------------------------------------
-%% @doc Returns the id of a neuron from its pid.
-%% @end
-%%--------------------------------------------------------------------
--spec fan_inout(Cortex_Id, Coordinade) -> {Fan_In, Fan_Out} when 
-    Cortex_Id  :: id(),
-    Coordinade :: float(),
-    Fan_In     :: float(),
-    Fan_Out    :: float().
-fan_inout(Cortex_Id, Coordinade) ->
-    Dim = ets:lookup_element(?NN_POOL, Cortex_Id, #nn.dimensions), 
-    case [ X || X <- maps:keys(Dim), X < Coordinade] of
-        []          -> PrevCoord = -1.0;
-        LowerLayers -> PrevCoord = lists:last(LowerLayers)
-    end,   
-    Fan_out = maps:get(Coordinade, Dim),
-    Fan_in  = maps:get(PrevCoord,  Dim),
-    {Fan_in, Fan_out}. 
+-spec nn_pid2id(Pid, Network) -> Id when 
+    Pid     :: pid(),
+    Network :: network(),
+    Id      :: neuron:id() | cortex:id().
+nn_pid2id(Pid, Network) ->
+    [{Pid, Id}] = ets:lookup(Network#network.pid_pool, Pid),
+    Id.
 
 
 %%%===================================================================
@@ -167,16 +137,19 @@ fan_inout(Cortex_Id, Coordinade) ->
 %%                     {stop, StopReason}
 %% @end
 %%--------------------------------------------------------------------
-init([Id]) -> 
-    Pid  = self(),
-    [NN] = ets:lookup(?NN_POOL, Id),
-    true = ets:insert(NN#nn.idpidT, [{Id, Pid}, {Pid, Id}]),
-    true = ets:update_element(?NN_POOL, Id, {#nn.cortex, Pid}),
+init([Id = Network_Id]) -> 
+    Graph = enn:mount_graph(Network_Id),
+    IdPT  = ets:lookup_element(?NN_POOL,Network_Id,#network.pid_pool),
+    true  = ets:insert(IdPT, [{self(), Id}]),
+    true  = digraph:add_vertex(Graph, Id, self()),
+    true  = ets:update_element(?NN_POOL,Network_Id,
+        [{#network.cortex, self()}, {#network.graph, Graph}]
+    ),
     process_flag(trap_exit, true), % To catch supervisor 'EXIT'
-    put(    id,               Id),
+    put(id, Id),
     ?LOG_STATE_CHANGE(undefined),
     {ok, inactive, #state{wait = []},
-        {next_event, internal, {start_nn, NN}}}.
+        {next_event, internal, {start_nn, Network_Id}}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -371,52 +344,47 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
-% ....................................................................
+% -------------------------------------------------------------------
 update_input_signal(Pid, Signal) -> 
     {value, {_, I}} = lists:keysearch(Pid, 1, get(inputs)),
     Inputs = lists:keyreplace(Pid, 1, get(inputs), 
                              {Pid, I#input{s=Signal}}),
     put(inputs, Inputs).
 
-% ....................................................................
+% -------------------------------------------------------------------
 update_output_error(Pid, Error) -> 
     {value, {_, O}} = lists:keysearch(Pid, 1, get(outputs)),
     Outputs = lists:keyreplace(Pid, 1, get(outputs),
                               {Pid, O#output{e=Error}}),
     put(outputs, Outputs).
 
-% ....................................................................
+% -------------------------------------------------------------------
 forward(Output_Pid, Signal) ->
     Output_Pid ! {self(), forward, Signal},
     {Output_Pid, Signal}.
 
-% ....................................................................
+% -------------------------------------------------------------------
 backward(Input_Pid, Error) ->
     Input_Pid ! {self(), backward, Error},
     {Input_Pid, Error}.
 
-% ....................................................................
-handle_start(NN) ->
-    Cortex_Id  = NN#nn.id,
-    Cortex     = edb:read(Cortex_Id), 
-    Layers     = elements:layers(Cortex),
-    Neuron_Ids = elements:neurons(Layers),
-    Neurons = [start_neuron( Id, NN) || Id  <- Neuron_Ids],
-    put(inputs,  [{nn_id2pid(Id, NN#nn.idpidT), #input{ }} 
-                     || Id <- elements:inputs_ids( Cortex)]),
-    put(outputs, [{nn_id2pid(Id, NN#nn.idpidT), #output{}}
-                     || Id <- elements:outputs_ids(Cortex)]),
-    true = ets:update_element(?NN_POOL, Cortex_Id, 
-        {#nn.dimensions, elements:dimensions(Layers)}
-    ),
-    [resume_neuron(Pid, NN) || Pid <- Neurons],
-    ok.
+% -------------------------------------------------------------------
+handle_start(Network_Id) ->
+    NN = enn:network(Network_Id),
+    Neurons = [start_neuron(  Id, NN) || Id  <- enn:neurons(NN)],
+              [resume_neuron(Pid, NN) || Pid <- Neurons],
+    Inputs  = [{nn_id2pid(Id,NN),#output{}} || Id <-enn:inputs( NN)],
+    Outputs = [{nn_id2pid(Id,NN),#input{ }} || Id <-enn:outputs(NN)],
+    put( inputs, Outputs), % System outputs are the cortex inputs
+    put(outputs,  Inputs). % System inputs are the cortex outputs
 
 start_neuron(Id, NN) ->
-    nn_sup:start_neuron(Id, NN).
+    Pid  = nn_sup:start_neuron(Id, NN),
+    true = ets:insert(enn:table
+    , Arg2)
 
 resume_neuron(Pid, NN) -> 
-    Pid ! {continue_init, NN#nn.idpidT}.
+    Pid ! {continue_init, NN#network.pid_pool}.
 
 
 %%====================================================================

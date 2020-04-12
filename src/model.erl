@@ -74,12 +74,11 @@ recurrent(Layers, RLevel) when length(Layers) > 1 ->
 compile(Model) ->
     #{connections:=Connections, layers:=Layers} = Model,
     CompiledLayers = maps:map(fun layer:compile/2, Layers),
-    cortex:new(#{
-        outputs => maps:get(+1.0, CompiledLayers),
-        inputs  => maps:get(-1.0, CompiledLayers),
-        neurons => lists:append(maps:values(CompiledLayers)),
-        links   => links(CompiledLayers, Connections, #{})
-     }).
+    cortex:new(
+        _NInputs  = enn:inputs(Model),
+        _NOutputs = enn:outputs(Model),
+        _Graph    = graph(CompiledLayers, Connections)
+    ).
 
 
 %%====================================================================
@@ -110,23 +109,26 @@ recurrent_connection_aux([Layer_A | Rest], RLevel) ->
     [{all, Layer_A, Rest} | recurrent_connection_aux(Rest, RLevel)].
 
 % -------------------------------------------------------------------
-links(CLayers, [{Type,IFrom,IxTo} | Connections], Links) -> 
-    To     = lists:append([maps:get(X, CLayers) || X <- IxTo]),
-    From   = maps:get(IFrom, CLayers),
-    links(CLayers, Connections, add_links(Type,Links,From,To));
-links(_CLayers, [], Links) ->
-    Links.
+graph(CompiledLayers, Connections) -> 
+    Graph = digraph:new([cyclic]),
+    add_vertex(CompiledLayers, Graph),
+    add_edges(CompiledLayers, Connections, Graph),
+    serialize_graph(Graph).
 
-add_links(all, Links, From, To) -> 
-    AddMap = maps:from_list([{X, uninitialize} || X <- From]),
-    Add    = fun(Map) -> maps:merge(Map, AddMap) end,
-    update_links(Links, Add, AddMap, To).
+add_vertex(CompiledLayers, G) -> 
+    Neurons = lists:append(maps:values(CompiledLayers)),
+    [digraph:add_vertex(G, elements:id(N)) || N <- Neurons].
 
-update_links(Links,  Add,  From, [To|Tox]) -> 
-    UpdatedLinks = maps:update_with(To, Add, From, Links),
-    update_links(UpdatedLinks, Add, From, Tox);
-update_links(Links, _Fun, _Add, []) -> 
-    Links.
+add_edges(CompiledLayers, [{all,IFrom,IxTo} | Connections], G) -> 
+    To     = lists:append([maps:get(X, CompiledLayers) || X <- IxTo]),
+    From   = maps:get(IFrom, CompiledLayers),
+    [digraph:add_edge(G, V1, V2, uninitialized) || V1<-From, V2<-To],
+    add_edges(CompiledLayers, Connections, G);
+add_edges(_CompiledLayers, [], Graph) ->
+    Graph.
+
+serialize_graph({digraph, V, E, N, B}) ->
+    {ets:tab2list(V), ets:tab2list(E), ets:tab2list(N), B}.
 
 
 %%====================================================================

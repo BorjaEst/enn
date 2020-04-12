@@ -7,7 +7,7 @@
 -module(enn_sup).
 -behaviour(supervisor).
 
--include_lib("nn_pool.hrl").
+-include_lib("network.hrl").
 
 %% API
 -export([start_link/1, start_nn/1, terminate_nn/1]).
@@ -51,7 +51,7 @@ start_link(StartArgs) ->
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
 start_nn(Cortex_Id) ->
-    true = ets:insert(?NN_POOL, #nn{id = Cortex_Id}),
+    true = ets:insert(?NN_POOL, #network{id = Cortex_Id}),
     {ok, NN_Pid} = supervisor:start_child(?SERVER, 
                                           ?SPECS_NN_SUP(Cortex_Id)),
     {ok, _}      = nn_sup:start_cortex(NN_Pid, Cortex_Id),

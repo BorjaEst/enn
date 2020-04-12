@@ -20,7 +20,7 @@
 -type type()   ::      cortex |      neuron.
 -type id()     :: cortex:id() | neuron:id().
 -type weight() :: float() | uninitialized.
--type link()   :: {From :: id(), To :: id()}.
+-type link()   :: {From :: id(), To :: id(), W :: weight()}.
 
 -define(NEW_CORTEX_ID,        {         make_ref(),  cortex}).
 -define(NEW_NEURON_ID,        {{undef,  make_ref()}, neuron}).
@@ -29,9 +29,7 @@
 
 -record(cortex, {
     id           :: cortex:id(),
-    layers = #{} :: #{Coordinade :: float() => [neuron:neuron_id()]},
-    outputs_ids = [] :: [neuron:id()], % Output neurons
-    inputs_ids  = [] :: [neuron:id()]  % Input neurons
+    graph  = #{} :: #{id() => #{From :: id() => weight()}}
 }).
 -type cortex() :: #cortex{}.
 
@@ -40,8 +38,6 @@
     activation           :: activation:func(),
     aggregation          :: aggregation:func(),
     initializer          :: initializer:func(),
-    outputs_ids = []     :: [ id()  ], 
-    inputs_idps = []     :: [{id(), Weight :: weight()}],
     bias = uninitialized :: float() | uninitialized
 }).  
 -type neuron() :: #neuron{}.
@@ -87,11 +83,9 @@ is_neuron(Neuron) -> is_record(Neuron, neuron).
 %% on in cortex:new by the transform library.
 %% @end
 %%--------------------------------------------------------------------
--spec cortex(CompiledLayers, Properties) -> cortex() when
-    CompiledLayers :: #{Coordinade :: float() => layer:compiled()},
-    Properties     :: cortex:properties().
-cortex(CompiledLayers, Properties) ->
-    Cortex = #cortex{id = ?NEW_CORTEX_ID, layers = CompiledLayers},
+-spec cortex(Properties :: cortex:properties()) -> cortex().
+cortex(Properties) ->
+    Cortex = #cortex{id = ?NEW_CORTEX_ID},
     edit(Cortex, Properties).
 
 %%--------------------------------------------------------------------
@@ -109,38 +103,19 @@ is_cortex(Cortex) -> is_record(Cortex, cortex).
     Element       :: neuron() | cortex(),
     Properties    :: neuron:properties() | cortex:properties(),
     EditedElement :: neuron() | cortex().
-edit(Neuron, Properties) when is_record(Neuron, neuron) ->
-    edit_neuron(Neuron, maps:to_list(Properties));
-edit(Cortex, Properties) when is_record(Cortex, cortex) ->
-    edit_cortex(Cortex, maps:to_list(Properties)).
+edit(Neuron, Properties) when is_record(Neuron, neuron) -> edit_neuron(Neuron, maps:to_list(Properties));
+edit(Cortex, Properties) when is_record(Cortex, cortex) -> edit_cortex(Cortex, maps:to_list(Properties)).
 
-edit_neuron(Neuron, [{id,              Value} | Options]) ->
-   edit_neuron(Neuron#neuron{id = Value}, Options);
-edit_neuron(Neuron, [{activation,      Value} | Options]) ->
-    edit_neuron(Neuron#neuron{activation = Value}, Options);
-edit_neuron(Neuron, [{aggregation,     Value} | Options]) ->
-    edit_neuron(Neuron#neuron{aggregation = Value}, Options);
-edit_neuron(Neuron, [{initializer,     Value} | Options]) ->
-    edit_neuron(Neuron#neuron{initializer = Value}, Options);
-edit_neuron(Neuron, [{outputs_ids,     Value} | Options]) ->
-    edit_neuron(Neuron#neuron{outputs_ids = Value}, Options);
-edit_neuron(Neuron, [{inputs_idps,     Value} | Options]) ->
-    edit_neuron(Neuron#neuron{inputs_idps = Value}, Options);
-edit_neuron(Neuron, [{bias,            Value} | Options]) ->
-    edit_neuron(Neuron#neuron{bias = Value}, Options);
-edit_neuron(Neuron, []) -> 
-    Neuron.
+edit_neuron(Neuron, [{id,          Value} | Options]) -> edit_neuron(Neuron#neuron{         id = Value}, Options);
+edit_neuron(Neuron, [{activation,  Value} | Options]) -> edit_neuron(Neuron#neuron{ activation = Value}, Options);
+edit_neuron(Neuron, [{aggregation, Value} | Options]) -> edit_neuron(Neuron#neuron{aggregation = Value}, Options);
+edit_neuron(Neuron, [{initializer, Value} | Options]) -> edit_neuron(Neuron#neuron{initializer = Value}, Options);
+edit_neuron(Neuron, [{bias,        Value} | Options]) -> edit_neuron(Neuron#neuron{       bias = Value}, Options);
+edit_neuron(Neuron, []) -> Neuron.
 
-edit_cortex(Cortex, [{id,          Value} | Options]) -> 
-    edit_cortex(Cortex#cortex{id = Value}, Options);
-edit_cortex(Cortex, [{layers,      Value} | Options]) ->
-    edit_cortex(Cortex#cortex{layers = Value}, Options);
-edit_cortex(Cortex, [{outputs_ids, Value} | Options]) ->
-    edit_cortex(Cortex#cortex{outputs_ids = Value}, Options);
-edit_cortex(Cortex, [{inputs_idps, Value} | Options]) ->
-    edit_cortex(Cortex#cortex{inputs_ids = Value}, Options);
-edit_cortex(Cortex, []) ->
-    Cortex.
+edit_cortex(Cortex, [{id,    Value} | Options]) -> edit_cortex(Cortex#cortex{   id = Value}, Options);
+edit_cortex(Cortex, [{graph, Value} | Options]) -> edit_cortex(Cortex#cortex{graph = Value}, Options);
+edit_cortex(Cortex, []) -> Cortex.
 
 
 %%-------------------------------------------------------------------
@@ -579,7 +554,7 @@ pformat(_Element, [], _Index) ->
 %% Internal functions
 %%====================================================================
 
-%.......................................................................................................................
+% -------------------------------------------------------------------
 map_layers(Layers, ConversionETS) ->
     LayersList = maps:to_list(Layers),
     NewLayerList = [{Layer, map_neurons_ids(Neurons_Ids, ConversionETS)} || {Layer, Neurons_Ids} <- LayersList],
@@ -593,15 +568,15 @@ map_neuron_id(Id, ConversionETS) ->
     ets:insert(ConversionETS, {Id, CloneId}),
     CloneId.
 
-% ......................................................................................................................
+% -------------------------------------------------------------------
 map_outputs_ids(Outputs_Ids, ConversionETS) ->
     [ets:lookup_element(ConversionETS, O_Id, 2) || O_Id <- Outputs_Ids].
 
-% ......................................................................................................................
+% -------------------------------------------------------------------
 map_inputs_ids(Inputs_Ids, ConversionETS) ->
     [ets:lookup_element(ConversionETS, I_Id, 2) || I_Id <- Inputs_Ids].
 
-% ......................................................................................................................
+% -------------------------------------------------------------------
 map_inputs_idps(Inputs_IdPs, ConversionETS) ->
     [{ets:lookup_element(ConversionETS, I_Id, 2), W} || {I_Id, W} <- Inputs_IdPs].
 
@@ -610,7 +585,7 @@ map_inputs_idps(Inputs_IdPs, ConversionETS) ->
 %% Eunit white box tests
 %%====================================================================
 
-% ----------------------------------------------------------------------------------------------------------------------
+% -------------------------------------------------------------------
 % TESTS DESCRIPTIONS ---------------------------------------------------------------------------------------------------
 % print_elements_test_() ->
 %     {setup, Where, Setup, Cleanup, Tests | Instantiator}
@@ -622,7 +597,7 @@ map_inputs_idps(Inputs_IdPs, ConversionETS) ->
 %     ].
 
 
-% ----------------------------------------------------------------------------------------------------------------------
+% -------------------------------------------------------------------
 % SPECIFIC SETUP FUNCTIONS ---------------------------------------------------------------------------------------------
 no_setup() ->
     ok.
@@ -630,7 +605,7 @@ no_setup() ->
 no_cleanup(_) ->
     ok.
 
-% ----------------------------------------------------------------------------------------------------------------------
+% -------------------------------------------------------------------
 % ACTUAL TESTS ---------------------------------------------------------------------------------------------------------
 % test_for_print_neuron(_) ->
 %     Neuron = #neuron{bias = 0.0},
@@ -653,7 +628,7 @@ no_cleanup(_) ->
 %%    EList = [#input{}, #output{}, #neuron{}, #cortex{}],
 %%    lazy_for_print_all(EList).
 
-% ----------------------------------------------------------------------------------------------------------------------
+% -------------------------------------------------------------------
 % SPECIFIC HELPER FUNCTIONS --------------------------------------------------------------------------------------------
 
 %%lazy_for_print_all([Element | T]) ->

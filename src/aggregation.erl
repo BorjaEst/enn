@@ -54,19 +54,19 @@ apply_fun(        _Ref,_Tensor,_Bias) ->        error(not_defined).
 %% Internal functions
 %%====================================================================
 
-% ....................................................................
+% -------------------------------------------------------------------
 % TODO: Define specs and comments
 direct(Tensor, _Bias) -> %% TODO:Add bias if separated init for inputs 
     lists:sum([Input || {_, Input} <- Tensor]).
 
-% ....................................................................
+% -------------------------------------------------------------------
 % TODO: Define specs and comments
 dot_product([{Weight, Input} | TensorAcc], Acc) ->
     dot_product(TensorAcc, (Weight * Input) + Acc);
 dot_product([], Acc) ->
     Acc.
 
-% ....................................................................
+% -------------------------------------------------------------------
 % TODO: Define specs and comments
 diff_product(TensorAcc, Bias) ->
     try
@@ -82,19 +82,19 @@ diff_product([{W, I} | TAcc], [{_, Prev_I} | Prev_TAcc], Acc) ->
 diff_product([], [], Acc) ->
     Acc.
 
-% ....................................................................
+% -------------------------------------------------------------------
 % TODO: Define specs and comments
 product([{_, Input} | TensorAcc], Acc) ->
     product(TensorAcc, Input * Acc);
 product([], Acc) ->
     Acc.
 
-% ....................................................................
+% -------------------------------------------------------------------
 % TODO: Define specs and comments
 dot_power(TensorAcc, Bias) ->
     math:pow(?EULER, dot_product(TensorAcc, 0.0)) * Bias.
 
-% ....................................................................
+% -------------------------------------------------------------------
 % TODO: Define specs and comments
 diff_power(TensorAcc, Bias) ->
     math:pow(?EULER, diff_product(TensorAcc, 0.0)) * Bias.

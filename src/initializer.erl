@@ -66,7 +66,7 @@ apply_init(_Ref,     _) -> error(not_defined).
 %% Internal functions
 %%====================================================================
 
-% ....................................................................
+% -------------------------------------------------------------------
 % TODO: Define specs and comments
 zeros(_) -> 
     0.0.
@@ -75,7 +75,7 @@ zeros_test() ->
     Arg = #{},
     ?assertEqual(0.0, zeros(Arg)).
 
-% ....................................................................
+% -------------------------------------------------------------------
 % TODO: Define specs and comments
 ones(_) -> 
     1.0.
@@ -84,7 +84,7 @@ ones_test() ->
     Arg = #{},
     ?assertEqual(1.0, ones(Arg)).
 
-% ....................................................................
+% -------------------------------------------------------------------
 % TODO: Define specs and comments
 constant(Arg) -> 
     ?ARG(scale, Arg).
@@ -94,7 +94,7 @@ constant_test() ->
     L = [F(rand:uniform(10)) || _ <- lists:seq(1, 9)],
     [?assertEqual(V, constant(Arg)) || {V, Arg} <- L].
 
-% ....................................................................
+% -------------------------------------------------------------------
 % TODO: Define specs and comments
 random(#{distribution := normal} = Arg) -> 
     Mean   = ?ARG(mean,   Arg, 0.00),
@@ -117,7 +117,7 @@ random_test() ->
     % Undefined distribution raises an error
     ?assertError(function_clause, random(#{})).
     
-% ....................................................................
+% -------------------------------------------------------------------
 % TODO: Define specs and comment
 vscal(Arg) -> 
     Scale = ?ARG(scale, Arg, 1.0),

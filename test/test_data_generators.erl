@@ -26,7 +26,7 @@
 %%% Defined Neural Architectures
 %%%===================================================================
 
-% ......................................................................................................................
+% -------------------------------------------------------------------
 % TODO: Define specs and comments
 static_xor_of_inputs(2, 1, N_Loops) ->
     Static_Inputs  = [-1, +1],
@@ -34,7 +34,7 @@ static_xor_of_inputs(2, 1, N_Loops) ->
     Outputs = [[do_xor(In1, In2)] || [In1, In2] <- Inputs],
     {Inputs, Outputs}.
 
-% ......................................................................................................................
+% -------------------------------------------------------------------
 % TODO: Define specs and comments
 cyclic_xor_of_inputs(2, 1, N_Loops) ->
     In = [[-1, -1], [-1, 1], [1, -1], [1, 1]],
@@ -42,14 +42,14 @@ cyclic_xor_of_inputs(2, 1, N_Loops) ->
     Outputs = [[do_xor(In1, In2)] || [In1, In2] <- Inputs],
     {Inputs, Outputs}.
 
-% ......................................................................................................................
+% -------------------------------------------------------------------
 % TODO: Define specs and comments
 random_xor_of_inputs(2, 1, N_Loops) ->
     Inputs = [[rand:uniform(2) * 2 - 3, rand:uniform(2) * 2 - 3] || _ <- lists:seq(1, N_Loops)],
     Outputs = [[do_xor(In1, In2)] || [In1, In2] <- Inputs],
     {Inputs, Outputs}.
 
-% ......................................................................................................................
+% -------------------------------------------------------------------
 % TODO: Define specs and comments
 static_sum_of_inputs(N_Inputs, N_Outputs, N_Loops) ->
     Static_Inputs = [rand:uniform() - 0.5 || _ <- lists:seq(1, N_Inputs)],
@@ -57,7 +57,7 @@ static_sum_of_inputs(N_Inputs, N_Outputs, N_Loops) ->
     Outputs = [lists:duplicate(N_Outputs, lists:sum(InList)) || InList <- Inputs],
     {Inputs, Outputs}.
 
-% ......................................................................................................................
+% -------------------------------------------------------------------
 % TODO: Define specs and comments
 random_sum_of_inputs(N_Inputs, N_Outputs, N_Loops) ->
     Inputs = [[rand:uniform() - 0.5 || _ <- lists:seq(1, N_Inputs)] || _ <- lists:seq(1, N_Loops)],
@@ -65,7 +65,7 @@ random_sum_of_inputs(N_Inputs, N_Outputs, N_Loops) ->
     {Inputs, Outputs}.
 
 
-% ......................................................................................................................
+% -------------------------------------------------------------------
 % TODO: Define specs and comments
 random_mult_of_inputs(N_Inputs, N_Outputs, N_Loops) ->
     Inputs = [[2*rand:uniform() - 1 || _ <- lists:seq(1, N_Inputs)] || _ <- lists:seq(1, N_Loops)],
@@ -73,14 +73,14 @@ random_mult_of_inputs(N_Inputs, N_Outputs, N_Loops) ->
     {Inputs, Outputs}.
 
 
-% ......................................................................................................................
+% -------------------------------------------------------------------
 % TODO: Define specs and comments
 inputs_always_0(N_Inputs, N_Outputs, N_Loops) ->
     Inputs = [[0.0 || _ <- lists:seq(1, N_Inputs)] || _ <- lists:seq(1, N_Loops)],
     Outputs = [[(rand:uniform() - 0.5) * 2 || _ <- lists:seq(1, N_Outputs)] || _ <- Inputs],
     {Inputs, Outputs}.
 
-% ......................................................................................................................
+% -------------------------------------------------------------------
 % TODO: Define specs and comments
 sequence_of_1_input(1, 1, N_Loops) ->
     Inputs = [[rand:uniform(10) / 10.0] || _ <- lists:seq(1, N_Loops)],
@@ -92,7 +92,7 @@ sequence_of_1_input(1, 1, N_Loops) ->
 %%% Internal functions
 %%%===================================================================
 
-% ......................................................................................................................
+% -------------------------------------------------------------------
 do_xor(In1, In2) when (In1 == 1) xor (In2 == 1) -> 1.0;
 do_xor(_, _)                                    -> -1.0.
 

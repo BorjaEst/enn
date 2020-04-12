@@ -177,7 +177,7 @@ my_test_case_example(_Config) ->
 % --------------------------------------------------------------------
 % TESTS --------------------------------------------------------------
 
-% ....................................................................
+% -------------------------------------------------------------------
 xor_gate_static_inputs() ->
     [].
 xor_gate_static_inputs(_Config) ->
@@ -187,7 +187,7 @@ xor_gate_static_inputs(_Config) ->
     ),
     console_print_loss(?FUNCTION_NAME, Loss10).
 
-% ....................................................................
+% -------------------------------------------------------------------
 xor_gate_random_inputs() ->
     [].
 xor_gate_random_inputs(_Config) ->
@@ -197,7 +197,7 @@ xor_gate_random_inputs(_Config) ->
     ),
     console_print_loss(?FUNCTION_NAME, Loss10).
 
-% ....................................................................
+% -------------------------------------------------------------------
 addition_static_inputs() ->
     [].
 addition_static_inputs(_Config) ->
@@ -207,7 +207,7 @@ addition_static_inputs(_Config) ->
     ),
     console_print_loss(?FUNCTION_NAME, Loss10).
 
-% ....................................................................
+% -------------------------------------------------------------------
 addition_random_inputs() ->
     [].
 addition_random_inputs(_Config) ->
@@ -217,7 +217,7 @@ addition_random_inputs(_Config) ->
     ),
     console_print_loss(?FUNCTION_NAME, Loss10).
 
-% ....................................................................
+% -------------------------------------------------------------------
 mult_random_inputs() ->
     [].
 mult_random_inputs(_Config) ->
@@ -227,7 +227,7 @@ mult_random_inputs(_Config) ->
     ),
     console_print_loss(?FUNCTION_NAME, Loss10).
 
-% ....................................................................
+% -------------------------------------------------------------------
 sequence_1_input() ->
     [].
 sequence_1_input(_Config) ->
@@ -236,7 +236,7 @@ sequence_1_input(_Config) ->
         _Data  = fun test_data_generators:sequence_of_1_input/3
     ).
 
-% ....................................................................
+% -------------------------------------------------------------------
 weights_0_network() ->
     [].
 weights_0_network(_Config) ->
@@ -245,7 +245,7 @@ weights_0_network(_Config) ->
         _Data  = fun test_data_generators:inputs_always_0/3
     ).
 
-% ....................................................................
+% -------------------------------------------------------------------
 random_dense_random_inputs() ->
     [].
 random_dense_random_inputs(_Config) ->
@@ -260,7 +260,7 @@ random_dense_random_inputs(_Config) ->
 % --------------------------------------------------------------------
 % SPECIFIC HELPER FUNCTIONS ------------------------------------------
 
-% ....................................................................
+% -------------------------------------------------------------------
 test_model(FileName, Model, Training) ->
     ok = correct_model_compilation(Model),
     ok = correct_model_start(),
@@ -268,7 +268,7 @@ test_model(FileName, Model, Training) ->
     ok           = correct_model_stop(),
     {ok, Loss10}.
 
-% ....................................................................
+% -------------------------------------------------------------------
 correct_model_compilation(Model) ->
     ?HEAD("Correct model compilation .............................."),
     Cx_Id    = enn:compile(Model), ?INFO("Model", Model),
@@ -279,13 +279,13 @@ correct_model_compilation(Model) ->
     put( n_id,  N_Id),
     ?END(ok).
 
-% ....................................................................
+% -------------------------------------------------------------------
 correct_model_start() ->
     ?HEAD("Correct neural network start form a cortex id .........."),
     _Cortex_Id = enn:start(get(cx_id)), % Ret Cx_id for non_comp start
     ?END(ok).
 
-% ....................................................................
+% -------------------------------------------------------------------
 correct_model_training(FileName, Training) ->
     ?HEAD("Correct fit of model using backpropagation ............."),
     Cx_Id = get(cx_id),
@@ -296,7 +296,7 @@ correct_model_training(FileName, Training) ->
     [Loss] = enn:run(Cx_Id, Inputs, Optimas, Options),
     ?END({ok, average(Loss, 10)}).
 
-% ....................................................................
+% -------------------------------------------------------------------
 correct_model_stop() ->
     ?HEAD("Correct neural network stop form a cortex id ..........."),
     Neuron_BeforeTraining = edb:read(get(n_id)), 
@@ -311,7 +311,7 @@ correct_model_stop() ->
 % --------------------------------------------------------------------
 % RESULTS CONSOLE PRINT ----------------------------------------------
 
-% ....................................................................
+% -------------------------------------------------------------------
 average(List, N) when length(List) >= N ->
     NdArray = ndarray:new([length(List)], List),
     NdAMean = numerl:mean(ndarray:reshape(NdArray, [-1,N]), 0),
@@ -319,7 +319,7 @@ average(List, N) when length(List) >= N ->
 average(List, N) when length(List) < N  -> 
     List.
 
-% ....................................................................
+% -------------------------------------------------------------------
 console_print_loss(FunName, LossList) -> 
     Step = round(?TRAINING_LINES/length(LossList)),
     Seq  = lists:zip(lists:seq(1, length(LossList)), 
