@@ -79,7 +79,7 @@ check_type([recurrent | Ts], L) -> check_type(Ts, [{recurrent, true} | L]);
 check_type(              [], L) -> {ok, L};
 check_type(               _, _) -> error.
 
-set_type([{recurrent,N} | Ks], NN) -> set_type(Ks, NN#network{recurrent = N});
+set_type([{recurrent,X} | Ks], NN) -> set_type(Ks, NN#network{recurrent = X});
 set_type(                  [], NN) -> NN.
 
 %%-------------------------------------------------------------------
@@ -150,8 +150,8 @@ new_neuron_id(NN) ->
 
 
 -spec do_add_neuron({neuron(), label()}, network()) -> neuron().
-do_add_neuron({N, _Label} = VL, NN) ->
-    ets:insert(NN#network.ntab, VL),
+do_add_neuron({N, _Label} = NL, NN) ->
+    ets:insert(NN#network.ntab, NL),
     N.
 
 
