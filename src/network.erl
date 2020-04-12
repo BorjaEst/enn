@@ -119,6 +119,9 @@ info(NN) ->
 
 %%-------------------------------------------------------------------
 %% @doc Adds a neuron to the network.  
+%%
+%% TODO: A neuron must have at least 1 direct input
+%% TODO: How to differenciate the direct from recurrent?
 %% @end
 %%-------------------------------------------------------------------
 -spec add_neuron(NN) -> neuron() when
@@ -200,13 +203,21 @@ neurons(NN) ->
 
 
 
--spec source_neurons(network()) -> [neuron()].
 
+
+
+
+
+
+
+
+
+
+-spec source_neurons(network()) -> [neuron()].
 source_neurons(NN) ->
     collect_neurons(NN, in).
 
 -spec sink_neurons(network()) -> [neuron()].
-
 sink_neurons(NN) ->
     collect_neurons(NN, out).
 
