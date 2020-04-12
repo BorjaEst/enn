@@ -29,7 +29,6 @@
 -record(network, {
     vtab = notable   :: ets:tab(),
     ctab = notable   :: ets:tab(),
-    ntab = notable   :: ets:tab(),
     recurrent = true :: boolean()
 }).
 
@@ -44,87 +43,71 @@
 -type add_conn_err_rsn() :: {'bad_conn', Path :: [neuron()]}
                           | {'bad_neuron',  V ::  neuron() }.
 
+-define(VTAB_CONFIGUTATION, [set, public, { read_concurrency,true}]).
+-define(CTAB_CONFIGUTATION, [set, public, {write_concurrency,true}]).
+
 
 %%%===================================================================
 %%% API
 %%%==================================================================
 
-%%--------------------------------------------------------------------
-%% @doc The neuron initialization.  
+%%-------------------------------------------------------------------
+%% @doc Creates a new network.  
 %% @end
 %%-------------------------------------------------------------------
 -spec new() -> network().
-new() -> new([]).
+new() -> new(recurrent).
 
 -spec new(Type) -> network() when
       Type :: [d_type()].
-
 new(Type) ->
-    case check_type(Type, protected, []) of
-    {Access, Ts} ->
-        V = ets:new(neurons, [set, Access]),
-        C = ets:new(conns, [set, Access]),
-        N = ets:new(neighbours, [bag, Access]),
+    case check_type(Type, []) of
+    {ok, Ts} ->
+        V = ets:new(neurons, ?VTAB_CONFIGUTATION),
+        C = ets:new(  conns, ?CTAB_CONFIGUTATION),
         ets:insert(N, [{'$vid', 0}, {'$eid', 0}]),
         set_type(Ts, #network{vtab=V, ctab=C, ntab=N});
     error ->
         erlang:error(badarg)
     end.
 
-%%
-%% Check type of network
-%%
-%-spec check_type([d_type()], d_protection(), [{'recurrent', boolean()}]) ->
-%           {d_protection(), [{'recurrent', boolean()}]}.
+check_type([sequential| Ts], L) -> check_type(Ts, [{recurrent,false} | L]);
+check_type([recurrent | Ts], L) -> check_type(Ts, [{recurrent, true} | L]);
+check_type(              [], L) -> {ok, L};
+check_type(               _, _) -> error.
 
-check_type([sequential|Ts], A, L) ->
-    check_type(Ts, A,[{recurrent,false} | L]);
-check_type([recurrent | Ts], A, L) ->
-    check_type(Ts, A, [{recurrent,true} | L]);
-check_type([protected | Ts], _, L) ->
-    check_type(Ts, protected, L);
-check_type([private | Ts], _, L) ->
-    check_type(Ts, private, L);
-check_type([], A, L) -> {A, L};
-check_type(_, _, _) -> error.
+set_type([{recurrent,V} | Ks], N) -> set_type(Ks, N#network{recurrent = V});
+set_type(                  [], N) -> N.
 
-%%
-%% Set network type
-%%
--spec set_type([{'recurrent', boolean()}], network()) -> network().
-
-set_type([{recurrent,V} | Ks], N) ->
-    set_type(Ks, N#network{recurrent = V});
-set_type([], N) -> N.
-
-
-%% Data access functions
-
+%%-------------------------------------------------------------------
+%% @doc Deletes a network.  
+%% @end
+%%-------------------------------------------------------------------
 -spec delete(N) -> 'true' when
       N :: network().
-
 delete(N) ->
     ets:delete(N#network.vtab),
-    ets:delete(N#network.ctab),
-    ets:delete(N#network.ntab).
+    ets:delete(N#network.ctab).
 
+%%-------------------------------------------------------------------
+%% @doc Information from the network.  
+%% @end
+%%-------------------------------------------------------------------
 -spec info(N) -> InfoList when
       N :: network(),
-      InfoList :: [{'to_replaceeeeeeee', To_replaceeeeeeee :: d_to_replaceeeeeeee()} |
-                   {'memory', NoWords :: non_neg_integer()} |
-                   {'protection', Protection :: d_protection()}].
+      InfoList :: [{'type', Type :: d_type()} |
+                   {'memory', NoWords :: non_neg_integer()}].
 
 info(N) ->
     VT = N#network.vtab,
     ET = N#network.ctab,
-    NT = N#network.ntab,
-    To_replaceeeeeeee = case N#network.recurrent of
+    Type = case N#network.recurrent of
             true  -> recurrent;
             false -> sequential
         end,
     Protection = ets:info(VT, protection),
-    Memory = ets:info(VT, memory) + ets:info(ET, memory) + ets:info(NT, memory),
-    [{to_replaceeeeeeee, To_replaceeeeeeee}, {memory, Memory}, {protection, Protection}].
+    Memory = ets:info(VT, memory) + ets:info(ET, memory),
+    [{type, Type}, {memory, Memory}, {protection, Protection}].
 
 -spec add_neuron(N) -> neuron() when
       N :: network().
