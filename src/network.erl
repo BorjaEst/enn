@@ -140,43 +140,56 @@ add_neuron(NN, N, D) ->
     ets:insert(NN#network.ntab, {N, D}),
     N.
 
-
-
-
-
-
-
-
-
-
-
+%%-------------------------------------------------------------------
+%% @doc Deletes a neuron from the network.  
+%% @end
+%%-------------------------------------------------------------------
 -spec del_neuron(NN, N) -> 'true' when
       NN :: network(),
-      N :: neuron().
+      N  :: neuron().
 del_neuron(NN, N) ->
-    do_del_neuron(N, NN).
+    do_del_nconns(ets:lookup(NN#network.gtab, {in, N}), NN),
+    do_del_nconns(ets:lookup(NN#network.gtab, {out, N}), NN),
+    % <- Probably delete from mnesia
+    ets:delete(NN#network.ntab, N).
 
 -spec del_neurons(NN, Neurons) -> 'true' when
       NN :: network(),
       Neurons :: [neuron()].
-del_neurons(NN, Vs) -> 
-    do_del_neurons(Vs, NN).
+del_neurons(NN, [N | Ns]) -> 
+    del_neuron(N, NN),
+    del_neurons(Ns, NN);
+del_neurons([], #network{}) -> true.
 
+%%-------------------------------------------------------------------
+%% @doc Returns the neuron with the attached information or false if 
+%% the neuron does not belong to that network.  
+%% @end
+%%-------------------------------------------------------------------
 -spec neuron(NN, N) -> {N, Label} | 'false' when
       NN :: network(),
       N :: neuron(),
       Label :: label().
 neuron(NN, N) ->
     case ets:lookup(NN#network.ntab, N) of
-    [] -> false;
+    []       -> false;
     [Neuron] -> Neuron
     end.
 
+%%-------------------------------------------------------------------
+%% @doc Returns the number of neurons of the network.  
+%% @end
+%%-------------------------------------------------------------------
 -spec no_neurons(NN) -> non_neg_integer() when
       NN :: network().
-
 no_neurons(NN) ->
     ets:info(NN#network.ntab, size).
+
+
+
+
+
+
 
 -spec neurons(NN) -> Neurons when
       NN :: network(),
@@ -352,26 +365,18 @@ collect_elems([], _, _, Acc) -> Acc.
 %% Collect either source or sink neurons.
 %%
 collect_neurons(NN, Type) ->
-    Vs = neurons(NN),
+    Ns = neurons(NN),
     lists:foldl(fun(N, A) ->
             case ets:member(NN#network.gtab, {Type, N}) of
                 true -> A;
                 false -> [N|A]
             end
-        end, [], Vs).
+        end, [], Ns).
 
 %%
 %% Delete neurons
 %%
-do_del_neurons([N | Vs], NN) ->
-    do_del_neuron(N, NN),
-    do_del_neurons(Vs, NN);
-do_del_neurons([], #network{}) -> true.
 
-do_del_neuron(N, NN) ->
-    do_del_nconns(ets:lookup(NN#network.gtab, {in, N}), NN),
-    do_del_nconns(ets:lookup(NN#network.gtab, {out, N}), NN),
-    ets:delete(NN#network.ntab, N).
 
 do_del_nconns([{_, C}|Ns], NN) ->
     case ets:lookup(NN#network.ctab, C) of
@@ -403,9 +408,9 @@ do_del_conn(C, V1, V2, NN) ->
 
 -spec rm_conns([neuron(),...], network()) -> 'true'.
 
-rm_conns([V1, V2|Vs], NN) ->
+rm_conns([V1, V2|Ns], NN) ->
     rm_conn(V1, V2, NN),
-    rm_conns([V2|Vs], NN);
+    rm_conns([V2|Ns], NN);
 rm_conns(_, _) -> true.
 
 -spec rm_conn(neuron(), neuron(), network()) -> 'ok'.
@@ -511,7 +516,7 @@ get_cycle(NN, N) ->
         true -> [N];
         false -> false
         end;
-    Vs -> Vs
+    Ns -> Ns
     end.
 
 %%
@@ -544,15 +549,15 @@ one_path([W|Ws], W, Cont, Xs, Ps, Prune, NN, Counter) ->
     short -> one_path(Ws, W, Cont, Xs, Ps, Prune, NN, Counter);
     ok -> lists:reverse([W|Ps])
     end;
-one_path([N|Vs], W, Cont, Xs, Ps, Prune, NN, Counter) ->
+one_path([N|Ns], W, Cont, Xs, Ps, Prune, NN, Counter) ->
     case lists:member(N, Xs) of
-    true ->  one_path(Vs, W, Cont, Xs, Ps, Prune, NN, Counter);
+    true ->  one_path(Ns, W, Cont, Xs, Ps, Prune, NN, Counter);
     false -> one_path(out_neighbours(NN, N), W, 
-              [{Vs,Ps} | Cont], [N|Xs], [N|Ps], 
+              [{Ns,Ps} | Cont], [N|Xs], [N|Ps], 
               Prune, NN, Counter+1)
     end;
-one_path([], W, [{Vs,Ps}|Cont], Xs, _, Prune, NN, Counter) ->
-    one_path(Vs, W, Cont, Xs, Ps, Prune, NN, Counter-1);
+one_path([], W, [{Ns,Ps}|Cont], Xs, _, Prune, NN, Counter) ->
+    one_path(Ns, W, Cont, Xs, Ps, Prune, NN, Counter-1);
 one_path([], _, [], _, _, _, _, _Counter) -> false.
 
 %%
