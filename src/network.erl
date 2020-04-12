@@ -2,6 +2,10 @@
 %%% @author borja
 %%% @doc
 %%%
+%%%
+%%%
+%%% TODO: Add cortex? Start? End?
+%%%
 %%% @end
 %%%-------------------------------------------------------------------
 -module(network).
@@ -120,38 +124,20 @@ info(NN) ->
 -spec add_neuron(NN) -> neuron() when
       NN :: network().
 add_neuron(NN) ->
-    do_add_neuron({new_neuron_id(NN), []}, NN).
+    add_neuron(NN, neuron:new()).
 
 -spec add_neuron(NN, N) -> neuron() when
       NN :: network(),
-      N :: neuron().
+      N  :: neuron().
 add_neuron(NN, N) ->
-    do_add_neuron({N, []}, NN).
+    add_neuron(NN, N, #{}).
 
 -spec add_neuron(NN, N, Label) -> neuron() when
       NN :: network(),
-      N :: neuron(),
+      N  :: neuron(),
       Label :: label().
 add_neuron(NN, N, D) ->
-    do_add_neuron({N, D}, NN).
-
-
-%%
-%% Generate a "unique" neuron identifier (relative to this network)
-%%
--dialyzer({no_improper_lists, new_neuron_id/1}).
--spec new_neuron_id(network()) -> neuron().
-new_neuron_id(NN) ->
-    GT = NN#network.gtab,
-    [{'$vid', K}] = ets:lookup(GT, '$vid'),
-    true = ets:delete(GT, '$vid'),
-    true = ets:insert(GT, {'$vid', K+1}),
-    ['$v' | K].
-
-
--spec do_add_neuron({neuron(), label()}, network()) -> neuron().
-do_add_neuron({N, _Label} = NL, NN) ->
-    ets:insert(NN#network.ntab, NL),
+    ets:insert(NN#network.ntab, {N, D}),
     N.
 
 
