@@ -42,7 +42,7 @@
 -type d_type()  :: 'sequential' | 'recurrent'.
 
 -type add_conn_err_rsn() :: {'bad_conn', Path :: [neuron()]}
-                          | {'bad_neuron',  V ::  neuron() }.
+                          | {'bad_neuron',  N ::  neuron() }.
 
 -define(VTAB_CONFIGUTATION, [set, public, { read_concurrency,true}]).
 -define(CTAB_CONFIGUTATION, [set, public, {write_concurrency,true}]).
@@ -65,11 +65,11 @@ new() -> new(recurrent).
 new(Type) ->
     case check_type(Type, []) of
     {ok, Ts} ->
-        V = ets:new(   neurons, ?VTAB_CONFIGUTATION),
+        N = ets:new(   neurons, ?VTAB_CONFIGUTATION),
         C = ets:new(     conns, ?CTAB_CONFIGUTATION),
         NN = ets:new(neighbours, ?CTAB_CONFIGUTATION),
         ets:insert(NN, [{'$vid', 0}, {'$eid', 0}]),
-        set_type(Ts, #network{vtab=V, ctab=C, ntab=NN});
+        set_type(Ts, #network{vtab=N, ctab=C, ntab=NN});
     error ->
         erlang:error(badarg)
     end.
@@ -79,7 +79,7 @@ check_type([recurrent | Ts], L) -> check_type(Ts, [{recurrent, true} | L]);
 check_type(              [], L) -> {ok, L};
 check_type(               _, _) -> error.
 
-set_type([{recurrent,V} | Ks], NN) -> set_type(Ks, NN#network{recurrent = V});
+set_type([{recurrent,N} | Ks], NN) -> set_type(Ks, NN#network{recurrent = N});
 set_type(                  [], NN) -> NN.
 
 %%-------------------------------------------------------------------
@@ -122,18 +122,18 @@ info(NN) ->
 add_neuron(NN) ->
     do_add_neuron({new_neuron_id(NN), []}, NN).
 
--spec add_neuron(NN, V) -> neuron() when
+-spec add_neuron(NN, N) -> neuron() when
       NN :: network(),
-      V :: neuron().
-add_neuron(NN, V) ->
-    do_add_neuron({V, []}, NN).
+      N :: neuron().
+add_neuron(NN, N) ->
+    do_add_neuron({N, []}, NN).
 
--spec add_neuron(NN, V, Label) -> neuron() when
+-spec add_neuron(NN, N, Label) -> neuron() when
       NN :: network(),
-      V :: neuron(),
+      N :: neuron(),
       Label :: label().
-add_neuron(NN, V, D) ->
-    do_add_neuron({V, D}, NN).
+add_neuron(NN, N, D) ->
+    do_add_neuron({N, D}, NN).
 
 
 %%
@@ -150,9 +150,9 @@ new_neuron_id(NN) ->
 
 
 -spec do_add_neuron({neuron(), label()}, network()) -> neuron().
-do_add_neuron({V, _Label} = VL, NN) ->
+do_add_neuron({N, _Label} = VL, NN) ->
     ets:insert(NN#network.vtab, VL),
-    V.
+    N.
 
 
 
@@ -164,11 +164,11 @@ do_add_neuron({V, _Label} = VL, NN) ->
 
 
 
--spec del_neuron(NN, V) -> 'true' when
+-spec del_neuron(NN, N) -> 'true' when
       NN :: network(),
-      V :: neuron().
-del_neuron(NN, V) ->
-    do_del_neuron(V, NN).
+      N :: neuron().
+del_neuron(NN, N) ->
+    do_del_neuron(N, NN).
 
 -spec del_neurons(NN, Neurons) -> 'true' when
       NN :: network(),
@@ -176,12 +176,12 @@ del_neuron(NN, V) ->
 del_neurons(NN, Vs) -> 
     do_del_neurons(Vs, NN).
 
--spec neuron(NN, V) -> {V, Label} | 'false' when
+-spec neuron(NN, N) -> {N, Label} | 'false' when
       NN :: network(),
-      V :: neuron(),
+      N :: neuron(),
       Label :: label().
-neuron(NN, V) ->
-    case ets:lookup(NN#network.vtab, V) of
+neuron(NN, N) ->
+    case ets:lookup(NN#network.vtab, N) of
     [] -> false;
     [Neuron] -> Neuron
     end.
@@ -209,55 +209,55 @@ source_neurons(NN) ->
 sink_neurons(NN) ->
     collect_neurons(NN, out).
 
--spec in_degree(NN, V) -> non_neg_integer() when
+-spec in_degree(NN, N) -> non_neg_integer() when
       NN :: network(),
-      V :: neuron().
+      N :: neuron().
 
-in_degree(NN, V) ->
-    length(ets:lookup(NN#network.ntab, {in, V})).
+in_degree(NN, N) ->
+    length(ets:lookup(NN#network.ntab, {in, N})).
 
--spec in_neighbours(NN, V) -> Neuron when
+-spec in_neighbours(NN, N) -> Neuron when
       NN :: network(),
-      V :: neuron(),
+      N :: neuron(),
       Neuron :: [neuron()].
 
-in_neighbours(NN, V) ->
+in_neighbours(NN, N) ->
     ET = NN#network.ctab,
     NT = NN#network.ntab,
-    collect_elems(ets:lookup(NT, {in, V}), ET, 2).
+    collect_elems(ets:lookup(NT, {in, N}), ET, 2).
 
--spec in_conns(NN, V) -> Conns when
+-spec in_conns(NN, N) -> Conns when
       NN :: network(),
-      V :: neuron(),
+      N :: neuron(),
       Conns :: [conn()].
 
-in_conns(NN, V) ->
-    ets:select(NN#network.ntab, [{{{in, V}, '$1'}, [], ['$1']}]).
+in_conns(NN, N) ->
+    ets:select(NN#network.ntab, [{{{in, N}, '$1'}, [], ['$1']}]).
 
--spec out_degree(NN, V) -> non_neg_integer() when
+-spec out_degree(NN, N) -> non_neg_integer() when
       NN :: network(),
-      V :: neuron().
+      N :: neuron().
 
-out_degree(NN, V) ->
-    length(ets:lookup(NN#network.ntab, {out, V})).
+out_degree(NN, N) ->
+    length(ets:lookup(NN#network.ntab, {out, N})).
 
--spec out_neighbours(NN, V) -> Neurons when
+-spec out_neighbours(NN, N) -> Neurons when
       NN :: network(),
-      V :: neuron(),
+      N :: neuron(),
       Neurons :: [neuron()].
 
-out_neighbours(NN, V) ->
+out_neighbours(NN, N) ->
     ET = NN#network.ctab,
     NT = NN#network.ntab,
-    collect_elems(ets:lookup(NT, {out, V}), ET, 3).
+    collect_elems(ets:lookup(NT, {out, N}), ET, 3).
 
--spec out_conns(NN, V) -> Conns when
+-spec out_conns(NN, N) -> Conns when
       NN :: network(),
-      V :: neuron(),
+      N :: neuron(),
       Conns :: [conn()].
 
-out_conns(NN, V) ->
-    ets:select(NN#network.ntab, [{{{out, V}, '$1'}, [], ['$1']}]).
+out_conns(NN, N) ->
+    ets:select(NN#network.ntab, [{{{out, N}, '$1'}, [], ['$1']}]).
 
 -spec add_conn(NN, V1, V2) -> conn() | {'error', add_conn_err_rsn()} when
       NN :: network(),
@@ -313,14 +313,14 @@ no_conns(NN) ->
 conns(NN) ->
     ets:select(NN#network.ctab, [{{'$1', '_', '_', '_'}, [], ['$1']}]).
 
--spec conns(NN, V) -> Conns when
+-spec conns(NN, N) -> Conns when
       NN :: network(),
-      V :: neuron(),
+      N :: neuron(),
       Conns :: [conn()].
 
-conns(NN, V) ->
-    ets:select(NN#network.ntab, [{{{out, V},'$1'}, [], ['$1']},
-                {{{in, V}, '$1'}, [], ['$1']}]).
+conns(NN, N) ->
+    ets:select(NN#network.ntab, [{{{out, N},'$1'}, [], ['$1']},
+                {{{in, N}, '$1'}, [], ['$1']}]).
 
 -spec conn(NN, C) -> {C, V1, V2, Label} | 'false' when
       NN :: network(),
@@ -367,25 +367,25 @@ collect_elems([], _, _, Acc) -> Acc.
 %%
 collect_neurons(NN, Type) ->
     Vs = neurons(NN),
-    lists:foldl(fun(V, A) ->
-            case ets:member(NN#network.ntab, {Type, V}) of
+    lists:foldl(fun(N, A) ->
+            case ets:member(NN#network.ntab, {Type, N}) of
                 true -> A;
-                false -> [V|A]
+                false -> [N|A]
             end
         end, [], Vs).
 
 %%
 %% Delete neurons
 %%
-do_del_neurons([V | Vs], NN) ->
-    do_del_neuron(V, NN),
+do_del_neurons([N | Vs], NN) ->
+    do_del_neuron(N, NN),
     do_del_neurons(Vs, NN);
 do_del_neurons([], #network{}) -> true.
 
-do_del_neuron(V, NN) ->
-    do_del_nconns(ets:lookup(NN#network.ntab, {in, V}), NN),
-    do_del_nconns(ets:lookup(NN#network.ntab, {out, V}), NN),
-    ets:delete(NN#network.vtab, V).
+do_del_neuron(N, NN) ->
+    do_del_nconns(ets:lookup(NN#network.ntab, {in, N}), NN),
+    do_del_nconns(ets:lookup(NN#network.ntab, {out, N}), NN),
+    ets:delete(NN#network.vtab, N).
 
 do_del_nconns([{_, C}|Ns], NN) ->
     case ets:lookup(NN#network.ctab, C) of
@@ -505,24 +505,24 @@ del_path(NN, V1, V2) ->
     end.
 
 %%
-%% Find a cycle through V
-%% return the cycle as list of neurons [V ... V]
+%% Find a cycle through N
+%% return the cycle as list of neurons [N ... N]
 %% if no cycle exists false is returned
 %% if only a cycle of length one exists it will be
-%% returned as [V] but only after longer cycles have
+%% returned as [N] but only after longer cycles have
 %% been searched.
 %%
 
--spec get_cycle(NN, V) -> Neurons | 'false' when
+-spec get_cycle(NN, N) -> Neurons | 'false' when
       NN :: network(),
-      V :: neuron(),
+      N :: neuron(),
       Neurons :: [neuron(),...].
 
-get_cycle(NN, V) ->
-    case one_path(out_neighbours(NN, V), V, [], [V], [V], 2, NN, 1) of
+get_cycle(NN, N) ->
+    case one_path(out_neighbours(NN, N), N, [], [N], [N], 2, NN, 1) of
     false ->
-        case lists:member(V, out_neighbours(NN, V)) of
-        true -> [V];
+        case lists:member(N, out_neighbours(NN, N)) of
+        true -> [N];
         false -> false
         end;
     Vs -> Vs
@@ -558,11 +558,11 @@ one_path([W|Ws], W, Cont, Xs, Ps, Prune, NN, Counter) ->
     short -> one_path(Ws, W, Cont, Xs, Ps, Prune, NN, Counter);
     ok -> lists:reverse([W|Ps])
     end;
-one_path([V|Vs], W, Cont, Xs, Ps, Prune, NN, Counter) ->
-    case lists:member(V, Xs) of
+one_path([N|Vs], W, Cont, Xs, Ps, Prune, NN, Counter) ->
+    case lists:member(N, Xs) of
     true ->  one_path(Vs, W, Cont, Xs, Ps, Prune, NN, Counter);
-    false -> one_path(out_neighbours(NN, V), W, 
-              [{Vs,Ps} | Cont], [V|Xs], [V|Ps], 
+    false -> one_path(out_neighbours(NN, N), W, 
+              [{Vs,Ps} | Cont], [N|Xs], [N|Ps], 
               Prune, NN, Counter+1)
     end;
 one_path([], W, [{Vs,Ps}|Cont], Xs, _, Prune, NN, Counter) ->
@@ -573,13 +573,13 @@ one_path([], _, [], _, _, _, _, _Counter) -> false.
 %% Like get_cycle/2, but a cycle of length one is preferred.
 %%
 
--spec get_short_cycle(NN, V) -> Neurons | 'false' when
+-spec get_short_cycle(NN, N) -> Neurons | 'false' when
       NN :: network(),
-      V :: neuron(),
+      N :: neuron(),
       Neurons :: [neuron(),...].
 
-get_short_cycle(NN, V) ->
-    get_short_path(NN, V, V).
+get_short_cycle(NN, N) ->
+    get_short_path(NN, N, N).
 
 %%
 %% Like get_path/3, but using a breadth-first search makes it possible
@@ -623,14 +623,14 @@ spath(Q, NN, Sink, T) ->
         false
     end.
 
-follow_path(V, T, P) ->
-    P1 = [V | P],
-    case out_neighbours(T, V) of
+follow_path(N, T, P) ->
+    P1 = [N | P],
+    case out_neighbours(T, N) of
     [NN] ->
         follow_path(NN, T, P1);
     [] ->
         P1
     end.
 
-queue_out_neighbours(V, NN, Q0) ->
-    lists:foldl(fun(C, Q) -> queue:in(C, Q) end, Q0, out_conns(NN, V)).
+queue_out_neighbours(N, NN, Q0) ->
+    lists:foldl(fun(C, Q) -> queue:in(C, Q) end, Q0, out_conns(NN, N)).
