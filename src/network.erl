@@ -185,18 +185,20 @@ neuron(NN, N) ->
 no_neurons(NN) ->
     ets:info(NN#network.ntab, size).
 
-
-
-
-
-
-
+%%-------------------------------------------------------------------
+%% @doc Returns a list of all neurons of the network.  
+%% @end
+%%-------------------------------------------------------------------
 -spec neurons(NN) -> Neurons when
       NN :: network(),
       Neurons :: [neuron()].
-
 neurons(NN) ->
     ets:select(NN#network.ntab, [{{'$1', '_'}, [], ['$1']}]).
+
+
+
+
+
 
 -spec source_neurons(network()) -> [neuron()].
 
