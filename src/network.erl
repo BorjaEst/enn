@@ -27,10 +27,10 @@
 -export_type([network/0, d_type/0, neuron/0, conn/0, label/0]).
 
 -record(network, {
-    vtab = notable :: ets:tab(),
-    ctab = notable :: ets:tab(),
-    ntab = notable :: ets:tab(),
-    cyclic = true  :: boolean()
+    vtab = notable   :: ets:tab(),
+    ctab = notable   :: ets:tab(),
+    ntab = notable   :: ets:tab(),
+    recurrent = true :: boolean()
 }).
 
 -opaque network() :: #network{}.
@@ -38,6 +38,8 @@
 -type conn()    :: term().
 -type label()   :: term().
 -type neuron()  :: term().
+
+-type d_type()  :: 'sequential' | 'recurrent'.
 
 -type add_conn_err_rsn() :: {'bad_conn', Path :: [neuron()]}
                           | {'bad_neuron',  V ::  neuron() }.
@@ -72,13 +74,13 @@ new(Type) ->
 %%
 %% Check type of network
 %%
-%-spec check_type([d_type()], d_protection(), [{'cyclic', boolean()}]) ->
-%           {d_protection(), [{'cyclic', boolean()}]}.
+%-spec check_type([d_type()], d_protection(), [{'recurrent', boolean()}]) ->
+%           {d_protection(), [{'recurrent', boolean()}]}.
 
-check_type([acyclic|Ts], A, L) ->
-    check_type(Ts, A,[{cyclic,false} | L]);
-check_type([cyclic | Ts], A, L) ->
-    check_type(Ts, A, [{cyclic,true} | L]);
+check_type([sequential|Ts], A, L) ->
+    check_type(Ts, A,[{recurrent,false} | L]);
+check_type([recurrent | Ts], A, L) ->
+    check_type(Ts, A, [{recurrent,true} | L]);
 check_type([protected | Ts], _, L) ->
     check_type(Ts, protected, L);
 check_type([private | Ts], _, L) ->
@@ -89,10 +91,10 @@ check_type(_, _, _) -> error.
 %%
 %% Set network type
 %%
--spec set_type([{'cyclic', boolean()}], network()) -> network().
+-spec set_type([{'recurrent', boolean()}], network()) -> network().
 
-set_type([{cyclic,V} | Ks], N) ->
-    set_type(Ks, N#network{cyclic = V});
+set_type([{recurrent,V} | Ks], N) ->
+    set_type(Ks, N#network{recurrent = V});
 set_type([], N) -> N.
 
 
@@ -108,7 +110,7 @@ delete(N) ->
 
 -spec info(N) -> InfoList when
       N :: network(),
-      InfoList :: [{'cyclicity', Cyclicity :: d_cyclicity()} |
+      InfoList :: [{'to_replaceeeeeeee', To_replaceeeeeeee :: d_to_replaceeeeeeee()} |
                    {'memory', NoWords :: non_neg_integer()} |
                    {'protection', Protection :: d_protection()}].
 
@@ -116,13 +118,13 @@ info(N) ->
     VT = N#network.vtab,
     ET = N#network.ctab,
     NT = N#network.ntab,
-    Cyclicity = case N#network.cyclic of
-            true  -> cyclic;
-            false -> acyclic
+    To_replaceeeeeeee = case N#network.recurrent of
+            true  -> recurrent;
+            false -> sequential
         end,
     Protection = ets:info(VT, protection),
     Memory = ets:info(VT, memory) + ets:info(ET, memory) + ets:info(NT, memory),
-    [{cyclicity, Cyclicity}, {memory, Memory}, {protection, Protection}].
+    [{to_replaceeeeeeee, To_replaceeeeeeee}, {memory, Memory}, {protection, Protection}].
 
 -spec add_neuron(N) -> neuron() when
       N :: network().
@@ -455,7 +457,7 @@ do_add_conn({C, V1, V2, Label}, N) ->
                 true ->
                     case other_conn_exists(N, C, V1, V2) of
                         true -> {error, {bad_conn, [V1, V2]}};
-                        false when N#network.cyclic =:= false ->
+                        false when N#network.recurrent =:= false ->
                             acyclic_add_conn(C, V1, V2, Label, N);
                         false ->
                             do_insert_conn(C, V1, V2, Label, N)
