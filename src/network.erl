@@ -24,7 +24,7 @@
 
 -export([get_short_path/3, get_short_cycle/2]).
 
--export_type([graph/0, d_type/0, neuron/0, conn/0, label/0]).
+-export_type([network/0, d_type/0, neuron/0, conn/0, label/0]).
 
 -record(network, {
     vtab = notable :: ets:tab(),
@@ -33,7 +33,7 @@
     cyclic = true  :: boolean()
 }).
 
--opaque graph() :: #network{}.
+-opaque network() :: #network{}.
 
 -type conn()    :: term().
 -type label()   :: term().
@@ -51,10 +51,10 @@
 %% @doc The neuron initialization.  
 %% @end
 %%-------------------------------------------------------------------
--spec new() -> graph().
+-spec new() -> network().
 new() -> new([]).
 
--spec new(Type) -> graph() when
+-spec new(Type) -> network() when
       Type :: [d_type()].
 
 new(Type) ->
@@ -70,7 +70,7 @@ new(Type) ->
     end.
 
 %%
-%% Check type of graph
+%% Check type of network
 %%
 %-spec check_type([d_type()], d_protection(), [{'cyclic', boolean()}]) ->
 %           {d_protection(), [{'cyclic', boolean()}]}.
@@ -87,9 +87,9 @@ check_type([], A, L) -> {A, L};
 check_type(_, _, _) -> error.
 
 %%
-%% Set graph type
+%% Set network type
 %%
--spec set_type([{'cyclic', boolean()}], graph()) -> graph().
+-spec set_type([{'cyclic', boolean()}], network()) -> network().
 
 set_type([{cyclic,V} | Ks], N) ->
     set_type(Ks, N#network{cyclic = V});
@@ -99,7 +99,7 @@ set_type([], N) -> N.
 %% Data access functions
 
 -spec delete(N) -> 'true' when
-      N :: graph().
+      N :: network().
 
 delete(N) ->
     ets:delete(N#network.vtab),
@@ -107,7 +107,7 @@ delete(N) ->
     ets:delete(N#network.ntab).
 
 -spec info(N) -> InfoList when
-      N :: graph(),
+      N :: network(),
       InfoList :: [{'cyclicity', Cyclicity :: d_cyclicity()} |
                    {'memory', NoWords :: non_neg_integer()} |
                    {'protection', Protection :: d_protection()}].
@@ -125,20 +125,20 @@ info(N) ->
     [{cyclicity, Cyclicity}, {memory, Memory}, {protection, Protection}].
 
 -spec add_neuron(N) -> neuron() when
-      N :: graph().
+      N :: network().
 
 add_neuron(N) ->
     do_add_neuron({new_neuron_id(N), []}, N).
 
 -spec add_neuron(N, V) -> neuron() when
-      N :: graph(),
+      N :: network(),
       V :: neuron().
 
 add_neuron(N, V) ->
     do_add_neuron({V, []}, N).
 
 -spec add_neuron(N, V, Label) -> neuron() when
-      N :: graph(),
+      N :: network(),
       V :: neuron(),
       Label :: label().
 
@@ -146,21 +146,21 @@ add_neuron(N, V, D) ->
     do_add_neuron({V, D}, N).
 
 -spec del_neuron(N, V) -> 'true' when
-      N :: graph(),
+      N :: network(),
       V :: neuron().
 
 del_neuron(N, V) ->
     do_del_neuron(V, N).
 
 -spec del_neurons(N, Neurons) -> 'true' when
-      N :: graph(),
+      N :: network(),
       Neurons :: [neuron()].
 
 del_neurons(N, Vs) -> 
     do_del_neurons(Vs, N).
 
 -spec neuron(N, V) -> {V, Label} | 'false' when
-      N :: graph(),
+      N :: network(),
       V :: neuron(),
       Label :: label().
 
@@ -171,37 +171,37 @@ neuron(N, V) ->
     end.
 
 -spec no_neurons(N) -> non_neg_integer() when
-      N :: graph().
+      N :: network().
 
 no_neurons(N) ->
     ets:info(N#network.vtab, size).
 
 -spec neurons(N) -> Neurons when
-      N :: graph(),
+      N :: network(),
       Neurons :: [neuron()].
 
 neurons(N) ->
     ets:select(N#network.vtab, [{{'$1', '_'}, [], ['$1']}]).
 
--spec source_neurons(graph()) -> [neuron()].
+-spec source_neurons(network()) -> [neuron()].
 
 source_neurons(N) ->
     collect_neurons(N, in).
 
--spec sink_neurons(graph()) -> [neuron()].
+-spec sink_neurons(network()) -> [neuron()].
 
 sink_neurons(N) ->
     collect_neurons(N, out).
 
 -spec in_degree(N, V) -> non_neg_integer() when
-      N :: graph(),
+      N :: network(),
       V :: neuron().
 
 in_degree(N, V) ->
     length(ets:lookup(N#network.ntab, {in, V})).
 
 -spec in_neighbours(N, V) -> Neuron when
-      N :: graph(),
+      N :: network(),
       V :: neuron(),
       Neuron :: [neuron()].
 
@@ -211,7 +211,7 @@ in_neighbours(N, V) ->
     collect_elems(ets:lookup(NT, {in, V}), ET, 2).
 
 -spec in_conns(N, V) -> Conns when
-      N :: graph(),
+      N :: network(),
       V :: neuron(),
       Conns :: [conn()].
 
@@ -219,14 +219,14 @@ in_conns(N, V) ->
     ets:select(N#network.ntab, [{{{in, V}, '$1'}, [], ['$1']}]).
 
 -spec out_degree(N, V) -> non_neg_integer() when
-      N :: graph(),
+      N :: network(),
       V :: neuron().
 
 out_degree(N, V) ->
     length(ets:lookup(N#network.ntab, {out, V})).
 
 -spec out_neighbours(N, V) -> Neurons when
-      N :: graph(),
+      N :: network(),
       V :: neuron(),
       Neurons :: [neuron()].
 
@@ -236,7 +236,7 @@ out_neighbours(N, V) ->
     collect_elems(ets:lookup(NT, {out, V}), ET, 3).
 
 -spec out_conns(N, V) -> Conns when
-      N :: graph(),
+      N :: network(),
       V :: neuron(),
       Conns :: [conn()].
 
@@ -244,7 +244,7 @@ out_conns(N, V) ->
     ets:select(N#network.ntab, [{{{out, V}, '$1'}, [], ['$1']}]).
 
 -spec add_conn(N, V1, V2) -> conn() | {'error', add_conn_err_rsn()} when
-      N :: graph(),
+      N :: network(),
       V1 :: neuron(),
       V2 :: neuron().
 
@@ -252,7 +252,7 @@ add_conn(N, V1, V2) ->
     do_add_conn({new_conn_id(N), V1, V2, []}, N).
 
 -spec add_conn(N, V1, V2, Label) -> conn() | {'error', add_conn_err_rsn()} when
-      N :: graph(),
+      N :: network(),
       V1 :: neuron(),
       V2 :: neuron(),
       Label :: label().
@@ -261,7 +261,7 @@ add_conn(N, V1, V2, D) ->
     do_add_conn({new_conn_id(N), V1, V2, D}, N).
 
 -spec add_conn(N, C, V1, V2, Label) -> conn() | {'error', add_conn_err_rsn()} when
-      N :: graph(),
+      N :: network(),
       C :: conn(),
       V1 :: neuron(),
       V2 :: neuron(),
@@ -271,34 +271,34 @@ add_conn(N, C, V1, V2, D) ->
     do_add_conn({C, V1, V2, D}, N).
 
 -spec del_conn(N, C) -> 'true' when
-      N :: graph(),
+      N :: network(),
       C :: conn().
 
 del_conn(N, C) ->
     do_del_conns([C], N).
 
 -spec del_conns(N, Conns) -> 'true' when
-      N :: graph(),
+      N :: network(),
       Conns :: [conn()].
 
 del_conns(N, Es) ->
     do_del_conns(Es, N).
 
 -spec no_conns(N) -> non_neg_integer() when
-      N :: graph().
+      N :: network().
 
 no_conns(N) ->
     ets:info(N#network.ctab, size).
 
 -spec conns(N) -> Conns when
-      N :: graph(),
+      N :: network(),
       Conns :: [conn()].
 
 conns(N) ->
     ets:select(N#network.ctab, [{{'$1', '_', '_', '_'}, [], ['$1']}]).
 
 -spec conns(N, V) -> Conns when
-      N :: graph(),
+      N :: network(),
       V :: neuron(),
       Conns :: [conn()].
 
@@ -307,7 +307,7 @@ conns(N, V) ->
                 {{{in, V}, '$1'}, [], ['$1']}]).
 
 -spec conn(N, C) -> {C, V1, V2, Label} | 'false' when
-      N :: graph(),
+      N :: network(),
       C :: conn(),
       V1 :: neuron(),
       V2 :: neuron(),
@@ -320,9 +320,9 @@ conn(N, C) ->
     end.
 
 %%
-%% Generate a "unique" conn identifier (relative to this graph)
+%% Generate a "unique" conn identifier (relative to this network)
 %%
--spec new_conn_id(graph()) -> conn().
+-spec new_conn_id(network()) -> conn().
 
 -dialyzer({no_improper_lists, new_conn_id/1}).
 
@@ -334,9 +334,9 @@ new_conn_id(N) ->
     ['$e' | K].
 
 %%
-%% Generate a "unique" neuron identifier (relative to this graph)
+%% Generate a "unique" neuron identifier (relative to this network)
 %%
--spec new_neuron_id(graph()) -> neuron().
+-spec new_neuron_id(network()) -> neuron().
 
 -dialyzer({no_improper_lists, new_neuron_id/1}).
 
@@ -358,7 +358,7 @@ collect_elems([{_,Key}|Keys], Table, Index, Acc) ->
           [ets:lookup_element(Table, Key, Index)|Acc]);
 collect_elems([], _, _, Acc) -> Acc.
 
--spec do_add_neuron({neuron(), label()}, graph()) -> neuron().
+-spec do_add_neuron({neuron(), label()}, network()) -> neuron().
 
 do_add_neuron({V, _Label} = VL, N) ->
     ets:insert(N#network.vtab, VL),
@@ -417,14 +417,14 @@ do_del_conn(C, V1, V2, N) ->
                        {{{out,V1}, C}, [], [true]}]),
     ets:delete(N#network.ctab, C).
 
--spec rm_conns([neuron(),...], graph()) -> 'true'.
+-spec rm_conns([neuron(),...], network()) -> 'true'.
 
 rm_conns([V1, V2|Vs], N) ->
     rm_conn(V1, V2, N),
     rm_conns([V2|Vs], N);
 rm_conns(_, _) -> true.
 
--spec rm_conn(neuron(), neuron(), graph()) -> 'ok'.
+-spec rm_conn(neuron(), neuron(), network()) -> 'ok'.
 
 rm_conn(V1, V2, N) ->
     Es = out_conns(N, V1),
@@ -443,7 +443,7 @@ rm_conn_0([], _, _, #network{}) -> ok.
 %%
 %% Check that endpoints exist
 %%
--spec do_add_conn({conn(), neuron(), neuron(), label()}, graph()) ->
+-spec do_add_conn({conn(), neuron(), neuron(), label()}, network()) ->
     conn() | {'error', add_conn_err_rsn()}.
 
 do_add_conn({C, V1, V2, Label}, N) ->
@@ -471,14 +471,14 @@ other_conn_exists(#network{ctab = ET}, C, V1, V2) ->
             false
     end.
 
--spec do_insert_conn(conn(), neuron(), neuron(), label(), graph()) -> conn().
+-spec do_insert_conn(conn(), neuron(), neuron(), label(), network()) -> conn().
 
 do_insert_conn(C, V1, V2, Label, #network{ntab=NT, ctab=ET}) ->
     ets:insert(NT, [{{out, V1}, C}, {{in, V2}, C}]),
     ets:insert(ET, {C, V1, V2, Label}),
     C.
 
--spec acyclic_add_conn(conn(), neuron(), neuron(), label(), graph()) ->
+-spec acyclic_add_conn(conn(), neuron(), neuron(), label(), network()) ->
     conn() | {'error', {'bad_conn', [neuron()]}}.
 
 acyclic_add_conn(_E, V1, V2, _L, _G) when V1 =:= V2 ->
@@ -494,7 +494,7 @@ acyclic_add_conn(C, V1, V2, Label, N) ->
 %%
 
 -spec del_path(N, V1, V2) -> 'true' when
-      N :: graph(),
+      N :: network(),
       V1 :: neuron(),
       V2 :: neuron().
 
@@ -516,7 +516,7 @@ del_path(N, V1, V2) ->
 %%
 
 -spec get_cycle(N, V) -> Neurons | 'false' when
-      N :: graph(),
+      N :: network(),
       V :: neuron(),
       Neurons :: [neuron(),...].
 
@@ -537,7 +537,7 @@ get_cycle(N, V) ->
 %%
 
 -spec get_path(N, V1, V2) -> Neurons | 'false' when
-      N :: graph(),
+      N :: network(),
       V1 :: neuron(),
       V2 :: neuron(),
       Neurons :: [neuron(),...].
@@ -576,7 +576,7 @@ one_path([], _, [], _, _, _, _, _Counter) -> false.
 %%
 
 -spec get_short_cycle(N, V) -> Neurons | 'false' when
-      N :: graph(),
+      N :: network(),
       V :: neuron(),
       Neurons :: [neuron(),...].
 
@@ -589,7 +589,7 @@ get_short_cycle(N, V) ->
 %%
 
 -spec get_short_path(N, V1, V2) -> Neurons | 'false' when
-      N :: graph(),
+      N :: network(),
       V1 :: neuron(),
       V2 :: neuron(),
       Neurons :: [neuron(),...].
