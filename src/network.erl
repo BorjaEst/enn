@@ -27,7 +27,6 @@
 -export([out_neighbours/2, in_neighbours/2]).
 -export([out_conn/2, in_conn/2, conns/2]).
 -export([out_degree/2, in_degree/2]).
--export([get_path/3, get_cycle/2]).
 
 -export([get_short_path/3, get_short_cycle/2]).
 
@@ -346,7 +345,7 @@ add_conn(NN, N1, N2) ->
 insert_conn(NN, N1, N2) when N1 =:= N2 ->
     insert_rcc_conn(NN, N1, N2, [N1,N2]);
 insert_conn(NN, N1, N2) ->
-    case get_path(NN, N2, N1) of
+    case seq_path(NN, N2, N1) of
         false -> insert_seq_conn(NN, N1, N2);
         Path  -> insert_rcc_conn(NN, N1, N2, Path)
     end.
@@ -397,7 +396,7 @@ no_conn(NN) ->
       NN :: network(),
       Conns :: [conn()].
 conn(NN) ->
-    ets:select(NN#network.ctab, [{{'$1', '_', '_', '_'}, [], ['$1']}]).
+    ets:select(NN#network.ctab, [{{'$1','_','_','_'}, [], ['$1']}]).
 
 %%-------------------------------------------------------------------
 %% @doc Returs all the neuron connections. 
@@ -417,90 +416,6 @@ conn(NN, N) ->
 
 
 
-
-
-
-
--spec rm_conns([neuron(),...], network()) -> 'true'.
-
-rm_conns([N1, N2|Ns], NN) ->
-    rm_conn(N1, N2, NN),
-    rm_conns([N2|Ns], NN);
-rm_conns(_, _) -> true.
-
--spec rm_conn(neuron(), neuron(), network()) -> 'ok'.
-
-rm_conn(N1, N2, NN) ->
-    Cs = out_conn(NN, N1),
-    rm_conn_0(Cs, N1, N2, NN).
-    
-rm_conn_0([C|Cs], N1, N2, NN) ->
-    case ets:lookup(NN#network.ctab, C) of
-    [{C, N1, N2, _}]  ->
-            do_del_conn(C, N1, N2, NN),
-        rm_conn_0(Cs, N1, N2, NN);
-    _ ->
-        rm_conn_0(Cs, N1, N2, NN)
-    end;
-rm_conn_0([], _, _, #network{}) -> ok.
-    
-
-
-%%
-%% Delete all paths from neuron N1 to neuron N2
-%%
-
--spec del_path(NN, N1, N2) -> 'true' when
-      NN :: network(),
-      N1 :: neuron(),
-      N2 :: neuron().
-
-del_path(NN, N1, N2) ->
-    case get_path(NN, N1, N2) of
-    false -> true;
-    Path ->
-        rm_conns(Path, NN),
-        del_path(NN, N1, N2)
-    end.
-
-%%
-%% Find a cycle through N
-%% return the cycle as list of neurons [N ... N]
-%% if no cycle exists false is returned
-%% if only a cycle of length one exists it will be
-%% returned as [N] but only after longer cycles have
-%% been searched.
-%%
-
--spec get_cycle(NN, N) -> Neurons | 'false' when
-      NN :: network(),
-      N :: neuron(),
-      Neurons :: [neuron(),...].
-
-get_cycle(NN, N) ->
-    case one_path(out_neighbours(NN, N), N, [], [N], [N], 2, NN, 1) of
-    false ->
-        case lists:member(N, out_neighbours(NN, N)) of
-        true -> [N];
-        false -> false
-        end;
-    Ns -> Ns
-    end.
-
-%%
-%% Find a path from N1 to N2
-%% return the path as list of neurons [N1 ... N2]
-%% if no path exists false is returned
-%%
-
--spec get_path(NN, N1, N2) -> Neurons | 'false' when
-      NN :: network(),
-      N1 :: neuron(),
-      N2 :: neuron(),
-      Neurons :: [neuron(),...].
-
-get_path(NN, N1, N2) ->
-    one_path(out_neighbours(NN, N1), N2, [], [N1], [N1], 1, NN, 1).
 
 %%
 %% prune_short_path (evaluate conditions on path)
@@ -541,7 +456,7 @@ get_short_cycle(NN, N) ->
     get_short_path(NN, N, N).
 
 %%
-%% Like get_path/3, but using a breadth-first search makes it possible
+%% Like seq_path/3, but using a breadth-first search makes it possible
 %% to find a short path.
 %%
 
@@ -651,4 +566,9 @@ other_conn_exists(#network{ctab = CT}, C, N1, N2) ->
         [{C,V1,V2,_}] when V1=/=N1; V2=/=N2 -> true;
         _                                   -> false
     end.
+
+
+% Finds a path from N1 to N2 ----------------------------------------
+seq_path(NN, N1, N2) ->
+    one_path(out_neighbours(NN, N1), N2, [], [N1], [N1], 1, NN, 1).
 
