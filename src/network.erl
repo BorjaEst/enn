@@ -171,7 +171,7 @@ del_neurons([], #network{}) -> true.
 %%-------------------------------------------------------------------
 -spec neuron(NN, N) -> {N, Label} | 'false' when
       NN :: network(),
-      N :: neuron(),
+      N  :: neuron(),
       Label :: label().
 neuron(NN, N) ->
     case ets:lookup(NN#network.ntab, N) of
@@ -200,41 +200,77 @@ neurons(NN) ->
 
 %%-------------------------------------------------------------------
 %% @doc Returns all neurons in the network which have at least one
+%% input.  
+%% @end
+%%-------------------------------------------------------------------
+-spec sink_neurons(NN) -> Neurons when
+      NN :: network(),
+      Neurons :: [neuron()].
+sink_neurons(NN) ->
+    collect_neurons(NN, out).
+
+%%-------------------------------------------------------------------
+%% @doc Returns all neurons in the network which have at least one
 %% output.  
 %% @end
 %%-------------------------------------------------------------------
--spec source_neurons(network()) -> [neuron()].
+-spec source_neurons(NN) -> Neurons when
+      NN :: network(),
+      Neurons :: [neuron()].
 source_neurons(NN) ->
     collect_neurons(NN, in).
 
 %%-------------------------------------------------------------------
-%% @doc Returns all neurons in the network which have at least one
-%% input.  
+%% @doc Returns the in-degree of neuron N of network NN.  
 %% @end
 %%-------------------------------------------------------------------
--spec sink_neurons(network()) -> [neuron()].
-sink_neurons(NN) ->
-    collect_neurons(NN, out).
-
-
-
-
 -spec in_degree(NN, N) -> non_neg_integer() when
       NN :: network(),
-      N :: neuron().
-
+      N  :: neuron().
 in_degree(NN, N) ->
     length(ets:lookup(NN#network.gtab, {in, N})).
 
--spec in_neighbours(NN, N) -> Neuron when
+%%-------------------------------------------------------------------
+%% @doc Returns the out-degree of neuron N of network NN.  
+%% @end
+%%-------------------------------------------------------------------
+-spec out_degree(NN, N) -> non_neg_integer() when
       NN :: network(),
-      N :: neuron(),
-      Neuron :: [neuron()].
+      N  :: neuron().
+out_degree(NN, N) ->
+    length(ets:lookup(NN#network.gtab, {out, N})).
 
+%%-------------------------------------------------------------------
+%% @doc Returns a list of all in-neighbors of N of network NN. 
+%% @end
+%%-------------------------------------------------------------------
+-spec in_neighbours(NN, N) -> Neurons when
+      NN :: network(),
+      N  :: neuron(),
+      Neurons :: [neuron()].
 in_neighbours(NN, N) ->
     ET = NN#network.ctab,
     GT = NN#network.gtab,
     collect_elems(ets:lookup(GT, {in, N}), ET, 2).
+
+%%-------------------------------------------------------------------
+%% @doc Returns a list of all out-neighbors of N of network NN. 
+%% @end
+%%-------------------------------------------------------------------
+-spec out_neighbours(NN, N) -> Neurons when
+      NN :: network(),
+      N  :: neuron(),
+      Neurons :: [neuron()].
+out_neighbours(NN, N) ->
+    ET = NN#network.ctab,
+    GT = NN#network.gtab,
+    collect_elems(ets:lookup(GT, {out, N}), ET, 3).
+
+
+
+
+
+
 
 -spec in_conns(NN, N) -> Conns when
       NN :: network(),
@@ -244,22 +280,9 @@ in_neighbours(NN, N) ->
 in_conns(NN, N) ->
     ets:select(NN#network.gtab, [{{{in, N}, '$1'}, [], ['$1']}]).
 
--spec out_degree(NN, N) -> non_neg_integer() when
-      NN :: network(),
-      N :: neuron().
 
-out_degree(NN, N) ->
-    length(ets:lookup(NN#network.gtab, {out, N})).
 
--spec out_neighbours(NN, N) -> Neurons when
-      NN :: network(),
-      N :: neuron(),
-      Neurons :: [neuron()].
 
-out_neighbours(NN, N) ->
-    ET = NN#network.ctab,
-    GT = NN#network.gtab,
-    collect_elems(ets:lookup(GT, {out, N}), ET, 3).
 
 -spec out_conns(NN, N) -> Conns when
       NN :: network(),
