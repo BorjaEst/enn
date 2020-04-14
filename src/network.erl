@@ -152,13 +152,11 @@ add_neuron(NN, N) ->
 -spec del_neuron(NN, N) -> 'true' when
       NN :: network(),
       N  :: neuron().
-del_neuron(NN, N) ->
-    do_del_nconns(ets:lookup(NN#network.dtab, {in, N}), NN),
-    do_del_nconns(ets:lookup(NN#network.rtab, {in, N}), NN),
-    do_del_nconns(ets:lookup(NN#network.dtab, {out, N}), NN),
-    do_del_nconns(ets:lookup(NN#network.rtab, {out, N}), NN),
-    % <- Probably delete from mnesia
-    ets:delete(NN#network.ntab, N).
+del_neuron(NN, N1) ->
+    [del_conn(NN, N1, N2) || N2 <- out_neighbours(NN, N1)],
+    [del_conn(NN, N2, N1) || N2 <-  in_neighbours(NN, N1)],
+    neuron:delete(N1),
+    ets:delete(NN#network.ntab, N1).
 
 %%-------------------------------------------------------------------
 %% @doc Returns the neuron with the attached information or false if 
@@ -435,22 +433,6 @@ conn(NN, C) ->
     [Conn] -> Conn
     end.
 
-%%
-%% Generate a "unique" conn identifier (relative to this network)
-%%
--spec new_conn_id(network()) -> conn().
-
--dialyzer({no_improper_lists, new_conn_id/1}).
-
-new_conn_id(NN) ->
-    DT = NN#network.dtab,
-    [{'$eid', K}] = ets:lookup(DT, '$eid'),
-    true = ets:delete(DT, '$eid'),
-    true = ets:insert(DT, {'$eid', K+1}),
-    ['$e' | K].
-
-
-
 
 
 %%
@@ -458,15 +440,6 @@ new_conn_id(NN) ->
 %%
 
 
-do_del_nconns([{_, C}|Ns], NN) ->
-    case ets:lookup(NN#network.ctab, C) of
-    [{C, N1, N2, _}] ->
-        do_del_conn(C, N1, N2, NN),
-        do_del_nconns(Ns, NN);
-    [] -> % cannot happen
-        do_del_nconns(Ns, NN)
-    end;
-do_del_nconns([], #network{}) -> true.
 
 %%
 %% Delete conns
