@@ -17,7 +17,7 @@
 -export([new/0, new/1, delete/1, info/1]).
 
 -export([add_neuron/1, add_neuron/2, del_neuron/2]).
--export([neuron/2, no_neurons/1, neurons/1]).
+-export([no_neurons/1, neurons/1]).
 -export([source_neurons/1, source_neurons/2]).
 -export([sink_neurons/1, sink_neurons/2]).
 
@@ -28,7 +28,7 @@
 -export([out_conn/2, in_conn/2]).
 -export([out_degree/2, in_degree/2]).
 
--export_type([network/0, d_type/0, neuron/0, conn/0, label/0]).
+-export_type([network/0, d_type/0, neuron/0, conn/0]).
 
 -record(network, {
     ntab = notable   :: ets:tab(),
@@ -38,12 +38,10 @@
     recurrent = true :: boolean()
 }).
 
--opaque network() :: #network{}.
+-type network() :: #network{}.
 
 -type conn()    :: term().
--type label()   :: term().
 -type neuron()  :: term().
-
 -type d_type()  :: 'sequential' | 'recurrent'.
 
 -type add_conn_err_rsn() :: {'bad_conn', Path :: [neuron()]}
@@ -154,21 +152,6 @@ del_neuron(NN, N1) ->
     [del_conn(NN, N2, N1) || N2 <-  in_neighbours(NN, N1)],
     neuron:delete(N1),
     ets:delete(NN#network.ntab, N1).
-
-%%-------------------------------------------------------------------
-%% @doc Returns the neuron with the attached information or false if 
-%% the neuron does not belong to that network.  
-%% @end
-%%-------------------------------------------------------------------
--spec neuron(NN, N) -> {N, Label} | 'false' when
-      NN :: network(),
-      N  :: neuron(),
-      Label :: label().
-neuron(NN, N) ->
-    case ets:lookup(NN#network.ntab, N) of
-    []       -> false;
-    [Neuron] -> Neuron
-    end.
 
 %%-------------------------------------------------------------------
 %% @doc Returns the number of neurons of the network.  
