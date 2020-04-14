@@ -45,10 +45,10 @@
 -type add_conn_err_rsn() :: {'bad_conn', Path :: [neuron()]}
                           | {'bad_neuron',  N ::  neuron() }.
 
--define(NTAB_CONFIGUTATION, [set, public, { read_concurrency,true}]).
--define(CTAB_CONFIGUTATION, [set, public, {write_concurrency,true}]).
--define(DTAB_CONFIGUTATION, [set, public, {write_concurrency,true}]).
--define(RTAB_CONFIGUTATION, [set, public, {write_concurrency,true}]).
+-define(NTAB_CONFIGUTATION, [set,protected,{read_concurrency,true}]).
+-define(CTAB_CONFIGUTATION, [set,protected,{read_concurrency,true}]).
+-define(DTAB_CONFIGUTATION, [set,protected,{read_concurrency,true}]).
+-define(RTAB_CONFIGUTATION, [set,protected,{read_concurrency,true}]).
 
 
 %%%===================================================================
