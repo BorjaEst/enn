@@ -21,7 +21,7 @@
 -export([source_neurons/1, source_neurons/2]).
 -export([sink_neurons/1, sink_neurons/2]).
 
--export([add_conn/3, del_conn/3, del_path/3]).
+-export([add_conn/3, del_conn/3]).
 -export([no_conn/1, conn/1, conn/2]).
 
 -export([out_neighbours/2, in_neighbours/2]).
@@ -417,31 +417,7 @@ conn(NN, N) ->
 
 
 
-%%
-%% prune_short_path (evaluate conditions on path)
-%% short : if path is too short
-%% ok    : if path is ok
-%%
-prune_short_path(Counter, Min) when Counter < Min ->
-    short;
-prune_short_path(_Counter, _Min) ->
-    ok.
 
-one_path([W|Ws], W, Cont, Xs, Ps, Prune, NN, Counter) ->
-    case prune_short_path(Counter, Prune) of
-    short -> one_path(Ws, W, Cont, Xs, Ps, Prune, NN, Counter);
-    ok -> lists:reverse([W|Ps])
-    end;
-one_path([N|Ns], W, Cont, Xs, Ps, Prune, NN, Counter) ->
-    case lists:member(N, Xs) of
-    true ->  one_path(Ns, W, Cont, Xs, Ps, Prune, NN, Counter);
-    false -> one_path(out_neighbours(NN, N), W, 
-              [{Ns,Ps} | Cont], [N|Xs], [N|Ps], 
-              Prune, NN, Counter+1)
-    end;
-one_path([], W, [{Ns,Ps}|Cont], Xs, _, Prune, NN, Counter) ->
-    one_path(Ns, W, Cont, Xs, Ps, Prune, NN, Counter-1);
-one_path([], _, [], _, _, _, _, _Counter) -> false.
 
 %%
 %% Like get_cycle/2, but a cycle of length one is preferred.
@@ -560,15 +536,21 @@ collect_elems([{_,Key}|Keys], Table, Index, Acc) ->
           [ets:lookup_element(Table, Key, Index)|Acc]);
 collect_elems([], _, _, Acc) -> Acc.
 
-% True if the id is already used in a different connection ----------
-other_conn_exists(#network{ctab = CT}, C, N1, N2) ->
-    case ets:lookup(CT, C) of
-        [{C,V1,V2,_}] when V1=/=N1; V2=/=N2 -> true;
-        _                                   -> false
-    end.
-
-
 % Finds a path from N1 to N2 ----------------------------------------
 seq_path(NN, N1, N2) ->
-    one_path(out_neighbours(NN, N1), N2, [], [N1], [N1], 1, NN, 1).
+    one_path(out_neighbours(NN, N1), N2, [], [N1], [N1], NN).
 
+one_path([W| _], W,    _,  _, Ps,  _) -> % The path is found
+    lists:reverse([W|Ps]); 
+one_path([N|Ns], W, Cont, Xs, Ps, NN) -> 
+    case lists:member(N, Xs) of
+        true  -> % That neuron were evluated before
+            one_path(Ns, W, Cont, Xs, Ps, NN);
+        false -> % That neuron out neighbours can be check firts
+            Nexts = out_neighbours(NN,N),
+            one_path(Nexts, W, [{Ns,Ps}|Cont], [N|Xs], [N|Ps], NN)
+    end;
+one_path([], W, [{Ns,Ps}|Cont], Xs, _, NN) -> % End of neighbours
+    one_path(Ns, W, Cont, Xs, Ps, NN);
+one_path([], _,             [],  _, _,  _) -> % No seq path
+    false.
