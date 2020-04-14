@@ -143,7 +143,7 @@ add_neuron(NN) ->
       NN :: network(),
       N  :: neuron().
 add_neuron(NN, N) ->
-    add_neuron(NN, N, #{}).
+    add_neuron(NN, N, []).
 
 -spec add_neuron(NN, N, Label) -> neuron() when
       NN :: network(),
@@ -162,7 +162,9 @@ add_neuron(NN, N, D) ->
       N  :: neuron().
 del_neuron(NN, N) ->
     do_del_nconns(ets:lookup(NN#network.dtab, {in, N}), NN),
+    do_del_nconns(ets:lookup(NN#network.rtab, {in, N}), NN),
     do_del_nconns(ets:lookup(NN#network.dtab, {out, N}), NN),
+    do_del_nconns(ets:lookup(NN#network.rtab, {out, N}), NN),
     % <- Probably delete from mnesia
     ets:delete(NN#network.ntab, N).
 
@@ -217,7 +219,14 @@ neurons(NN) ->
       NN :: network(),
       Neurons :: [neuron()].
 sink_neurons(NN) ->
-    collect_neurons(NN, out).
+    sink_neurons(NN, sequential) ++ sink_neurons(NN, recurrent).
+
+-spec sink_neurons(NN, Type) -> Neurons when
+      NN      :: network(),
+      Type    :: d_type(),
+      Neurons :: [neuron()].
+sink_neurons(NN, Type) ->
+    collect_neurons(NN, Type, out).
 
 %%-------------------------------------------------------------------
 %% @doc Returns all neurons in the network which have at least one
@@ -228,7 +237,14 @@ sink_neurons(NN) ->
       NN :: network(),
       Neurons :: [neuron()].
 source_neurons(NN) ->
-    collect_neurons(NN, in).
+    source_neurons(NN, sequential) ++ source_neurons(NN, recurrent).
+
+-spec source_neurons(NN, Type) -> Neurons when
+      NN      :: network(),
+      Type    :: d_type(),
+      Neurons :: [neuron()].
+source_neurons(NN, Type) ->
+    collect_neurons(NN, Type, in).
 
 %%-------------------------------------------------------------------
 %% @doc Returns the in-degree of neuron N of network NN.  
@@ -677,10 +693,16 @@ check_neurons(NN, [N | Neurons]) ->
 check_neurons(_NN, []) -> 
     ok.
 
-collect_neurons(NN, Type) ->
+collect_neurons(NN, Type, Direction) -> 
     Ns = neurons(NN),
+    case Type of 
+        sequential -> filter_neurons(Ns, NN#network.dtab, Direction);
+        recurrent  -> filter_neurons(Ns, NN#network.rtab, Direction)
+    end.
+
+filter_neurons(Ns, Table, Direction) ->
     lists:foldl(fun(N, A) ->
-            case ets:member(NN#network.dtab, {Type, N}) of
+            case ets:member(Table, {Direction, N}) of
                 true -> A;
                 false -> [N|A]
             end
