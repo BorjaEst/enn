@@ -18,7 +18,8 @@
 
 -export([add_neuron/1, add_neuron/2, del_neuron/2]).
 -export([neuron/2, no_neurons/1, neurons/1]).
--export([source_neurons/1, sink_neurons/1]).
+-export([source_neurons/1, source_neurons/2]).
+-export([sink_neurons/1, sink_neurons/2]).
 
 -export([add_conn/3, del_conn/3, del_path/3]).
 -export([conn/2, no_conns/1, conns/1]).
