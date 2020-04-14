@@ -302,13 +302,10 @@ in_conn(NN, N) ->
       N    :: neuron(),
       Type :: d_type(),
       Connections :: [conn()].
-in_conn(NN, N, Type) ->
-    case Type of
-        sequential -> 
-            ets:select(NN#network.dtab,[{{{ in,N},'$1'},[],['$1']}]);
-        recurrent  -> 
-            ets:select(NN#network.rtab,[{{{ in,N},'$1'},[],['$1']}])
-    end.
+in_conn(NN, N, sequential) -> 
+    ets:select(NN#network.dtab,[{{{ in,N},'$1'},[],['$1']}]);
+in_conn(NN, N, recurrent)  -> 
+    ets:select(NN#network.rtab,[{{{ in,N},'$1'},[],['$1']}]).
 
 %%-------------------------------------------------------------------
 %% @doc Returns all connections emanating from N of network NN. 
@@ -326,13 +323,10 @@ out_conn(NN, N) ->
       N    :: neuron(),
       Type :: d_type(),
       Connections :: [conn()].
-out_conn(NN, N, Type) ->
-    case Type of
-        sequential -> 
-            ets:select(NN#network.dtab,[{{{out,N},'$1'},[],['$1']}]);
-        recurrent  -> 
-            ets:select(NN#network.rtab,[{{{out,N},'$1'},[],['$1']}])
-    end.
+out_conn(NN, N, sequential) ->
+    ets:select(NN#network.dtab,[{{{out,N},'$1'},[],['$1']}]);
+out_conn(NN, N, recurrent) -> 
+    ets:select(NN#network.rtab,[{{{out,N},'$1'},[],['$1']}]).
 
 %%-------------------------------------------------------------------
 %% @doc Creates (or modifies) a connection between N1 and N2. 
