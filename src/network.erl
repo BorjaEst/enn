@@ -37,9 +37,7 @@
     rtab = norable   :: ets:tab(),
     recurrent = true :: boolean()
 }).
-
 -type network() :: #network{}.
-
 -type conn()    :: term().
 -type neuron()  :: term().
 -type d_type()  :: 'sequential' | 'recurrent'.
