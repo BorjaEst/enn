@@ -25,10 +25,8 @@
 -export([no_conn/1, conn/1, conn/2]).
 
 -export([out_neighbours/2, in_neighbours/2]).
--export([out_conn/2, in_conn/2, conns/2]).
+-export([out_conn/2, in_conn/2]).
 -export([out_degree/2, in_degree/2]).
-
--export([get_short_path/3, get_short_cycle/2]).
 
 -export_type([network/0, d_type/0, neuron/0, conn/0, label/0]).
 
@@ -410,91 +408,6 @@ conn(NN, N) ->
     Query = [{{{out,N},'$1'},[],['$1']}, {{{in,N},'$1'},[],['$1']}],
     ets:select(NN#network.dtab, Query) ++ 
     ets:select(NN#network.rtab, Query).
-
-
-
-
-
-
-
-
-
-%%
-%% Like get_cycle/2, but a cycle of length one is preferred.
-%%
-
--spec get_short_cycle(NN, N) -> Neurons | 'false' when
-      NN :: network(),
-      N :: neuron(),
-      Neurons :: [neuron(),...].
-
-get_short_cycle(NN, N) ->
-    get_short_path(NN, N, N).
-
-%%
-%% Like seq_path/3, but using a breadth-first search makes it possible
-%% to find a short path.
-%%
-
--spec get_short_path(NN, N1, N2) -> Neurons | 'false' when
-      NN :: network(),
-      N1 :: neuron(),
-      N2 :: neuron(),
-      Neurons :: [neuron(),...].
-
-get_short_path(NN, N1, N2) ->
-    T = new(),
-    add_neuron(T, N1),
-    Q = queue:new(),
-    Q1 = queue_out_neighbours(N1, NN, Q),
-    L = spath(Q1, NN, N2, T),
-    delete(T),
-    L.
-    
-spath(Q, NN, Sink, T) ->
-    case queue:out(Q) of
-    {{value, C}, Q1} ->
-        {_E, N1, N2, _Label} = conn(NN, C),
-        if 
-        Sink =:= N2 ->
-            follow_path(N1, T, [N2]);
-        true ->
-            case neuron(T, N2) of
-            false ->
-                add_neuron(T, N2),
-                add_conn(T, N2, N1),
-                NQ = queue_out_neighbours(N2, NN, Q1),
-                spath(NQ, NN, Sink, T);
-            _V ->
-                spath(Q1, NN, Sink, T)
-            end
-        end;
-    {empty, _Q1} ->
-        false
-    end.
-
-follow_path(N, T, P) ->
-    P1 = [N | P],
-    case out_neighbours(T, N) of
-    [NN] ->
-        follow_path(NN, T, P1);
-    [] ->
-        P1
-    end.
-
-queue_out_neighbours(N, NN, Q0) ->
-    lists:foldl(fun(C, Q) -> queue:in(C, Q) end, Q0, out_conn(NN, N)).
-
-
-
-
-
-
-
-
-
-
-
 
 
 %%====================================================================
