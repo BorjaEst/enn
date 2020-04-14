@@ -20,8 +20,7 @@
 -export([neuron/2, no_neurons/1, neurons/1]).
 -export([source_neurons/1, sink_neurons/1]).
 
--export([add_conn/3]).
--export([del_conn/2, del_conns/2, del_path/3]).
+-export([add_conn/3, del_conn/3, del_path/3]).
 -export([conn/2, no_conns/1, conns/1]).
 
 -export([out_neighbours/2, in_neighbours/2]).
@@ -337,7 +336,7 @@ out_conn(NN, N, Type) ->
     end.
 
 %%-------------------------------------------------------------------
-%% @doc Creates (or modifies) a connection betweeb N1 and N2. 
+%% @doc Creates (or modifies) a connection between N1 and N2. 
 %% @end
 %%------------------------------------------------------------------
 -spec add_conn(NN, N1, N2) -> Result when
@@ -374,14 +373,19 @@ insert_rcc_conn(#network{rtab=RT, ctab=CT}, N1, N2, _) ->
     Id.
 
 %%-------------------------------------------------------------------
-%% @doc Creates (or modifies) a connection betweeb N1 and N2. 
+%% @doc Deletes the connection between N1 and N2. 
 %% @end
 %%------------------------------------------------------------------
--spec del_conn(NN, N1, N2) -> Result when
+-spec del_conn(NN, N1, N2) -> 'true' when
       NN :: network(),
       N1 :: neuron(),
-      N2 :: neuron(),
-      Result :: conn() | {'error', add_conn_err_rsn()}.
+      N2 :: neuron().
+del_conn(NN, N1, N2) ->
+    C = connection:id(N1, N2),
+    DQuery = [{{{in,N2},C}, [], [true]}, {{{out,N1},C}, [], [true]}],
+    ets:select_delete(NN#network.dtab, DQuery),
+    ets:select_delete(NN#network.rtab, DQuery),
+    ets:delete(NN#network.ctab, C).
 
 
 
@@ -394,20 +398,6 @@ insert_rcc_conn(#network{rtab=RT, ctab=CT}, N1, N2, _) ->
 
 
 
-
--spec del_conn(NN, C) -> 'true' when
-      NN :: network(),
-      C :: conn().
-
-del_conn(NN, C) ->
-    do_del_conns([C], NN).
-
--spec del_conns(NN, Conns) -> 'true' when
-      NN :: network(),
-      Conns :: [conn()].
-
-del_conns(NN, Es) ->
-    do_del_conns(Es, NN).
 
 -spec no_conns(NN) -> non_neg_integer() when
       NN :: network().
@@ -480,20 +470,9 @@ do_del_nconns([], #network{}) -> true.
 %%
 %% Delete conns
 %%
-do_del_conns([C|Es], NN) ->
-    case ets:lookup(NN#network.ctab, C) of
-    [{C,N1,N2,_}] ->
-        do_del_conn(C,N1,N2,NN),
-        do_del_conns(Es, NN);
-    [] ->
-        do_del_conns(Es, NN)
-    end;
-do_del_conns([], #network{}) -> true.
 
-do_del_conn(C, N1, N2, NN) ->
-    ets:select_delete(NN#network.dtab, [{{{in, N2}, C}, [], [true]},
-                       {{{out,N1}, C}, [], [true]}]),
-    ets:delete(NN#network.ctab, C).
+
+
 
 -spec rm_conns([neuron(),...], network()) -> 'true'.
 
@@ -505,16 +484,16 @@ rm_conns(_, _) -> true.
 -spec rm_conn(neuron(), neuron(), network()) -> 'ok'.
 
 rm_conn(N1, N2, NN) ->
-    Es = out_conn(NN, N1),
-    rm_conn_0(Es, N1, N2, NN).
+    Cs = out_conn(NN, N1),
+    rm_conn_0(Cs, N1, N2, NN).
     
-rm_conn_0([C|Es], N1, N2, NN) ->
+rm_conn_0([C|Cs], N1, N2, NN) ->
     case ets:lookup(NN#network.ctab, C) of
     [{C, N1, N2, _}]  ->
             do_del_conn(C, N1, N2, NN),
-        rm_conn_0(Es, N1, N2, NN);
+        rm_conn_0(Cs, N1, N2, NN);
     _ ->
-        rm_conn_0(Es, N1, N2, NN)
+        rm_conn_0(Cs, N1, N2, NN)
     end;
 rm_conn_0([], _, _, #network{}) -> ok.
     
