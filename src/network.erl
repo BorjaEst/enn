@@ -219,7 +219,10 @@ neurons(NN) ->
       NN :: network(),
       Neurons :: [neuron()].
 sink_neurons(NN) ->
-    sink_neurons(NN, sequential) ++ sink_neurons(NN, recurrent).
+    sets:to_list(sets:from_list(
+        sink_neurons(NN, sequential),
+        sink_neurons(NN,  recurrent)
+    )).
 
 -spec sink_neurons(NN, Type) -> Neurons when
       NN      :: network(),
@@ -237,7 +240,10 @@ sink_neurons(NN, Type) ->
       NN :: network(),
       Neurons :: [neuron()].
 source_neurons(NN) ->
-    source_neurons(NN, sequential) ++ source_neurons(NN, recurrent).
+    sets:to_list(sets:from_list(
+        source_neurons(NN, sequential),
+        source_neurons(NN,  recurrent)
+    )).
 
 -spec source_neurons(NN, Type) -> Neurons when
       NN      :: network(),
