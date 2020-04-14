@@ -5,7 +5,11 @@
 %%%
 %%%
 %%% TODO: Add cortex? Start? End?
+%%% TODO: States -> unmounted (lists); -> mounted (ETS, Global read)
+%%%              -> Everyone can edit; -> Only contex can write (concurrent read optimised)
 %%%
+%%% TODO: Weights information are stored in MNESIA so each neuron can individually
+%%%       update its weight values {{FromID, ToID, connection}, W}.
 %%% @end
 %%%-------------------------------------------------------------------
 -module(network).
