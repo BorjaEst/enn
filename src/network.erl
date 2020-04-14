@@ -22,7 +22,7 @@
 -export([conn/2, no_conns/1, conns/1]).
 
 -export([out_neighbours/2, in_neighbours/2]).
--export([out_conns/2, in_conns/2, conns/2]).
+-export([out_conn/2, in_conn/2, conns/2]).
 -export([out_degree/2, in_degree/2]).
 -export([get_path/3, get_cycle/2]).
 
@@ -266,31 +266,39 @@ out_neighbours(NN, N) ->
     GT = NN#network.gtab,
     collect_elems(ets:lookup(GT, {out, N}), ET, 3).
 
-
-
-
-
-
-
--spec in_conns(NN, N) -> Conns when
+%%-------------------------------------------------------------------
+%% @doc Returns all connections incident on N of network NN. 
+%% @end
+%%-------------------------------------------------------------------
+-spec in_conn(NN, N) -> Connections when
       NN :: network(),
-      N :: neuron(),
-      Conns :: [conn()].
-
-in_conns(NN, N) ->
+      N  :: neuron(),
+      Connections :: [conn()].
+in_conn(NN, N) ->
     ets:select(NN#network.gtab, [{{{in, N}, '$1'}, [], ['$1']}]).
 
-
-
-
-
--spec out_conns(NN, N) -> Conns when
+%%-------------------------------------------------------------------
+%% @doc Returns all connections emanating from N of network NN. 
+%% @end
+%%-------------------------------------------------------------------
+-spec out_conn(NN, N) -> Connections when
       NN :: network(),
-      N :: neuron(),
-      Conns :: [conn()].
-
-out_conns(NN, N) ->
+      N  :: neuron(),
+      Connections :: [conn()].
+out_conn(NN, N) ->
     ets:select(NN#network.gtab, [{{{out, N}, '$1'}, [], ['$1']}]).
+
+
+
+
+
+
+
+
+
+
+
+
 
 -spec add_conn(NN, V1, V2) -> conn() | {'error', add_conn_err_rsn()} when
       NN :: network(),
@@ -439,7 +447,7 @@ rm_conns(_, _) -> true.
 -spec rm_conn(neuron(), neuron(), network()) -> 'ok'.
 
 rm_conn(V1, V2, NN) ->
-    Es = out_conns(NN, V1),
+    Es = out_conn(NN, V1),
     rm_conn_0(Es, V1, V2, NN).
     
 rm_conn_0([C|Es], V1, V2, NN) ->
@@ -647,7 +655,7 @@ follow_path(N, T, P) ->
     end.
 
 queue_out_neighbours(N, NN, Q0) ->
-    lists:foldl(fun(C, Q) -> queue:in(C, Q) end, Q0, out_conns(NN, N)).
+    lists:foldl(fun(C, Q) -> queue:in(C, Q) end, Q0, out_conn(NN, N)).
 
 
 
