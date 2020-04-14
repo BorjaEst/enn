@@ -21,7 +21,7 @@
 -export([neuron/2, no_neurons/1, neurons/1]).
 -export([source_neurons/1, sink_neurons/1]).
 
--export([add_conn/3, add_conn/4, add_conn/5]).
+-export([add_conn/3]).
 -export([del_conn/2, del_conns/2, del_path/3]).
 -export([conn/2, no_conns/1, conns/1]).
 
@@ -345,15 +345,6 @@ out_conn(NN, N, Type) ->
             ets:select(NN#network.rtab,[{{{out,N},'$1'},[],['$1']}])
     end.
 
-
-
-
-
-
-
-
-
-
 %%-------------------------------------------------------------------
 %% @doc Creates (or modifies) a connection betweeb N1 and N2. 
 %% @end
@@ -364,54 +355,34 @@ out_conn(NN, N, Type) ->
       N2 :: neuron(),
       Result :: conn() | {'error', add_conn_err_rsn()}.
 add_conn(NN, N1, N2) ->
-    add_conn(NN, connection:new(N1,N2), N1, N2, []).
-
--spec add_conn(NN, N1, N2, Label) -> Result when
-      NN :: network(),
-      N1 :: neuron(),
-      N2 :: neuron(),
-      Label  :: label(),
-      Result :: conn() | {'error', add_conn_err_rsn()}.
-add_conn(NN, N1, N2, D) ->
-    add_conn(NN, connection:new(), N1, N2, D).
-
--spec add_conn(NN, C, N1, N2, Label) -> Result when
-      NN :: network(),
-      C  :: conn(),
-      N1 :: neuron(),
-      N2 :: neuron(),
-      Label  :: label(),
-      Result :: conn() | {'error', add_conn_err_rsn()}.
-add_conn(NN, C, N1, N2, D) ->
     case check_neurons(NN, [N1, N2]) of 
-        {error, Reason} -> {error, Reason};
-        ok -> 
-            case other_conn_exists(NN, C, N1, N2) of
-            true -> {error, {bad_conn, [N1, N2]}};
-            false when NN#network.recurrent =:= false -> 
-                acyclic_add_conn(C, N1, N2, D, NN);
-            false ->
-                do_insert_conn(C, N1, N2, D, NN)
-            end
+    {error, Reason} -> {error, Reason};
+    ok              -> insert_conn(NN, N1, N2)
     end.
 
-
-
-
-
-do_insert_conn(C, N1, N2, Label, #network{dtab=DT, ctab=CT}) ->
-    ets:insert(DT, [{{out, N1}, C}, {{in, N2}, C}]),
-    ets:insert(CT, {C, N1, N2, Label}),
-    C.
-
-
-acyclic_add_conn(_E, N1, N2, _L, _G) when N1 =:= N2 ->
-    {error, {bad_conn, [N1, N2]}};
-acyclic_add_conn(C, N1, N2, Label, NN) ->
+insert_conn(NN, N1, N2) when N1 =:= N2 ->
+    insert_rcc_conn(NN, N1, N2, [N1,N2]);
+insert_conn(NN, N1, N2) ->
     case get_path(NN, N2, N1) of
-    false -> do_insert_conn(C, N1, N2, Label, NN);
-    Path -> {error, {bad_conn, Path}}
+        false -> insert_seq_conn(NN, N1, N2);
+        Path  -> insert_rcc_conn(NN, N1, N2, Path)
     end.
+
+insert_seq_conn(#network{dtab=DT, ctab=CT}, N1, N2) ->
+    Id = connection:new(N1, N2),
+    ets:insert(DT, [{{out, N1}, Id}, {{in, N2}, Id}]),
+    ets:insert(CT, {Id, N1, N2, []}),
+    Id.
+
+insert_rcc_conn(#network{recurrent=false}, _, _, Path) ->
+    {error, {bad_conn, Path}};
+insert_rcc_conn(#network{rtab=RT, ctab=CT}, N1, N2, _) ->
+    Id = connection:new(N1, N2),
+    ets:insert(RT, [{{out, N1}, Id}, {{in, N2}, Id}]),
+    ets:insert(CT, {Id, N1, N2, []}),
+    Id.
+
+
 
 
 
