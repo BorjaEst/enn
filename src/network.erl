@@ -198,28 +198,26 @@ no_neurons(NN) ->
 neurons(NN) ->
     ets:select(NN#network.ntab, [{{'$1', '_'}, [], ['$1']}]).
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+%%-------------------------------------------------------------------
+%% @doc Returns all neurons in the network which have at least one
+%% output.  
+%% @end
+%%-------------------------------------------------------------------
 -spec source_neurons(network()) -> [neuron()].
 source_neurons(NN) ->
     collect_neurons(NN, in).
 
+%%-------------------------------------------------------------------
+%% @doc Returns all neurons in the network which have at least one
+%% input.  
+%% @end
+%%-------------------------------------------------------------------
 -spec sink_neurons(network()) -> [neuron()].
 sink_neurons(NN) ->
     collect_neurons(NN, out).
+
+
+
 
 -spec in_degree(NN, N) -> non_neg_integer() when
       NN :: network(),
@@ -374,17 +372,6 @@ collect_elems([], _, _, Acc) -> Acc.
 
 
 
-%%
-%% Collect either source or sink neurons.
-%%
-collect_neurons(NN, Type) ->
-    Ns = neurons(NN),
-    lists:foldl(fun(N, A) ->
-            case ets:member(NN#network.gtab, {Type, N}) of
-                true -> A;
-                false -> [N|A]
-            end
-        end, [], Ns).
 
 %%
 %% Delete neurons
@@ -638,3 +625,29 @@ follow_path(N, T, P) ->
 
 queue_out_neighbours(N, NN, Q0) ->
     lists:foldl(fun(C, Q) -> queue:in(C, Q) end, Q0, out_conns(NN, N)).
+
+
+
+
+
+
+
+
+
+
+
+
+
+%%====================================================================
+%% Internal functions
+%%====================================================================
+collect_neurons(NN, Type) ->
+    Ns = neurons(NN),
+    lists:foldl(fun(N, A) ->
+            case ets:member(NN#network.gtab, {Type, N}) of
+                true -> A;
+                false -> [N|A]
+            end
+        end, [], Ns).
+
+
