@@ -22,7 +22,7 @@
 -export([sink_neurons/1, sink_neurons/2]).
 
 -export([add_conn/3, del_conn/3, del_path/3]).
--export([conn/2, no_conns/1, conns/1]).
+-export([no_conn/1, conn/1, conn/2]).
 
 -export([out_neighbours/2, in_neighbours/2]).
 -export([out_conn/2, in_conn/2, conns/2]).
@@ -384,62 +384,39 @@ del_conn(NN, N1, N2) ->
 %% @doc Returs the number of connections in the network. 
 %% @end
 %%-------------------------------------------------------------------
--spec no_conns(NN) -> non_neg_integer() when
+-spec no_conn(NN) -> non_neg_integer() when
       NN :: network().
-no_conns(NN) ->
+no_conn(NN) ->
     ets:info(NN#network.ctab, size).
 
-
-
-
-
-
-
-
-
-
-
-
--spec conns(NN) -> Conns when
+%%-------------------------------------------------------------------
+%% @doc Returs all network connections. 
+%% @end
+%%-------------------------------------------------------------------
+-spec conn(NN) -> Conns when
       NN :: network(),
       Conns :: [conn()].
-
-conns(NN) ->
+conn(NN) ->
     ets:select(NN#network.ctab, [{{'$1', '_', '_', '_'}, [], ['$1']}]).
 
--spec conns(NN, N) -> Conns when
+%%-------------------------------------------------------------------
+%% @doc Returs all the neuron connections. 
+%% @end
+%%-------------------------------------------------------------------
+-spec conn(NN, N) -> Conns when
       NN :: network(),
-      N :: neuron(),
+      N  :: neuron(),
       Conns :: [conn()].
-
-conns(NN, N) ->
-    ets:select(NN#network.dtab, [{{{out, N},'$1'}, [], ['$1']},
-                {{{in, N}, '$1'}, [], ['$1']}]).
-
--spec conn(NN, C) -> {C, N1, N2, Label} | 'false' when
-      NN :: network(),
-      C :: conn(),
-      N1 :: neuron(),
-      N2 :: neuron(),
-      Label :: label().
-
-conn(NN, C) ->
-    case ets:lookup(NN#network.ctab,C) of
-    [] -> false;
-    [Conn] -> Conn
-    end.
+conn(NN, N) ->
+    Query = [{{{out,N},'$1'},[],['$1']}, {{{in,N},'$1'},[],['$1']}],
+    ets:select(NN#network.dtab, Query) ++ 
+    ets:select(NN#network.rtab, Query).
 
 
 
-%%
-%% Delete neurons
-%%
 
 
 
-%%
-%% Delete conns
-%%
 
 
 
