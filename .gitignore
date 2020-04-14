@@ -21,3 +21,4 @@ rebar.lock
 .erlang.cookie
 .vscode
 Mnesia.*
+*copy.erl
