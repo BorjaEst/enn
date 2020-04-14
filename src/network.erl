@@ -16,8 +16,7 @@
 
 -export([new/0, new/1, delete/1, info/1]).
 
--export([add_neuron/1, add_neuron/2]).
--export([del_neuron/2, del_neurons/2]).
+-export([add_neuron/1, add_neuron/2, del_neuron/2]).
 -export([neuron/2, no_neurons/1, neurons/1]).
 -export([source_neurons/1, sink_neurons/1]).
 
@@ -160,14 +159,6 @@ del_neuron(NN, N) ->
     do_del_nconns(ets:lookup(NN#network.rtab, {out, N}), NN),
     % <- Probably delete from mnesia
     ets:delete(NN#network.ntab, N).
-
--spec del_neurons(NN, Neurons) -> 'true' when
-      NN :: network(),
-      Neurons :: [neuron()].
-del_neurons(NN, [N | Ns]) -> 
-    del_neuron(N, NN),
-    del_neurons(Ns, NN);
-del_neurons([], #network{}) -> true.
 
 %%-------------------------------------------------------------------
 %% @doc Returns the neuron with the attached information or false if 
@@ -382,8 +373,15 @@ insert_rcc_conn(#network{rtab=RT, ctab=CT}, N1, N2, _) ->
     ets:insert(CT, {Id, N1, N2, []}),
     Id.
 
-
-
+%%-------------------------------------------------------------------
+%% @doc Creates (or modifies) a connection betweeb N1 and N2. 
+%% @end
+%%------------------------------------------------------------------
+-spec del_conn(NN, N1, N2) -> Result when
+      NN :: network(),
+      N1 :: neuron(),
+      N2 :: neuron(),
+      Result :: conn() | {'error', add_conn_err_rsn()}.
 
 
 
