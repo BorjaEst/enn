@@ -368,7 +368,7 @@ insert_rcc_conn(#network{rtab=RT, ctab=CT}, N1, N2, _) ->
 %%-------------------------------------------------------------------
 %% @doc Deletes the connection between N1 and N2. 
 %% @end
-%%------------------------------------------------------------------
+%%-------------------------------------------------------------------
 -spec del_conn(NN, N1, N2) -> 'true' when
       NN :: network(),
       N1 :: neuron(),
@@ -380,23 +380,25 @@ del_conn(NN, N1, N2) ->
     ets:select_delete(NN#network.rtab, DQuery),
     ets:delete(NN#network.ctab, C).
 
-
-
-
-
-
-
-
-
-
-
-
-
+%%-------------------------------------------------------------------
+%% @doc Returs the number of connections in the network. 
+%% @end
+%%-------------------------------------------------------------------
 -spec no_conns(NN) -> non_neg_integer() when
       NN :: network().
-
 no_conns(NN) ->
     ets:info(NN#network.ctab, size).
+
+
+
+
+
+
+
+
+
+
+
 
 -spec conns(NN) -> Conns when
       NN :: network(),
