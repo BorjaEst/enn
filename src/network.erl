@@ -254,7 +254,8 @@ source_neurons(NN, Type) ->
       NN :: network(),
       N  :: neuron().
 in_degree(NN, N) ->
-    length(ets:lookup(NN#network.dtab, {in, N})).
+    length(ets:lookup(NN#network.dtab, {in, N})) +
+    length(ets:lookup(NN#network.rtab, {in, N})).
 
 %%-------------------------------------------------------------------
 %% @doc Returns the out-degree of neuron N of network NN.  
@@ -264,7 +265,8 @@ in_degree(NN, N) ->
       NN :: network(),
       N  :: neuron().
 out_degree(NN, N) ->
-    length(ets:lookup(NN#network.dtab, {out, N})).
+    length(ets:lookup(NN#network.dtab, {out, N})) + 
+    length(ets:lookup(NN#network.rtab, {out, N})).
 
 %%-------------------------------------------------------------------
 %% @doc Returns a list of all in-neighbors of N of network NN. 
