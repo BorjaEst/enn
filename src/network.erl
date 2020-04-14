@@ -16,7 +16,7 @@
 
 -export([new/0, new/1, delete/1, info/1]).
 
--export([add_neuron/1, add_neuron/2, add_neuron/3]).
+-export([add_neuron/1, add_neuron/2]).
 -export([del_neuron/2, del_neurons/2]).
 -export([neuron/2, no_neurons/1, neurons/1]).
 -export([source_neurons/1, sink_neurons/1]).
@@ -143,14 +143,7 @@ add_neuron(NN) ->
       NN :: network(),
       N  :: neuron().
 add_neuron(NN, N) ->
-    add_neuron(NN, N, []).
-
--spec add_neuron(NN, N, Label) -> neuron() when
-      NN :: network(),
-      N  :: neuron(),
-      Label :: label().
-add_neuron(NN, N, D) ->
-    ets:insert(NN#network.ntab, {N, D}),
+    ets:insert(NN#network.ntab, {N, []}),
     N.
 
 %%-------------------------------------------------------------------
@@ -352,6 +345,15 @@ out_conn(NN, N, Type) ->
             ets:select(NN#network.rtab,[{{{out,N},'$1'},[],['$1']}])
     end.
 
+
+
+
+
+
+
+
+
+
 %%-------------------------------------------------------------------
 %% @doc Creates (or modifies) a connection betweeb N1 and N2. 
 %% @end
@@ -362,7 +364,7 @@ out_conn(NN, N, Type) ->
       N2 :: neuron(),
       Result :: conn() | {'error', add_conn_err_rsn()}.
 add_conn(NN, N1, N2) ->
-    add_conn(NN, connection:new(), N1, N2, []).
+    add_conn(NN, connection:new(N1,N2), N1, N2, []).
 
 -spec add_conn(NN, N1, N2, Label) -> Result when
       NN :: network(),
