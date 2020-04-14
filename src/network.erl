@@ -279,7 +279,9 @@ out_degree(NN, N) ->
 in_neighbours(NN, N) ->
     CT = NN#network.ctab,
     DT = NN#network.dtab,
-    collect_elems(ets:lookup(DT, {in, N}), CT, 2).
+    RT = NN#network.rtab,
+    collect_elems(ets:lookup(DT, {in, N}), CT, 2) ++ 
+    collect_elems(ets:lookup(RT, {in, N}), CT, 2).
 
 %%-------------------------------------------------------------------
 %% @doc Returns a list of all out-neighbors of N of network NN. 
@@ -292,7 +294,9 @@ in_neighbours(NN, N) ->
 out_neighbours(NN, N) ->
     CT = NN#network.ctab,
     DT = NN#network.dtab,
-    collect_elems(ets:lookup(DT, {out, N}), CT, 3).
+    RT = NN#network.rtab,
+    collect_elems(ets:lookup(DT, {out, N}), CT, 3) ++
+    collect_elems(ets:lookup(RT, {out, N}), CT, 3).
 
 %%-------------------------------------------------------------------
 %% @doc Returns all connections incident on N of network NN. 
@@ -451,16 +455,6 @@ new_conn_id(NN) ->
     true = ets:insert(DT, {'$eid', K+1}),
     ['$e' | K].
 
-%%
-%% Collect elements for a index in a tuple
-%%
-collect_elems(Keys, Table, Index) ->
-    collect_elems(Keys, Table, Index, []).
-
-collect_elems([{_,Key}|Keys], Table, Index, Acc) ->
-    collect_elems(Keys, Table, Index,
-          [ets:lookup_element(Table, Key, Index)|Acc]);
-collect_elems([], _, _, Acc) -> Acc.
 
 
 
@@ -687,6 +681,7 @@ queue_out_neighbours(N, NN, Q0) ->
 %% Internal functions
 %%====================================================================
 
+% Cheks if the neuron belongs to the ntab ----------------------------
 check_neurons(NN, [N | Neurons]) -> 
     case ets:member(NN#network.ntab, N) of
         false -> {error, {bad_neuron, N}};
@@ -695,6 +690,7 @@ check_neurons(NN, [N | Neurons]) ->
 check_neurons(_NN, []) -> 
     ok.
 
+% Collects the neurons with a type (d_type) and direction (in|out) --
 collect_neurons(NN, Type, Direction) -> 
     Ns = neurons(NN),
     case Type of 
@@ -702,6 +698,7 @@ collect_neurons(NN, Type, Direction) ->
         recurrent  -> filter_neurons(Ns, NN#network.rtab, Direction)
     end.
 
+% Filters the neurons with a specific direction from a table --------
 filter_neurons(Ns, Table, Direction) ->
     lists:foldl(fun(N, A) ->
             case ets:member(Table, {Direction, N}) of
@@ -710,6 +707,16 @@ filter_neurons(Ns, Table, Direction) ->
             end
         end, [], Ns).
 
+%% Collect elements for a index in a tuple --------------------------
+collect_elems(Keys, Table, Index) ->
+    collect_elems(Keys, Table, Index, []).
+
+collect_elems([{_,Key}|Keys], Table, Index, Acc) ->
+    collect_elems(Keys, Table, Index,
+          [ets:lookup_element(Table, Key, Index)|Acc]);
+collect_elems([], _, _, Acc) -> Acc.
+
+% True if the id is already used in a different connection ----------
 other_conn_exists(#network{ctab = CT}, C, N1, N2) ->
     case ets:lookup(CT, C) of
         [{C,V1,V2,_}] when V1=/=N1; V2=/=N2 -> true;
