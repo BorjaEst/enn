@@ -33,7 +33,8 @@
 -record(network, {
     ntab = notable   :: ets:tab(),
     ctab = notable   :: ets:tab(),
-    gtab = notable   :: ets:tab(),
+    dtab = notable   :: ets:tab(),
+    rtab = norable   :: ets:tab(),
     recurrent = true :: boolean()
 }).
 
@@ -50,7 +51,8 @@
 
 -define(NTAB_CONFIGUTATION, [set, public, { read_concurrency,true}]).
 -define(CTAB_CONFIGUTATION, [set, public, {write_concurrency,true}]).
--define(GTAB_CONFIGUTATION, [set, public, {write_concurrency,true}]).
+-define(DTAB_CONFIGUTATION, [set, public, {write_concurrency,true}]).
+-define(RTAB_CONFIGUTATION, [set, public, {write_concurrency,true}]).
 
 
 %%%===================================================================
@@ -69,11 +71,12 @@ new() -> new(recurrent).
 new(Type) ->
     case check_type(Type, []) of
     {ok, Ts} ->
-        N  = ets:new(   neurons, ?NTAB_CONFIGUTATION),
-        C  = ets:new(     conns, ?CTAB_CONFIGUTATION),
-        NN = ets:new(neighbours, ?GTAB_CONFIGUTATION),
-        ets:insert(NN, [{'$vid', 0}, {'$eid', 0}]),
-        set_type(Ts, #network{ntab=N, ctab=C, gtab=NN});
+        NT = ets:new(  neurons, ?NTAB_CONFIGUTATION),
+        CT = ets:new(    conns, ?CTAB_CONFIGUTATION),
+        DT = ets:new(   direct, ?DTAB_CONFIGUTATION),
+        RT = ets:new(recurrent, ?RTAB_CONFIGUTATION),
+        ets:insert(NT, [{'$start', 0}, {'$end', 0}]),
+        set_type(Ts, #network{ntab=NT, ctab=CT, dtab=DT, rtab=RT});
     error ->
         erlang:error(badarg)
     end.
@@ -95,7 +98,8 @@ set_type(                  [], NN) -> NN.
 delete(NN) ->
     ets:delete(NN#network.ntab),
     ets:delete(NN#network.ctab),
-    ets:delete(NN#network.gtab).
+    ets:delete(NN#network.dtab),
+    ets:delete(NN#network.rtab).
 
 %%-------------------------------------------------------------------
 %% @doc Information from the network.  
@@ -107,14 +111,16 @@ delete(NN) ->
                    {'memory', NoWords :: non_neg_integer()}].
 info(NN) ->
     NT = NN#network.ntab,
-    ET = NN#network.ctab,
-    GT = NN#network.gtab,
+    CT = NN#network.ctab,
+    DT = NN#network.dtab,
+    RT = NN#network.rtab,
     Type = case NN#network.recurrent of
             true  -> recurrent;
             false -> sequential
         end,
     Protection = ets:info(NT, protection),
-    Memory = ets:info(NT,memory)+ets:info(ET,memory)+ets:info(GT,memory),
+    Memory = ets:info(NT,memory) + ets:info(CT,memory) + 
+             ets:info(DT,memory) + ets:info(RT,memory),
     [{type, Type}, {memory, Memory}, {protection, Protection}].
 
 %%-------------------------------------------------------------------
@@ -151,8 +157,8 @@ add_neuron(NN, N, D) ->
       NN :: network(),
       N  :: neuron().
 del_neuron(NN, N) ->
-    do_del_nconns(ets:lookup(NN#network.gtab, {in, N}), NN),
-    do_del_nconns(ets:lookup(NN#network.gtab, {out, N}), NN),
+    do_del_nconns(ets:lookup(NN#network.dtab, {in, N}), NN),
+    do_del_nconns(ets:lookup(NN#network.dtab, {out, N}), NN),
     % <- Probably delete from mnesia
     ets:delete(NN#network.ntab, N).
 
@@ -228,7 +234,7 @@ source_neurons(NN) ->
       NN :: network(),
       N  :: neuron().
 in_degree(NN, N) ->
-    length(ets:lookup(NN#network.gtab, {in, N})).
+    length(ets:lookup(NN#network.dtab, {in, N})).
 
 %%-------------------------------------------------------------------
 %% @doc Returns the out-degree of neuron N of network NN.  
@@ -238,7 +244,7 @@ in_degree(NN, N) ->
       NN :: network(),
       N  :: neuron().
 out_degree(NN, N) ->
-    length(ets:lookup(NN#network.gtab, {out, N})).
+    length(ets:lookup(NN#network.dtab, {out, N})).
 
 %%-------------------------------------------------------------------
 %% @doc Returns a list of all in-neighbors of N of network NN. 
@@ -249,9 +255,9 @@ out_degree(NN, N) ->
       N  :: neuron(),
       Neurons :: [neuron()].
 in_neighbours(NN, N) ->
-    ET = NN#network.ctab,
-    GT = NN#network.gtab,
-    collect_elems(ets:lookup(GT, {in, N}), ET, 2).
+    CT = NN#network.ctab,
+    DT = NN#network.dtab,
+    collect_elems(ets:lookup(DT, {in, N}), CT, 2).
 
 %%-------------------------------------------------------------------
 %% @doc Returns a list of all out-neighbors of N of network NN. 
@@ -262,9 +268,9 @@ in_neighbours(NN, N) ->
       N  :: neuron(),
       Neurons :: [neuron()].
 out_neighbours(NN, N) ->
-    ET = NN#network.ctab,
-    GT = NN#network.gtab,
-    collect_elems(ets:lookup(GT, {out, N}), ET, 3).
+    CT = NN#network.ctab,
+    DT = NN#network.dtab,
+    collect_elems(ets:lookup(DT, {out, N}), CT, 3).
 
 %%-------------------------------------------------------------------
 %% @doc Returns all connections incident on N of network NN. 
@@ -275,7 +281,7 @@ out_neighbours(NN, N) ->
       N  :: neuron(),
       Connections :: [conn()].
 in_conn(NN, N) ->
-    ets:select(NN#network.gtab, [{{{in, N}, '$1'}, [], ['$1']}]).
+    ets:select(NN#network.dtab, [{{{in, N}, '$1'}, [], ['$1']}]).
 
 %%-------------------------------------------------------------------
 %% @doc Returns all connections emanating from N of network NN. 
@@ -286,46 +292,79 @@ in_conn(NN, N) ->
       N  :: neuron(),
       Connections :: [conn()].
 out_conn(NN, N) ->
-    ets:select(NN#network.gtab, [{{{out, N}, '$1'}, [], ['$1']}]).
+    ets:select(NN#network.dtab, [{{{out, N}, '$1'}, [], ['$1']}]).
 
-
-
-
-
-
-
-
-
-
-
-
-
--spec add_conn(NN, V1, V2) -> conn() | {'error', add_conn_err_rsn()} when
+%%-------------------------------------------------------------------
+%% @doc Creates (or modifies) a connection betweeb N1 and N2. 
+%% @end
+%%------------------------------------------------------------------
+-spec add_conn(NN, N1, N2) -> Result when
       NN :: network(),
-      V1 :: neuron(),
-      V2 :: neuron().
+      N1 :: neuron(),
+      N2 :: neuron(),
+      Result :: conn() | {'error', add_conn_err_rsn()}.
+add_conn(NN, N1, N2) ->
+    add_conn(NN, connection:new(), N1, N2, []).
 
-add_conn(NN, V1, V2) ->
-    do_add_conn({new_conn_id(NN), V1, V2, []}, NN).
-
--spec add_conn(NN, V1, V2, Label) -> conn() | {'error', add_conn_err_rsn()} when
+-spec add_conn(NN, N1, N2, Label) -> Result when
       NN :: network(),
-      V1 :: neuron(),
-      V2 :: neuron(),
-      Label :: label().
+      N1 :: neuron(),
+      N2 :: neuron(),
+      Label  :: label(),
+      Result :: conn() | {'error', add_conn_err_rsn()}.
+add_conn(NN, N1, N2, D) ->
+    add_conn(NN, connection:new(), N1, N2, D).
 
-add_conn(NN, V1, V2, D) ->
-    do_add_conn({new_conn_id(NN), V1, V2, D}, NN).
-
--spec add_conn(NN, C, V1, V2, Label) -> conn() | {'error', add_conn_err_rsn()} when
+-spec add_conn(NN, C, N1, N2, Label) -> Result when
       NN :: network(),
-      C :: conn(),
-      V1 :: neuron(),
-      V2 :: neuron(),
-      Label :: label().
+      C  :: conn(),
+      N1 :: neuron(),
+      N2 :: neuron(),
+      Label  :: label(),
+      Result :: conn() | {'error', add_conn_err_rsn()}.
+add_conn(NN, C, N1, N2, D) ->
+    case check_neurons(NN, [N1, N2]) of 
+        {error, Reason} -> {error, Reason};
+        ok -> 
+            case other_conn_exists(NN, C, N1, N2) of
+            true -> {error, {bad_conn, [N1, N2]}};
+            false when NN#network.recurrent =:= false -> 
+                acyclic_add_conn(C, N1, N2, D, NN);
+            false ->
+                do_insert_conn(C, N1, N2, D, NN)
+            end
+    end.
 
-add_conn(NN, C, V1, V2, D) ->
-    do_add_conn({C, V1, V2, D}, NN).
+
+
+
+
+do_insert_conn(C, N1, N2, Label, #network{dtab=DT, ctab=CT}) ->
+    ets:insert(DT, [{{out, N1}, C}, {{in, N2}, C}]),
+    ets:insert(CT, {C, N1, N2, Label}),
+    C.
+
+
+acyclic_add_conn(_E, N1, N2, _L, _G) when N1 =:= N2 ->
+    {error, {bad_conn, [N1, N2]}};
+acyclic_add_conn(C, N1, N2, Label, NN) ->
+    case get_path(NN, N2, N1) of
+    false -> do_insert_conn(C, N1, N2, Label, NN);
+    Path -> {error, {bad_conn, Path}}
+    end.
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 -spec del_conn(NN, C) -> 'true' when
       NN :: network(),
@@ -360,14 +399,14 @@ conns(NN) ->
       Conns :: [conn()].
 
 conns(NN, N) ->
-    ets:select(NN#network.gtab, [{{{out, N},'$1'}, [], ['$1']},
+    ets:select(NN#network.dtab, [{{{out, N},'$1'}, [], ['$1']},
                 {{{in, N}, '$1'}, [], ['$1']}]).
 
--spec conn(NN, C) -> {C, V1, V2, Label} | 'false' when
+-spec conn(NN, C) -> {C, N1, N2, Label} | 'false' when
       NN :: network(),
       C :: conn(),
-      V1 :: neuron(),
-      V2 :: neuron(),
+      N1 :: neuron(),
+      N2 :: neuron(),
       Label :: label().
 
 conn(NN, C) ->
@@ -384,10 +423,10 @@ conn(NN, C) ->
 -dialyzer({no_improper_lists, new_conn_id/1}).
 
 new_conn_id(NN) ->
-    GT = NN#network.gtab,
-    [{'$eid', K}] = ets:lookup(GT, '$eid'),
-    true = ets:delete(GT, '$eid'),
-    true = ets:insert(GT, {'$eid', K+1}),
+    DT = NN#network.dtab,
+    [{'$eid', K}] = ets:lookup(DT, '$eid'),
+    true = ets:delete(DT, '$eid'),
+    true = ets:insert(DT, {'$eid', K+1}),
     ['$e' | K].
 
 %%
@@ -411,8 +450,8 @@ collect_elems([], _, _, Acc) -> Acc.
 
 do_del_nconns([{_, C}|Ns], NN) ->
     case ets:lookup(NN#network.ctab, C) of
-    [{C, V1, V2, _}] ->
-        do_del_conn(C, V1, V2, NN),
+    [{C, N1, N2, _}] ->
+        do_del_conn(C, N1, N2, NN),
         do_del_nconns(Ns, NN);
     [] -> % cannot happen
         do_del_nconns(Ns, NN)
@@ -424,106 +463,59 @@ do_del_nconns([], #network{}) -> true.
 %%
 do_del_conns([C|Es], NN) ->
     case ets:lookup(NN#network.ctab, C) of
-    [{C,V1,V2,_}] ->
-        do_del_conn(C,V1,V2,NN),
+    [{C,N1,N2,_}] ->
+        do_del_conn(C,N1,N2,NN),
         do_del_conns(Es, NN);
     [] ->
         do_del_conns(Es, NN)
     end;
 do_del_conns([], #network{}) -> true.
 
-do_del_conn(C, V1, V2, NN) ->
-    ets:select_delete(NN#network.gtab, [{{{in, V2}, C}, [], [true]},
-                       {{{out,V1}, C}, [], [true]}]),
+do_del_conn(C, N1, N2, NN) ->
+    ets:select_delete(NN#network.dtab, [{{{in, N2}, C}, [], [true]},
+                       {{{out,N1}, C}, [], [true]}]),
     ets:delete(NN#network.ctab, C).
 
 -spec rm_conns([neuron(),...], network()) -> 'true'.
 
-rm_conns([V1, V2|Ns], NN) ->
-    rm_conn(V1, V2, NN),
-    rm_conns([V2|Ns], NN);
+rm_conns([N1, N2|Ns], NN) ->
+    rm_conn(N1, N2, NN),
+    rm_conns([N2|Ns], NN);
 rm_conns(_, _) -> true.
 
 -spec rm_conn(neuron(), neuron(), network()) -> 'ok'.
 
-rm_conn(V1, V2, NN) ->
-    Es = out_conn(NN, V1),
-    rm_conn_0(Es, V1, V2, NN).
+rm_conn(N1, N2, NN) ->
+    Es = out_conn(NN, N1),
+    rm_conn_0(Es, N1, N2, NN).
     
-rm_conn_0([C|Es], V1, V2, NN) ->
+rm_conn_0([C|Es], N1, N2, NN) ->
     case ets:lookup(NN#network.ctab, C) of
-    [{C, V1, V2, _}]  ->
-            do_del_conn(C, V1, V2, NN),
-        rm_conn_0(Es, V1, V2, NN);
+    [{C, N1, N2, _}]  ->
+            do_del_conn(C, N1, N2, NN),
+        rm_conn_0(Es, N1, N2, NN);
     _ ->
-        rm_conn_0(Es, V1, V2, NN)
+        rm_conn_0(Es, N1, N2, NN)
     end;
 rm_conn_0([], _, _, #network{}) -> ok.
     
-%%
-%% Check that endpoints exist
-%%
--spec do_add_conn({conn(), neuron(), neuron(), label()}, network()) ->
-    conn() | {'error', add_conn_err_rsn()}.
 
-do_add_conn({C, V1, V2, Label}, NN) ->
-    case ets:member(NN#network.ntab, V1) of
-    false -> {error, {bad_neuron, V1}};
-    true  ->
-        case ets:member(NN#network.ntab, V2) of
-        false -> {error, {bad_neuron, V2}};
-                true ->
-                    case other_conn_exists(NN, C, V1, V2) of
-                        true -> {error, {bad_conn, [V1, V2]}};
-                        false when NN#network.recurrent =:= false ->
-                            acyclic_add_conn(C, V1, V2, Label, NN);
-                        false ->
-                            do_insert_conn(C, V1, V2, Label, NN)
-                    end
-        end
-    end.
-
-other_conn_exists(#network{ctab = ET}, C, V1, V2) ->
-    case ets:lookup(ET, C) of
-        [{C, Vert1, Vert2, _}] when Vert1 =/= V1; Vert2 =/= V2 ->
-            true;
-        _ ->
-            false
-    end.
-
--spec do_insert_conn(conn(), neuron(), neuron(), label(), network()) -> conn().
-
-do_insert_conn(C, V1, V2, Label, #network{gtab=GT, ctab=ET}) ->
-    ets:insert(GT, [{{out, V1}, C}, {{in, V2}, C}]),
-    ets:insert(ET, {C, V1, V2, Label}),
-    C.
-
--spec acyclic_add_conn(conn(), neuron(), neuron(), label(), network()) ->
-    conn() | {'error', {'bad_conn', [neuron()]}}.
-
-acyclic_add_conn(_E, V1, V2, _L, _G) when V1 =:= V2 ->
-    {error, {bad_conn, [V1, V2]}};
-acyclic_add_conn(C, V1, V2, Label, NN) ->
-    case get_path(NN, V2, V1) of
-    false -> do_insert_conn(C, V1, V2, Label, NN);
-    Path -> {error, {bad_conn, Path}}
-    end.
 
 %%
-%% Delete all paths from neuron V1 to neuron V2
+%% Delete all paths from neuron N1 to neuron N2
 %%
 
--spec del_path(NN, V1, V2) -> 'true' when
+-spec del_path(NN, N1, N2) -> 'true' when
       NN :: network(),
-      V1 :: neuron(),
-      V2 :: neuron().
+      N1 :: neuron(),
+      N2 :: neuron().
 
-del_path(NN, V1, V2) ->
-    case get_path(NN, V1, V2) of
+del_path(NN, N1, N2) ->
+    case get_path(NN, N1, N2) of
     false -> true;
     Path ->
         rm_conns(Path, NN),
-        del_path(NN, V1, V2)
+        del_path(NN, N1, N2)
     end.
 
 %%
@@ -551,19 +543,19 @@ get_cycle(NN, N) ->
     end.
 
 %%
-%% Find a path from V1 to V2
-%% return the path as list of neurons [V1 ... V2]
+%% Find a path from N1 to N2
+%% return the path as list of neurons [N1 ... N2]
 %% if no path exists false is returned
 %%
 
--spec get_path(NN, V1, V2) -> Neurons | 'false' when
+-spec get_path(NN, N1, N2) -> Neurons | 'false' when
       NN :: network(),
-      V1 :: neuron(),
-      V2 :: neuron(),
+      N1 :: neuron(),
+      N2 :: neuron(),
       Neurons :: [neuron(),...].
 
-get_path(NN, V1, V2) ->
-    one_path(out_neighbours(NN, V1), V2, [], [V1], [V1], 1, NN, 1).
+get_path(NN, N1, N2) ->
+    one_path(out_neighbours(NN, N1), N2, [], [N1], [N1], 1, NN, 1).
 
 %%
 %% prune_short_path (evaluate conditions on path)
@@ -608,34 +600,34 @@ get_short_cycle(NN, N) ->
 %% to find a short path.
 %%
 
--spec get_short_path(NN, V1, V2) -> Neurons | 'false' when
+-spec get_short_path(NN, N1, N2) -> Neurons | 'false' when
       NN :: network(),
-      V1 :: neuron(),
-      V2 :: neuron(),
+      N1 :: neuron(),
+      N2 :: neuron(),
       Neurons :: [neuron(),...].
 
-get_short_path(NN, V1, V2) ->
+get_short_path(NN, N1, N2) ->
     T = new(),
-    add_neuron(T, V1),
+    add_neuron(T, N1),
     Q = queue:new(),
-    Q1 = queue_out_neighbours(V1, NN, Q),
-    L = spath(Q1, NN, V2, T),
+    Q1 = queue_out_neighbours(N1, NN, Q),
+    L = spath(Q1, NN, N2, T),
     delete(T),
     L.
     
 spath(Q, NN, Sink, T) ->
     case queue:out(Q) of
     {{value, C}, Q1} ->
-        {_E, V1, V2, _Label} = conn(NN, C),
+        {_E, N1, N2, _Label} = conn(NN, C),
         if 
-        Sink =:= V2 ->
-            follow_path(V1, T, [V2]);
+        Sink =:= N2 ->
+            follow_path(N1, T, [N2]);
         true ->
-            case neuron(T, V2) of
+            case neuron(T, N2) of
             false ->
-                add_neuron(T, V2),
-                add_conn(T, V2, V1),
-                NQ = queue_out_neighbours(V2, NN, Q1),
+                add_neuron(T, N2),
+                add_conn(T, N2, N1),
+                NQ = queue_out_neighbours(N2, NN, Q1),
                 spath(NQ, NN, Sink, T);
             _V ->
                 spath(Q1, NN, Sink, T)
@@ -672,13 +664,27 @@ queue_out_neighbours(N, NN, Q0) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+check_neurons(NN, [N | Neurons]) -> 
+    case ets:member(NN#network.ntab, N) of
+        false -> {error, {bad_neuron, N}};
+        true  -> check_neurons(NN, Neurons)
+    end;
+check_neurons(_NN, []) -> 
+    ok.
+
 collect_neurons(NN, Type) ->
     Ns = neurons(NN),
     lists:foldl(fun(N, A) ->
-            case ets:member(NN#network.gtab, {Type, N}) of
+            case ets:member(NN#network.dtab, {Type, N}) of
                 true -> A;
                 false -> [N|A]
             end
         end, [], Ns).
 
+other_conn_exists(#network{ctab = CT}, C, N1, N2) ->
+    case ets:lookup(CT, C) of
+        [{C,V1,V2,_}] when V1=/=N1; V2=/=N2 -> true;
+        _                                   -> false
+    end.
 
