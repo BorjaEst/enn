@@ -7,10 +7,11 @@
 -import_lib("cortex.hrl").
 
 -type network_id() :: {reference(), network}.
+-type network_type()  :: 'sequential' | 'recurrent'.
 -record(network, {
     id = {make_ref(), network} :: network_id(),
     cn = #{} :: #{neuron_id() => connections()},   
-    recurrent = true :: boolean()
+    type = recurrent :: network_type()
 }).
 -type network() :: #network{}.
 

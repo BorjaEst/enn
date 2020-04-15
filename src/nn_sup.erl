@@ -33,7 +33,6 @@
     modules  => [neuron]
  }).
 
--define(ETS_TABLE_SPECS, [{read_concurrency, true}, public]).
 
 
 %%%===================================================================

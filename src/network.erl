@@ -28,41 +28,26 @@
 -export([out_link/2, in_link/2]).
 -export([out_degree/2, in_degree/2]).
 
--export_type([network/0, d_type/0, neuron/0, link/0, label/0]).
+-export_type([network/0, d_type/0, link/0]).
 
--type network_id() :: {reference(), network}.
--type network_type()  :: 'sequential' | 'recurrent'.
+-type id()      :: {reference(), network}.
+-type d_type()  :: 'sequential' | 'recurrent'.
+-type d_node()  :: neuron:id() | 'start' | 'end'.
 -record(network, {
-    id = {make_ref(), network} :: network_id(),
-    cn = #{} :: #{neuron_id() => connections()},   
-    type = recurrent :: network_type()
+    id   = {make_ref(), network} :: id(),
+    cn   :: #{d_node() => connections()},
+    type :: d_type()
 }).
 -type network() :: #network{}.
 
 -record(connections, {
-    seq = {[],[]} :: {In :: [neuron_id()], Out :: [neuron_id()]},
-    rcc = {[],[]} :: {In :: [neuron_id()], Out :: [neuron_id()]}
+    seq = {[],[]} :: {In :: [d_node()], Out :: [d_node()]},
+    rcc = {[],[]} :: {In :: [d_node()], Out :: [d_node()]}
 }).
 -type connections() :: #connections{}.
 
--type link_id() :: {From :: neuron_id(), To :: neuron_id(), link}.
--record(link, {
-    id :: linkn_id(),
-    w = uninitialized :: weight()
-}).
--type link() :: #link{}.
-
-
--type neuron()  :: term().
-
-
--type add_link_err_rsn() :: {'bad_link', Path :: [neuron()]}
-                          | {'bad_neuron',  N ::  neuron() }.
-
--define(NTAB_CONFIGUTATION, [set, public, { read_concurrency,true}]).
--define(CTAB_CONFIGUTATION, [set, public, {write_concurrency,true}]).
--define(DTAB_CONFIGUTATION, [set, public, {write_concurrency,true}]).
--define(RTAB_CONFIGUTATION, [set, public, {write_concurrency,true}]).
+-type add_link_err_rsn() :: {'bad_link', Path :: [d_node()]}
+                          | {'bad_neuron',  N ::  d_node() }.
 
 
 %%%===================================================================
@@ -77,39 +62,19 @@
 new() -> new(recurrent).
 
 -spec new(Type) -> network() when
-      Type :: [d_type()].
+      Type :: d_type().
 new(Type) ->
-    case check_type(Type, []) of
-    {ok, Ts} ->
-        NT = ets:new(  neurons, ?NTAB_CONFIGUTATION),
-        CT = ets:new(    links, ?CTAB_CONFIGUTATION),
-        DT = ets:new(   direct, ?DTAB_CONFIGUTATION),
-        RT = ets:new(recurrent, ?RTAB_CONFIGUTATION),
-        ets:insert(NT, [{'$start', 0}, {'$end', 0}]),
-        set_type(Ts, #network{ntab=NT, ctab=CT, dtab=DT, rtab=RT});
-    error ->
-        erlang:error(badarg)
+    case check_type(Type) of
+        ok -> #network{type=Type, cn=new_cn()};
+        _  -> erlang:error(badarg)
     end.
 
-check_type([sequential| Ts], L) -> check_type(Ts, [{recurrent,false} | L]);
-check_type([recurrent | Ts], L) -> check_type(Ts, [{recurrent, true} | L]);
-check_type(              [], L) -> {ok, L};
-check_type(               _, _) -> error.
+check_type(sequential) -> ok;
+check_type( recurrent) -> ok;
+check_type(         _) -> error.
 
-set_type([{recurrent,X} | Ks], NN) -> set_type(Ks, NN#network{recurrent = X});
-set_type(                  [], NN) -> NN.
+new_cn() -> #{'start'=>#connections{},'end'=>#connections{}}.
 
-%%-------------------------------------------------------------------
-%% @doc Deletes a network.  
-%% @end
-%%-------------------------------------------------------------------
--spec delete(NN) -> 'true' when
-      NN :: network().
-delete(NN) ->
-    ets:delete(NN#network.ntab),
-    ets:delete(NN#network.ctab),
-    ets:delete(NN#network.dtab),
-    ets:delete(NN#network.rtab).
 
 %%-------------------------------------------------------------------
 %% @doc Information from the network.  
