@@ -4,7 +4,7 @@
 %%%
 %%% @end
 %%%-------------------------------------------------------------------
--module(nn_pool).
+-module(enn_pool).
 -compile([export_all, nowarn_export_all]). %% TODO: To delete after buil
 
 -include_lib("network.hrl").
@@ -13,7 +13,7 @@
 -export([]).
 -export_type([]).
 
--record(nn, {
+-record(enn, {
     id         :: network_id(), % Network identifier
     supervisor :: pid(),        % Pid of the supervisor
     cortex     :: pid(),        % Pid of the cortex 
@@ -26,12 +26,12 @@
     % last_bperr = []  :: [float()]  % Last back propagation errors
 }).
 
--define(NN_POOL, nn_pool).
+-define(ENN_POOL, enn_pool).
 -define(NNTAB_CONFIGUTATION, [
     named_table,        % As any process should be able to start a nn
     public,             % Every element registers itself (so public)
     set,                % The pool must be a set (no repeated values)
-    {keypos, #network.id}    % The key of the record must be the id
+    {keypos, #enn.id}   % The key of the record must be the id
 ]).
 
 
@@ -45,7 +45,7 @@
 %%--------------------------------------------------------------------
 -spec start() -> ok.
 start() -> 
-    ?NN_POOL = ets:new(?NN_POOL, ?NN_POOL_OPTIONS),
+    ?ENN_POOL = ets:new(?ENN_POOL, ?NNTAB_CONFIGUTATION),
     ok.
 
 
