@@ -82,21 +82,36 @@ new_cn() -> #{'start'=>#connections{},'end'=>#connections{}}.
 %%-------------------------------------------------------------------
 -spec info(NN) -> InfoList when
       NN :: network(),
-      InfoList :: [{'type', Type :: d_type()} |
-                   {'memory', NoWords :: non_neg_integer()}].
+      InfoList :: [{'type',    Type :: d_type()} |
+                   {'size', NoWords :: non_neg_integer()}].
 info(NN) ->
-    NT = NN#network.ntab,
-    CT = NN#network.ctab,
-    DT = NN#network.dtab,
-    RT = NN#network.rtab,
-    Type = case NN#network.recurrent of
-            true  -> recurrent;
-            false -> sequential
-        end,
-    Protection = ets:info(NT, protection),
-    Memory = ets:info(NT,memory) + ets:info(CT,memory) + 
-             ets:info(DT,memory) + ets:info(RT,memory),
-    [{type, Type}, {memory, Memory}, {protection, Protection}].
+    Type = NN#network.type,
+    Size = maps:size(NN),
+    [{type, Type}, {size, Size}].
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 %%-------------------------------------------------------------------
 %% @doc Adds a neuron to the network.  
