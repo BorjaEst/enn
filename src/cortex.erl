@@ -96,29 +96,6 @@ predict(Cortex_Pid, ExternalInputs) ->
 fit(Cortex_Pid, Errors) ->
     gen_statem:call(Cortex_Pid, {backprop, Errors}).
 
-%%--------------------------------------------------------------------
-%% @doc Returns the pid of a neuron from its id.
-%% @end
-%%--------------------------------------------------------------------
--spec nn_id2pid(Id, Network) -> pid() when 
-    Id      :: neuron:id() | cortex:id(),
-    Network :: network().
-nn_id2pid(Id, Network) ->
-    {Id, Pid} = digraph:vertex(Network#network.graph, Id),
-    Pid.
-
-%%--------------------------------------------------------------------
-%% @doc Returns the id of a neuron from its pid.
-%% @end
-%%--------------------------------------------------------------------
--spec nn_pid2id(Pid, Network) -> Id when 
-    Pid     :: pid(),
-    Network :: network(),
-    Id      :: neuron:id() | cortex:id().
-nn_pid2id(Pid, Network) ->
-    [{Pid, Id}] = ets:lookup(Network#network.pid_pool, Pid),
-    Id.
-
 
 %%%===================================================================
 %%% gen_statem callbacks

@@ -4,34 +4,22 @@
 %%%
 %%% @end
 %%%-------------------------------------------------------------------
--module(enn_pool).
+-module(nn_pool).
 -compile([export_all, nowarn_export_all]). %% TODO: To delete after buil
 
--include_lib("network.hrl").
+-include_lib("neuron.hrl").
 
 %% API
 -export([]).
 -export_type([]).
 
--record(enn, {
-    id         :: network_id(), % Network identifier
-    supervisor :: pid(),        % Pid of the supervisor
-    cortex     :: pid(),        % Pid of the cortex 
-    pid_pool   :: ets:tid()     % ETS table with neurons pid->id
-    % graph      :: graph(),      % Mounted graph with network
-    % neurons     :: integer(),
-    % links       :: integer(),
-    % forward_cycles  = 0 :: integer(), % Number of FP performed cycles
-    % backward_cycles = 0 :: integer(), % Number of BP performed cycles
-    % last_bperr = []  :: [float()]  % Last back propagation errors
-}).
+-type pool() :: ets:tid().
+-type id()   :: neuron_id() | cortex_id().
 
--define(ENN_POOL, enn_pool).
+-define(NN_POOL, nn_pool).
 -define(TAB_CONFIGUTATION, [
-    named_table,        % As any process should be able to start a nn
-    public,             % Every element registers itself (so public)
-    set,                % The pool must be a set (no repeated values)
-    {keypos, #enn.id}   % The key of the record must be the id
+    {read_concurrency, true}, % Prepared for concurrent reading
+    protected                 % Any can query the table
 ]).
 
 
@@ -40,13 +28,34 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @doc Starts the neural network pool ets table.
+%% @doc Mounts the pool using a list of {id, pid}.
 %% @end
 %%--------------------------------------------------------------------
--spec start() -> ok.
-start() -> 
-    ?ENN_POOL = ets:new(?ENN_POOL, ?TAB_CONFIGUTATION),
-    ok.
+-spec mount(IdsPids) -> pool() when 
+    IdsPids :: [{id(), pid()}].
+mount(IdsPids) -> 
+    Tid  = ets:new(unnamed, ?TAB_CONFIGUTATION),
+    true = ets:insert(Tid, [{Id,Pid} || {Id,Pid} <- IdsPids]),
+    true = ets:insert(Tid, [{Pid,Id} || {Id,Pid} <- IdsPids]),
+    Tid.
+
+%%--------------------------------------------------------------------
+%% @doc Returns the pid of a neuron from its id.
+%% @end
+%%--------------------------------------------------------------------
+-spec pid(Pool :: pool(), Id :: id()) -> Pid :: pid().
+pid(Pool, Id) ->
+    [{Id, Pid}] = ets:lookup(Pool, Id),
+    Pid.
+
+%%--------------------------------------------------------------------
+%% @doc Returns the id of a neuron from its pid.
+%% @end
+%%--------------------------------------------------------------------
+-spec id(Pool :: pool(), Pid :: pid()) -> Id :: id().
+id(Pool, Pid) ->
+    [{Pid, Id}] = ets:lookup(Pool, Pid),
+    Id.
 
 
 %%====================================================================
