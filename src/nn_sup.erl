@@ -6,33 +6,32 @@
 -module(nn_sup).
 -behaviour(supervisor).
 
--include_lib("network.hrl").
-
-
 %% API
--export([start_link/1, start_cortex/2, start_neuron/2]).
+-export([id/1, start_link/1, start_cortex/2, start_neuron/2]).
+-export_type([id/0]).
 
 %% Supervisor callbacks
 -export([init/1]).
 
--define(START_CHILD(Supervisor, ChildSpec), 
-        supervisor:start_child(Supervisor, ChildSpec)).
+-type id() :: {Ref :: reference(), nn_sup}.
 
--define(SPECS_CORTEX(Cortex_Id), #{
-    id       => Cortex_Id,
-    start    => {cortex, start_link, [Cortex_Id]},
+-define(SPECS_CORTEX(Network_Id), #{
+    id       => cortex:id(Network_Id),
+    start    => {cortex, start_link, [Network_Id]},
     restart  => permanent,
     shutdown => 1000,
     modules  => [gen_statem]
 }).
--define(SPECS_NEURON(Neuron_Id, NN), #{
+-define(SPECS_NEURON(Neuron_Id), #{
     id       => Neuron_Id,
-    start    => {neuron, start_link, [Neuron_Id, NN#network.id]},
+    start    => {neuron, start_link, [Neuron_Id]},
     restart  => permanent,
     shutdown => 500,
     modules  => [neuron]
  }).
 
+-define(START_CHILD(Supervisor, ChildSpec), 
+        supervisor:start_child(Supervisor, ChildSpec)).
 
 
 %%%===================================================================
@@ -40,30 +39,35 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
+%% @doc Returns the supervisor id of from a network id. 
+%% @end
+%%--------------------------------------------------------------------
+-spec id(Network_Id :: netwrok:id()) -> Supervisor :: id().
+id(Network_Id) -> {element(1, Network_Id), nn_sup}.
+
+%%--------------------------------------------------------------------
 %% @doc Starts the supervisor
 %% @end
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
-start_link(Cortex_Id) ->
-    supervisor:start_link(?MODULE, [Cortex_Id]).
+start_link(Network_Id) ->
+    supervisor:start_link(?MODULE, [Network_Id]).
 
 %%--------------------------------------------------------------------
 %% @doc Starts the neural network cortex
 %% @end
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
-start_cortex(Supervisor, Cortex_Id) ->
-    ?START_CHILD(Supervisor, ?SPECS_CORTEX(Cortex_Id)).
+start_cortex(Supervisor, Network_Id) ->
+    ?START_CHILD(Supervisor, ?SPECS_CORTEX(Network_Id)).
 
 %%--------------------------------------------------------------------
 %% @doc Starts the neural network cortex
 %% @end
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
-start_neuron(Id, NN) ->
-    {ok, Pid} = ?START_CHILD(NN#network.supervisor, ?SPECS_NEURON(Id, NN)),
-    true = ets:insert(NN#network.pid_pool, [{Id, Pid}, {Pid, Id}]),
-    Pid.
+start_neuron(Supervisor, Neuron_Id) ->
+    ?START_CHILD(Supervisor, ?SPECS_NEURON(Neuron_Id)).
 
 
 %%====================================================================
@@ -74,22 +78,15 @@ start_neuron(Id, NN) ->
 %% Optional keys are restart, shutdown, type, modules.
 %% Before OTP 18 tuples must be used to specify a child. e.g.
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
-init([Cortex_Id]) ->
+init([Network_Id]) ->
     SupFlags = #{strategy  => one_for_all, %% All down if one down
                  intensity => 0,   %% Restart is not allowed
                  period    => 10}, %% Any as intensity = 0
     ChildSpecs = [],
-    register_in_pool(Cortex_Id),
+    enn_pool:register_as_supervisor(Network_Id),
     {ok, {SupFlags, ChildSpecs}}.
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-
-register_in_pool(Cortex_Id) -> 
-    % The nn key in the nn_pool is the cortex id 
-    true = ets:update_element(?NN_POOL, Cortex_Id, [
-        {#network.supervisor, self()},
-        {#network.pid_pool,     ets:new(unnamed, ?ETS_TABLE_SPECS)}
-    ]).
 
