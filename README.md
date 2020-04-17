@@ -171,6 +171,7 @@ In progress:
 
 Erlang performance:
 - Use binary for long messages to speedup communications.
+- Runtime connections change: ETS table with connections [{{in,N2},N1}, {{out,N1},N2}]
 
 Speed-up training:
 - ELU activation function seems by papers to perform better than Sigmoid and ReLU. Leaky ReLU is good as well.
