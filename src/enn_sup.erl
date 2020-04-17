@@ -7,8 +7,6 @@
 -module(enn_sup).
 -behaviour(supervisor).
 
--include_lib("network.hrl").
-
 %% API
 -export([start_link/1, start_nn/1, terminate_nn/1]).
 
@@ -24,10 +22,9 @@
     shutdown => 500,
     modules  => [gen_server]
 }).
--define(NN_SUP_ID(Cortex_Id), {element(1, Cortex_Id), nn_sup}).
--define(SPECS_NN_SUP(Cortex_Id), #{
-    id       => ?NN_SUP_ID(Cortex_Id),
-    start    => {nn_sup, start_link, [Cortex_Id]},
+-define(SPECS_NN_SUP(Network_Id), #{
+    id       => nn_sup:id(Network_Id),
+    start    => {nn_sup, start_link, [Network_Id]},
     restart  => temporary,
     type     => supervisor,
     modules  => [supervisor]
@@ -50,11 +47,11 @@ start_link(StartArgs) ->
 %% @end
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
-start_nn(Cortex_Id) ->
-    true = ets:insert(?NN_POOL, #network{id = Cortex_Id}),
-    {ok, NN_Pid} = supervisor:start_child(?SERVER, 
-                                          ?SPECS_NN_SUP(Cortex_Id)),
-    {ok, _}      = nn_sup:start_cortex(NN_Pid, Cortex_Id),
+start_nn(Network_Id) ->
+    true = enn_pool:register(Network_Id),
+    Specs = ?SPECS_NN_SUP(Network_Id),
+    {ok, P} = supervisor:start_child(?SERVER, Specs),
+    {ok, _} = nn_sup:start_cortex(P, Network_Id),
     ok. 
 
 %%--------------------------------------------------------------------
@@ -62,11 +59,9 @@ start_nn(Cortex_Id) ->
 %% @end
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
-terminate_nn(Cortex_Id) ->
-    case supervisor:terminate_child(?SERVER, ?NN_SUP_ID(Cortex_Id)) of
-        ok   -> true = ets:delete(?NN_POOL, Cortex_Id), ok;
-        Fail -> Fail
-    end.
+terminate_nn(Network_Id) ->
+    true = enn_pool:unregister(Network_Id),
+    supervisor:terminate_child(?SERVER, nn_sup:id(Network_Id)).
 
 
 %%====================================================================
@@ -84,15 +79,11 @@ init([]) ->
     ChildSpecs = [
         ?SPECS_DATALOG
     ],
-    start_nn_pool(),
+    enn_pool:start(),
     {ok, {SupFlags, ChildSpecs}}.
 
     
 %%====================================================================
 %% Internal functions
 %%====================================================================
-
-start_nn_pool() ->  
-    ets:new(?NN_POOL, ?NN_POOL_OPTIONS).
-
 
