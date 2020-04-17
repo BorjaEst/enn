@@ -7,20 +7,23 @@
 -module(nn_pool).
 -compile([export_all, nowarn_export_all]). %% TODO: To delete after buil
 
--include_lib("neuron.hrl").
-
 %% API
 -export([]).
--export_type([]).
+-export_type([pool/0]).
 
 -type pool() :: ets:tid().
--type id()   :: neuron_id() | cortex_id().
 
--define(NN_POOL, nn_pool).
--define(TAB_CONFIGUTATION, [
+-define(TABS_CONFIGURATION, [
     {read_concurrency, true}, % Prepared for concurrent reading
     protected                 % Any can query the table
 ]).
+
+-type id()   :: neuron:id() | cortex:id().
+% -type conn() :: {network:d_type(), in | out, id()}.
+-record(nn_pool, {
+    ptab :: ets:tid(), % Contains the tab with pid<->id
+    ctab :: ets:tid()  % Future expansion to integrate connections
+}).
 
 
 %%%===================================================================
@@ -31,21 +34,27 @@
 %% @doc Mounts the pool using a list of {id, pid}.
 %% @end
 %%--------------------------------------------------------------------
--spec mount(IdsPids) -> pool() when 
-    IdsPids :: [{id(), pid()}].
-mount(IdsPids) -> 
-    Tid  = ets:new(unnamed, ?TAB_CONFIGUTATION),
-    true = ets:insert(Tid, [{Id,Pid} || {Id,Pid} <- IdsPids]),
-    true = ets:insert(Tid, [{Pid,Id} || {Id,Pid} <- IdsPids]),
-    Tid.
+-spec mount(Supervisor, Cortex_Id, NN) -> pool() when 
+    Supervisor :: pid(),
+    Cortex_Id  :: cortex:id(), 
+    NN         :: network:network().
+mount(Supervisor, Cx_Id, NN) -> 
+    PT   = ets:new(processes, ?TABS_CONFIGURATION),
+    Regs = [start_neuron(Supervisor,Id) || Id<-network:neurons(NN)],
+    true = ets:insert(PT, [{Cx_Id,self()} || {self(),Cx_Id}]),
+    true = ets:insert(PT, [{Id,Pid} || {Id,Pid} <- Regs]),
+    true = ets:insert(PT, [{Pid,Id} || {Id,Pid} <- Regs]),
+    NN_Pool = #nn_pool{ptab = PT},
+    [neuron:go(Pid, Id, NN, NN_Pool) || {Id,Pid} <- Regs],
+    NN_Pool.
 
 %%--------------------------------------------------------------------
 %% @doc Returns the pid of a neuron from its id.
 %% @end
 %%--------------------------------------------------------------------
 -spec pid(Pool :: pool(), Id :: id()) -> Pid :: pid().
-pid(Pool, Id) ->
-    [{Id, Pid}] = ets:lookup(Pool, Id),
+pid(#nn_pool{ptab = PT}, Id) ->
+    [{Id, Pid}] = ets:lookup(PT, Id),
     Pid.
 
 %%--------------------------------------------------------------------
@@ -53,14 +62,19 @@ pid(Pool, Id) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec id(Pool :: pool(), Pid :: pid()) -> Id :: id().
-id(Pool, Pid) ->
-    [{Pid, Id}] = ets:lookup(Pool, Pid),
+id(#nn_pool{ptab = PT}, Pid) ->
+    [{Pid, Id}] = ets:lookup(PT, Pid),
     Id.
 
 
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+% Starts a neuron ---------------------------------------------------
+start_neuron(Supervisor,Id) -> 
+    {ok, Pid} = nn_sup:start_neuron(Supervisor,Id),
+    {Id, Pid}.
 
 
 %%====================================================================
