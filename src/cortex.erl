@@ -6,16 +6,12 @@
 %%% time for the inputs to again gather and fanout input data to the
 %%% neurons in the input layer. 
 %%
-%%
-%%  TODO: Try to move the ets table to the nn_sup 
 %%  TODO: probably the fan_in fan_out function is not correct
 %%% @end
 %%%-------------------------------------------------------------------
 -module(cortex).
 -compile([export_all, nowarn_export_all]). %% TODO: To delete after build
 
--include_lib("network.hrl").
--include_lib("cortex.hrl").
 -include_lib("math_constants.hrl").
 -include_lib("enn_logger.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -24,7 +20,7 @@
 
 %% API
 %%-export([start_link/0]).
--export_type([id/0, property/0, properties/0]).
+-export_type([id/0]).
 
 %% gen_statem callbacks
 -export([init/1, format_status/2, handle_event/4, terminate/3, 
@@ -32,8 +28,6 @@
 -export([inactive/3, on_feedforward/3, on_backpropagation/3]).
 
 -type id() :: {Ref :: reference(), cortex}.
--type serialized_graph() :: term().
-
 -record(input,  {
     id      :: id(),        % Neuron id (input)
     s = 0.0 :: float()      % Signal value (Xi)
@@ -42,7 +36,6 @@
     id      :: id(),        % Neuron id (output)
     e = 0.0 :: float()      % Output error (Ei)
 }).
-
 -record(state, {
     wait = [] :: [term()]
 }).
@@ -53,48 +46,47 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @doc Creates a new cortex from the compiled layers, stores it on 
-%% the database and returns its cortex id.
+%% @doc Returns the cortex id of from a network id.  
 %% @end
 %%--------------------------------------------------------------------
--spec new(NInputs, NOutputs, SerialisedGraph) -> cortex_id() when 
-    NInputs         :: integer(),
-    NOutputs        :: integer(),
-    SerialisedGraph :: serialized_graph().
-new(NInputs, NOutputs, SerialisedGraph) ->
-    Cortex = #cortex{
-        inputs           = NInputs,
-        outputs          = NOutputs,
-        serialised_graph = SerialisedGraph
-    },
-    edb:write(Cortex),
-    Cortex#cortex.id.
+-spec id(Network_Id :: netwrok:id()) -> Cortex_Id :: id().
+id(Network_Id) -> {element(1, Network_Id), cortex}.
 
 %%--------------------------------------------------------------------
 %% @doc Cortex id start function for supervisor. 
 %% @end
 %%--------------------------------------------------------------------
--spec start_link(Cortex_Id :: id()) -> gen_statem:start_ret().
-start_link(Cortex_Id) -> 
-    gen_statem:start_link(?MODULE, [Cortex_Id], []).
+-spec pid(Network_Id :: netwrok:id()) -> Cortex_Pid :: pid().
+pid(Network_Id) -> 
+    ENN = enn_pool:info(Network_Id),
+    maps:get(cortex, ENN).
+
+%%--------------------------------------------------------------------
+%% @doc Cortex id start function for supervisor. 
+%% @end
+%%--------------------------------------------------------------------
+-spec start_link(Network_Id :: netwrok:id()) -> 
+    gen_statem:start_ret().
+start_link(Network_Id) -> 
+    gen_statem:start_link(?MODULE, [Network_Id, self()], []).
 
 %%--------------------------------------------------------------------
 %% @doc Makes a prediction using the external inputs.
 %% @end
 %%--------------------------------------------------------------------
--spec predict(Cortex_Pid :: pid(), ExternalInputs :: [float()]) ->
+-spec predict(Pid :: pid(), ExternalInputs :: [float()]) ->
     Predictions :: [float()].
-predict(Cortex_Pid, ExternalInputs) ->
-    gen_statem:call(Cortex_Pid, {feedforward, ExternalInputs}).
+predict(Pid, ExternalInputs) ->
+    gen_statem:call(Pid, {feedforward, ExternalInputs}).
 
 %%--------------------------------------------------------------------
 %% @doc Performs a single NN training using back propagation.
 %% @end
 %%--------------------------------------------------------------------
--spec fit(Cortex_Pid :: pid(), Errors :: [float()]) ->
+-spec fit(Pid :: pid(), Errors :: [float()]) ->
     BP_Errors :: [float()].
-fit(Cortex_Pid, Errors) ->
-    gen_statem:call(Cortex_Pid, {backprop, Errors}).
+fit(Pid, Errors) ->
+    gen_statem:call(Pid, {backprop, Errors}).
 
 
 %%%===================================================================
@@ -114,19 +106,13 @@ fit(Cortex_Pid, Errors) ->
 %%                     {stop, StopReason}
 %% @end
 %%--------------------------------------------------------------------
-init([Id = Network_Id]) -> 
-    Graph = enn:mount_graph(Network_Id),
-    IdPT  = ets:lookup_element(?NN_POOL,Network_Id,#network.pid_pool),
-    true  = ets:insert(IdPT, [{self(), Id}]),
-    true  = digraph:add_vertex(Graph, Id, self()),
-    true  = ets:update_element(?NN_POOL,Network_Id,
-        [{#network.cortex, self()}, {#network.graph, Graph}]
-    ),
+init([Network_Id, NN_Sup]) -> 
+    true = enn_pool:register_as_cortex(Network_Id),
     process_flag(trap_exit, true), % To catch supervisor 'EXIT'
-    put(id, Id),
+    put(id, id(Network_Id)),
     ?LOG_STATE_CHANGE(undefined),
     {ok, inactive, #state{wait = []},
-        {next_event, internal, {start_nn, Network_Id}}}.
+        {next_event, internal, {start_nn, Network_Id, NN_Sup}}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -203,9 +189,9 @@ inactive({call, From}, {backprop, Errors}, State) ->
     {next_state, on_backpropagation, State#state{
         wait = [Pid || {Pid, _}  <- get(outputs)]
     }};
-inactive(internal, {start_nn, NN}, State) ->
+inactive(internal, {start_nn, Network_Id, NN_Sup}, State) ->
     ?LOG_EVENT_START_NEURONS_NETWORK,
-    handle_start(NN),
+    handle_start(Network_Id, NN_Sup),
     {keep_state, State};
 inactive(EventType, EventContent, State) ->
     handle_common(EventType, EventContent, State).
@@ -346,22 +332,16 @@ backward(Input_Pid, Error) ->
     {Input_Pid, Error}.
 
 % -------------------------------------------------------------------
-handle_start(Network_Id) ->
-    NN = enn:network(Network_Id),
-    Neurons = [start_neuron(  Id, NN) || Id  <- enn:neurons(NN)],
-              [resume_neuron(Pid, NN) || Pid <- Neurons],
-    Inputs  = [{nn_id2pid(Id,NN),#output{}} || Id <-enn:inputs( NN)],
-    Outputs = [{nn_id2pid(Id,NN),#input{ }} || Id <-enn:outputs(NN)],
-    put( inputs, Outputs), % System outputs are the cortex inputs
-    put(outputs,  Inputs). % System inputs are the cortex outputs
-
-start_neuron(Id, NN) ->
-    Pid  = nn_sup:start_neuron(Id, NN),
-    true = ets:insert(enn:table
-    , Arg2)
-
-resume_neuron(Pid, NN) -> 
-    Pid ! {continue_init, NN#network.pid_pool}.
+handle_start(Network_Id, NN_Sup) ->
+    NN      = edb:read(Network_Id),
+    NN_Pool = nn_pool:mount(NN_Sup, id(Network_Id), NN),
+    true    = enn_pool:register_nn_pool(Network_Id, NN_Pool),
+    put( inputs,  % System outputs are the cortex inputs
+        [{nn_pool:pid(Id,NN_Pool),#input{ }} 
+            || Id <-  network:in_neighbours(NN,   'end')]), 
+    put(outputs,  % System inputs are the cortex outputs
+        [{nn_pool:pid(Id,NN_Pool),#output{}}
+            || Id <- network:out_neighbours(NN, 'start')]).
 
 
 %%====================================================================
@@ -370,34 +350,13 @@ resume_neuron(Pid, NN) ->
 
 % --------------------------------------------------------------------
 % TESTS DESCRIPTIONS -------------------------------------------------
-cortex_white_test_() ->
-    % {setup, Where, Setup, Cleanup, Tests | Instantiator}
-    [
-        {"Void example",
-         {setup, local, fun no_setup/0, fun no_cleanup/1, fun example/1}}
-    ].
 
 % --------------------------------------------------------------------
 % SPECIFIC SETUP FUNCTIONS -------------------------------------------
-no_setup() ->
-    ok.
-
-no_cleanup(_) ->
-    ok.
 
 % --------------------------------------------------------------------
 % ACTUAL TESTS -------------------------------------------------------
-example(_) ->
-    [
-        ?_assert(true)
-    ].
 
 % --------------------------------------------------------------------
 % SPECIFIC HELPER FUNCTIONS -----------------------------------------
-
-
-
-
-
-
 
