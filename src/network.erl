@@ -291,7 +291,7 @@ no_links(NN) ->
 -spec links(NN) -> Links when
       NN :: network(),
       Links :: [link()].
-links(#network{cn=CN} = NN) ->
+links(#network{cn=CN}) ->
     [{N1,N2} || N1<-maps:keys(CN), N2<-nn_node:out_neighbours(N1)].
 
 %%-------------------------------------------------------------------
@@ -303,8 +303,7 @@ links(#network{cn=CN} = NN) ->
       N  :: d_node(),
       Links :: [link()].
 links(NN, N) ->
-    [{N1,N} || N1 <-  nn_node:in_neighbours(N)] ++ 
-    [{N,N2} || N2 <- nn_node:out_neighbours(N)].
+    in_links(NN, N) ++ out_links(NN, N).
 
 
 %%====================================================================
