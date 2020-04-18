@@ -20,8 +20,8 @@
 -export_type([connections/0]).
 
 -record(inout, {
-    in  = [] :: [d_node()],
-    out = [] :: [d_node()]
+    in  = [] :: [network:d_node()],
+    out = [] :: [network:d_node()]
 }).
 -type inout() :: #inout{}.
 -define( IN(InOut), InOut#inout.in).
@@ -205,7 +205,7 @@ in_neighbours(#connections{rcc=Rcc},  recurrent) -> ?IN(Rcc).
 %%-------------------------------------------------------------------
 -spec out_neighbours(Connections) -> Nodes when
       Connections :: connections(),
-      Nodes :: [d_node()].
+      Nodes :: [network:d_node()].
 out_neighbours(Connections) ->
     out_neighbours(Connections, sequential) ++ 
     out_neighbours(Connections,  recurrent).
