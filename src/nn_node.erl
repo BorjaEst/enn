@@ -10,6 +10,8 @@
 
 -export([add_sequential_in/2, add_sequential_out/2]).
 -export([ add_recurrent_in/2,  add_recurrent_out/2]).
+-export([remove_sequential_in/2, remove_sequential_out/2]).
+-export([ remove_recurrent_in/2,  remove_recurrent_out/2]).
 
 -export([is_sink/1, is_bias/1]).
 -export([out_neighbours/1, out_neighbours/2, out_degree/1]).
@@ -105,32 +107,45 @@ add_recurrent_in(Connections, N) ->
 add_recurrent_out(Connections, N) ->
     Connections#connections{rcc = add_out(?RCC(Connections), N)}.
 
+%%-------------------------------------------------------------------
+%% @doc Removes a node id to the sequential-in connections.  
+%% @end
+%%-------------------------------------------------------------------
+-spec remove_sequential_in(Connections, N) -> connections() when
+    Connections :: connections(),
+    N :: network:d_node().
+remove_sequential_in(Connections, N) ->
+    Connections#connections{seq = remove_in(?SEQ(Connections), N)}.
+ 
+%%-------------------------------------------------------------------
+%% @doc Removes a node id to the sequential-out connections.  
+%% @end
+%%-------------------------------------------------------------------
+-spec remove_sequential_out(Connections, N) -> connections() when
+    Connections :: connections(),
+    N :: network:d_node().
+remove_sequential_out(Connections, N) ->
+    Connections#connections{seq = remove_out(?SEQ(Connections), N)}.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+%%-------------------------------------------------------------------
+%% @doc Removes a node id to the recurrent-in connections.  
+%% @end
+%%-------------------------------------------------------------------
+-spec remove_recurrent_in(Connections, N) -> connections() when
+    Connections :: connections(),
+    N :: network:d_node().
+remove_recurrent_in(Connections, N) ->
+    Connections#connections{rcc = remove_in(?RCC(Connections), N)}.
+ 
+%%-------------------------------------------------------------------
+%% @doc Removes a node id to the recurrent-out connections.  
+%% @end
+%%-------------------------------------------------------------------
+-spec remove_recurrent_out(Connections, N) -> connections() when
+    Connections :: connections(),
+    N :: network:d_node().
+remove_recurrent_out(Connections, N) ->
+    Connections#connections{rcc = remove_out(?RCC(Connections), N)}.
 
 %%-------------------------------------------------------------------
 %% @doc Returns true if no outputs, otherwise false.  
@@ -172,15 +187,15 @@ out_degree(Connections) ->
 %%-------------------------------------------------------------------
 -spec in_neighbours(Connections) -> Nodes when
       Connections :: connections(),
-      Nodes :: [d_node()].
+      Nodes :: [network:d_node()].
 in_neighbours(Connections) ->
     in_neighbours(Connections, sequential) ++ 
     in_neighbours(Connections,  recurrent).
 
 -spec in_neighbours(Connections, Type) -> Nodes when
       Connections :: connections(),
-      Type  :: d_type(),
-      Nodes :: [d_node()].
+      Type  :: network:d_type(),
+      Nodes :: [network:d_node()].
 in_neighbours(#connections{seq=Seq}, sequential) -> ?IN(Seq);
 in_neighbours(#connections{rcc=Rcc},  recurrent) -> ?IN(Rcc).
 
@@ -197,27 +212,10 @@ out_neighbours(Connections) ->
 
 -spec out_neighbours(Connections, Type) -> Nodes when
       Connections :: connections(),
-      Type  :: d_type(),
-      Nodes :: [d_node()].
+      Type  :: network:d_type(),
+      Nodes :: [network:d_node()].
 out_neighbours(#connections{seq=Seq}, sequential) -> ?OUT(Seq);
 out_neighbours(#connections{rcc=Rcc},  recurrent) -> ?OUT(Rcc).
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 %%====================================================================
@@ -225,10 +223,17 @@ out_neighbours(#connections{rcc=Rcc},  recurrent) -> ?OUT(Rcc).
 %%====================================================================
 
 %% Adds and input to the inout record -------------------------------
-add_in(#inout{ in=In } = InOut, N) ->  
+add_in(#inout{} = InOut, N) ->  
     InOut#inout{ in=[N|InOut#inout.in ]}.
 
 %% Adds and output to the inout record ------------------------------
-add_out(#inout{out=Out} = InOut, N) ->  
+add_out(#inout{} = InOut, N) ->  
     InOut#inout{out=[N|InOut#inout.out]}.
 
+%% Removes and input from the inout record --------------------------
+remove_in(#inout{} = InOut, N) ->  
+    InOut#inout{ in=lists:delete(N, InOut#inout.in )}.
+
+%% Removes and output from the inout record -------------------------
+remove_out(#inout{} = InOut, N) ->  
+    InOut#inout{out=lists:delete(N, InOut#inout.out)}.
