@@ -17,7 +17,8 @@
 -export([func/3]).
 -export_type([func/0]).
 
--type func() :: dot_prod | diff_prod | diff_prod | diff_power.
+-type func() :: direct | dot_prod | diff_prod | product | dot_power |
+                diff_prod | diff_power.
 
 
 %%%===================================================================
