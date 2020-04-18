@@ -330,21 +330,12 @@ one_path([], W, [{Ns,Ps}|Cont], Xs, _, NN) -> % End of neighbours
 one_path([], _,             [],  _, _,  _) -> % No seq path
     false.
 
-
 % Inserts a sequential link on the nodes ----------------------------
 insert_seq_link(#network{cn=CN} = NN, N1, N2) ->
     #{N1:= ConnN1, N2:=ConnN2} = CN,
     NN#network{cn = CN#{
-        N1 := ConnN1#connections{
-            seq = {
-                       nn_node:in_neighbours(N1, sequential),
-                [N2 | nn_node:out_neighbours(N1, sequential)]
-            }},
-        N2 := ConnN2#connections{
-            seq = {
-                [N1 |  nn_node:in_neighbours(N2, sequential)],
-                      nn_node:out_neighbours(N2, sequential)
-            }}
+        N1 := nn_node:add_sequential_out(ConnN1, N2),
+        N2 := nn_node:add_sequential_in( ConnN2, N1)
     }}.
 
 % Inserts a recurrent link on the nodes -----------------------------
@@ -353,39 +344,17 @@ insert_rcc_link(#network{type=sequential}, _, _, Path) ->
 insert_rcc_link(#network{cn=CN} = NN, N1, N2, _) ->
     #{N1:= ConnN1, N2:=ConnN2} = CN,
     NN#network{cn = CN#{
-        N1 := ConnN1#connections{
-            rcc = {
-                       nn_node:in_neighbours(N1, recurrent),
-                [N2 | nn_node:out_neighbours(N1, recurrent)]
-            }},
-        N2 := ConnN2#connections{
-            rcc = {
-                [N1 |  nn_node:in_neighbours(N2, recurrent)],
-                      nn_node:out_neighbours(N2, recurrent)
-            }}
+        N1 := nn_node:add_recurrent_out(ConnN1, N2),
+        N2 := nn_node:add_recurrent_in( ConnN2, N1)
     }}.
 
-% Inserts a recurrent link on the nodes -----------------------------
+% Removes all link on the nodes -------------------------------------
 remove_link(#network{cn=CN} = NN, N1, N2) ->
     #{N1:= ConnN1, N2:=ConnN2} = CN,
     NN#network{cn = CN#{
-        N1 := ConnN1#connections{
-            seq = { 
-                                  nn_node:in_neighbours(N1, recurrent),
-                lists:delete(N2, nn_node:out_neighbours(N1, recurrent))
-            },
-            rcc = { 
-                                  nn_node:in_neighbours(N1, recurrent),
-                lists:delete(N2, nn_node:out_neighbours(N1, recurrent))
-            }},
-        N2 := ConnN2#connections{
-            seq = {
-                lists:delete(N1,  nn_node:in_neighbours(N2, recurrent)),
-                                 nn_node:out_neighbours(N2, recurrent)
-            },
-            rcc = {
-                lists:delete(N1,  nn_node:in_neighbours(N2, recurrent)),
-                                 nn_node:out_neighbours(N2, recurrent)
-            }}
+        N1 := nn_node:remove_sequential_out(
+                nn_node:remove_recurrent_out(ConnN1, N2), N2),
+        N2 := nn_node:remove_sequential_in(
+                nn_node:remove_recurrent_in(ConnN2, N1), N1)
     }}.
 
