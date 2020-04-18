@@ -108,7 +108,7 @@ add_recurrent_out(Connections, N) ->
     Connections#connections{rcc = add_out(?RCC(Connections), N)}.
 
 %%-------------------------------------------------------------------
-%% @doc Removes a node id to the sequential-in connections.  
+%% @doc Removes a node id from the sequential-in connections.  
 %% @end
 %%-------------------------------------------------------------------
 -spec remove_sequential_in(Connections, N) -> connections() when
@@ -118,7 +118,7 @@ remove_sequential_in(Connections, N) ->
     Connections#connections{seq = remove_in(?SEQ(Connections), N)}.
  
 %%-------------------------------------------------------------------
-%% @doc Removes a node id to the sequential-out connections.  
+%% @doc Removes a node id from the sequential-out connections.  
 %% @end
 %%-------------------------------------------------------------------
 -spec remove_sequential_out(Connections, N) -> connections() when
@@ -128,7 +128,7 @@ remove_sequential_out(Connections, N) ->
     Connections#connections{seq = remove_out(?SEQ(Connections), N)}.
 
 %%-------------------------------------------------------------------
-%% @doc Removes a node id to the recurrent-in connections.  
+%% @doc Removes a node id from the recurrent-in connections.  
 %% @end
 %%-------------------------------------------------------------------
 -spec remove_recurrent_in(Connections, N) -> connections() when
@@ -138,7 +138,7 @@ remove_recurrent_in(Connections, N) ->
     Connections#connections{rcc = remove_in(?RCC(Connections), N)}.
  
 %%-------------------------------------------------------------------
-%% @doc Removes a node id to the recurrent-out connections.  
+%% @doc Removes a node id from the recurrent-out connections.  
 %% @end
 %%-------------------------------------------------------------------
 -spec remove_recurrent_out(Connections, N) -> connections() when
@@ -156,7 +156,7 @@ is_sink(#connections{seq={_,[]},rcc={_,[]}}) -> true;
 is_sink(#connections{})                      -> false.
 
 %%-------------------------------------------------------------------
-%% @doc Returns all neurons in the network without inputs.  
+%% @doc Returns true if no inputs, otherwise false.   
 %% @end
 %%-------------------------------------------------------------------
 -spec is_bias(Connections :: connections()) -> boolean().
@@ -164,7 +164,7 @@ is_bias(#connections{seq={[],_},rcc={[],_}}) -> true;
 is_bias(#connections{})                      -> false.
 
 %%-------------------------------------------------------------------
-%% @doc Returns the in-degree of neuron N of network Connections.  
+%% @doc Returns the in-degree of connections.  
 %% @end
 %%-------------------------------------------------------------------
 -spec in_degree(Connections) -> non_neg_integer() when
@@ -173,7 +173,7 @@ in_degree(Connections) ->
     length(in_neighbours(Connections)).
 
 %%-------------------------------------------------------------------
-%% @doc Returns the out-degree of neuron N of network Connections.  
+%% @doc Returns the out-degree of connections.  
 %% @end
 %%-------------------------------------------------------------------
 -spec out_degree(Connections) -> non_neg_integer() when
@@ -182,7 +182,7 @@ out_degree(Connections) ->
     length(out_neighbours(Connections)).
 
 %%-------------------------------------------------------------------
-%% @doc Returns a list of all in-neighbors of N of network Connections. 
+%% @doc Returns a list of all in-neighbors of N connections. 
 %% @end
 %%-------------------------------------------------------------------
 -spec in_neighbours(Connections) -> Nodes when
@@ -200,7 +200,7 @@ in_neighbours(#connections{seq=Seq}, sequential) -> ?IN(Seq);
 in_neighbours(#connections{rcc=Rcc},  recurrent) -> ?IN(Rcc).
 
 %%-------------------------------------------------------------------
-%% @doc Returns a list of all out-neighbors of N of network Connections. 
+%% @doc Returns a list of all out-neighbors of N connections. 
 %% @end
 %%-------------------------------------------------------------------
 -spec out_neighbours(Connections) -> Nodes when
@@ -237,3 +237,4 @@ remove_in(#inout{} = InOut, N) ->
 %% Removes and output from the inout record -------------------------
 remove_out(#inout{} = InOut, N) ->  
     InOut#inout{out=lists:delete(N, InOut#inout.out)}.
+
