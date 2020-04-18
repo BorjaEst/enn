@@ -210,9 +210,9 @@ out_links(_, N1, Type) ->
     [{N1, N2} || N2 <- nn_node:out_neighbours(N1, Type)].
 
 %%-------------------------------------------------------------------
-%% @doc Creates (or modifies) a link between N1 and N2. 
-%%
-%% TODO: Take into accound 'start' and 'end'
+%% @doc Creates (or modifies) a link between N1 and N2. Atoms 'start'
+%% and 'end' can be used as nodes to add a link to the network start
+%% or/and end.
 %% @end
 %%------------------------------------------------------------------
 -spec add_link(NN1, N1, N2) -> NN2 when
