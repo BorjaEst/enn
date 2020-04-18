@@ -24,71 +24,103 @@
 
 %% API
 %%-export([]).
--export_type([id/0, property/0, properties/0]).
+-export_type([id/0, neuron/0, property/0, properties/0]).
 
--type id()         :: {{Coordinate :: float(), reference()}, neuron}.
--type property()   :: id | activation | aggregation | initializer.
--type properties() :: #{
-    OptionalProperty :: property() => Value :: term()
-}.
+-type id() :: {{Coordinate :: float(), reference()}, neuron}.
+-record(neuron, {
+    id = {make_ref(), neuron} :: id(),
+    activation  :: activation:func(),
+    aggregation :: aggregation:func(),
+    initializer :: initializer:func(),
+    bias        :: link:weight()
+}).  
+-type neuron()     :: #neuron{}.
+-type property()   :: activation | aggregation | initializer | bias.
+-type properties() :: #{Key :: property() => Value :: term()}.
 
--define(PID(Id), cortex:nn_id2pid(Id, get(tid))).
+-define(PID(Id), nn_pool:pid(Id, get(tid))).
 -record(input,  {
     id      :: id(),        % Neuron id (input)
-    r       :: boolean(),   % Is_recurrent
-    w       :: float(),     % Weight
+    s = 0.0 :: float(),     % Signal value (Xi)
     m       :: float(),     % Momentum
-    s = 0.0 :: float()      % Signal value (Xi)
+    w       :: link:weight() % Weight
 }).
+-type input() :: #input{}.
+
 -record(output, {
     id      :: id(),        % Neuron id (output)
-    r       :: boolean(),   % Is_recurrent
     e = 0.0 :: float()      % Output error (Ei)
 }).
+-type output() :: #output{}.
 
 -record(state, {
+    neuron  :: neuron(),
+    inputs  :: [input()],
+    outputs :: [output()],
     forward_wait  :: [pid()],
     backward_wait :: [pid()]
 }).
+-define( NEURON(State),  State#state.neuron).
+-define( INPUTS(State),  State#state.inputs).
+-define(OUTPUTS(State), State#state.outputs).
 
+% Learning parameters (to be moved to a module optimizer in a future)
 -define(LEARNING_FACTOR, 0.01).  
 -define(MOMENTUM_FACTOR, 0.00).
 -define(INITIAL_ERROR,   0.00).
 
--ifdef(debug).
--define(STDCALL_TIMEOUT, infinity).
--define(STDIDLE_TIMEOUT, infinity).
--else.
--define(STDCALL_TIMEOUT, 1000).
--define(STDIDLE_TIMEOUT, 5000).
--endif.
+% Configuration parameters
+-define(STDIDLE_TIMEOUT, 1000).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @doc Creates a new neuron from, stores it on the database and 
-%% returns its id.
+%% @doc Creates a new neuron. Some properties can be defined.
 %% @end
 %%--------------------------------------------------------------------
--spec new(Coordinade, Properties) -> id() when
-    Coordinade :: float(),
-    Properties :: properties().
-new(Coordinade, Properties) ->
-    Neuron = elements:neuron(Coordinade, Properties),
-    edb:write(Neuron),
-    elements:id(Neuron).
+-spec new() -> neuron().
+new() -> new(#{}).
+
+-spec new(Properties :: properties()) -> neuron().
+new(Properties) ->  
+    #neuron{
+        activation  = maps:get( activation, Properties,   direct),
+        aggregation = maps:get(aggregation, Properties, dot_prod),
+        initializer = maps:get(initializer, Properties,   glorot),
+        bias        = maps:get(bias, Properties, uninitialized)
+    }.
+
+%%--------------------------------------------------------------------
+%% @doc Returns the neuron id.
+%% @end
+%%-------------------------------------------------------------------
+-spec id(Neuron :: neuron()) -> id().
+id(Neuron) -> Neuron#neuron.id.
 
 %%--------------------------------------------------------------------
 %% @doc Neuron id start function for supervisor. 
 %% @end
 %%--------------------------------------------------------------------
--spec start_link(Id :: id(), NN_Id :: cortex:id()) -> 
+-spec start_link(Id :: id()) -> 
     gen_statem:start_ret().
-start_link(Id, NN_Id) ->
+start_link(Id) ->
     Supervisor = self(),
-    proc_lib:start_link(?MODULE, init, [Id, NN_Id, Supervisor]).
+    proc_lib:start_link(?MODULE, init, [Id, Supervisor]).
+
+%%--------------------------------------------------------------------
+%% @doc Gives the go to the neuron run after the network is mounted. 
+%%
+%% TODO: Improve info passing by having all on the NN_Pool ets.
+%% @end
+%%--------------------------------------------------------------------
+-spec go(Pid, Connections, NN_Pool) -> NonRelevant :: term() when 
+    Pid :: pid(),
+    Connections :: nn_node:connections(),
+    NN_Pool     :: nn_pool:pool().
+go(Pid, Connections, NN_Pool) ->
+    Pid ! {continue_init, Connections, NN_Pool}.
 
 
 %%%===================================================================
@@ -99,29 +131,16 @@ start_link(Id, NN_Id) ->
 %% @doc The neuron initialization.  
 %% @end
 %%--------------------------------------------------------------------
-init(Id, NN_Id, Supervisor) ->
-    Neuron = edb:read(Id),
-    [_|_] = elements:inputs_idps(Neuron),
-    [_|_] = elements:outputs_ids(Neuron),
-    process_flag(trap_exit, true),           % Catch supervisor exits
-    proc_lib:init_ack(Supervisor, {ok, self()}),   % Supervisor synch
-    receive {continue_init, TId} -> put(tid, TId) end, % Resume synch
-    put(nn_id,       NN_Id),
-    put(id,          elements:id(Neuron)),
-    put(activation,  elements:activation(Neuron)),
-    put(aggregation, elements:aggregation(Neuron)),
-    put(initializer, elements:initializer(Neuron)),
-    put(outputs,     Outputs = init_outputs(Neuron)),
-    put(inputs,      Inputs  = init_inputs(Neuron, NN_Id)),
-    put(bias,        init_bias(Neuron, NN_Id)),
-    Tensor = calculate_tensor(Inputs),
-    Soma   = calculate_soma(Tensor),
-    Signal = calculate_signal(Soma),
-    Error  = calculate_error(Outputs),
-    Beta   = calculate_beta(Error),
-    propagate_recurrent(Signal, Beta), 
+init(Id, Supervisor) ->
+    proc_lib:init_ack(Supervisor, {ok, self()}), % Supervisor synch
+    {Connections, NN_Pool} = wait_for_go(),      % Cortex synch
+    propagate_recurrent(Connections, NN_Pool), 
+    process_flag(trap_exit, true), % Catch supervisor exits
     ?LOG_NEURON_STARTED,
     loop(internal, #state{
+        neuron  = edb:read(Id),
+        inputs  = load_inputs(Id, Connections, NN_Pool),
+        outputs = load_outputs(Connections, NN_Pool),
         forward_wait  = [Pid || Pid <- maps:keys(get(inputs ))],
         backward_wait = [Pid || Pid <- maps:keys(get(outputs))]
     }).
@@ -228,6 +247,32 @@ terminate(Reason, _State) ->
 %%%===================================================================
 
 %%--------------------------------------------------------------------
+%% @doc Waits the 'continue_init' signal with the required information
+%% to start (connections and the nn_pool).  
+%% @end
+%%--------------------------------------------------------------------
+wait_for_go() -> 
+    receive 
+        {continue_init, Connections, NN_Pool} -> 
+            {Connections, NN_Pool}
+    end.
+
+%%--------------------------------------------------------------------
+%% @doc Propagates a signal to the recurrent connections to avoid 
+%% deadlock.  
+%% @end
+%%--------------------------------------------------------------------
+propagate_recurrent(Connections, NN_Pool) -> 
+    Empty_Output = #output{},    % Do not gen a new output each iter
+    SentO = [forward(nn_pool:pid(NN_Pool, Id), Empty_Output, 0.0) 
+        || Id <- nn_node:out_neighbours(Connections, recurrent)],
+    ?LOG_FORWARD_PROPAGATION_RECURRENT_OUTPUTS(SentO),
+    Empty_Input = #input{w=0.0}, % Do not gen a new input each iter
+    SentI = [backward(nn_pool:pid(NN_Pool, Id), Empty_Input, 0.0)
+        || Id <- nn_node:in_neighbours(Connections, recurrent)],
+    ?LOG_BACKWARD_PROPAGATION_RECURRENT_INPUTS(SentI).
+
+%%--------------------------------------------------------------------
 %% @doc Neuron outputs initialization.  
 %% @end
 %%--------------------------------------------------------------------
@@ -279,19 +324,6 @@ init_bias(Neuron, NN_Id) ->
         uninitialized          -> calculate_winit(Coordinade, NN_Id);
         Val when is_float(Val) -> Val
     end.
-
-%%--------------------------------------------------------------------
-%% @doc Propagates a signal to the recurrent connections to avoid 
-%% deadlock.  
-%% @end
-%%--------------------------------------------------------------------
-propagate_recurrent(Signal, Beta) -> 
-    OutputsL = maps:to_list(get(outputs)),
-    InputsL  = maps:to_list(get(inputs )),
-    SentO = [forward(P,O,Signal)|| {P,#output{r=true}=O} <- OutputsL],
-    ?LOG_FORWARD_PROPAGATION_RECURRENT_OUTPUTS(SentO),
-    SentI = [backward(P,I,Beta) || {P,#input{ r=true}=I} <- InputsL ],
-    ?LOG_BACKWARD_PROPAGATION_RECURRENT_INPUTS(SentI).
 
 
 %%%===================================================================
@@ -402,3 +434,23 @@ backward(Pid, Input, Beta) ->
     BP_Error = Input#input.w * Beta,
     Pid ! {self(), backward, BP_Error},
     {Pid, BP_Error}.
+
+
+%%====================================================================
+%% Eunit white box tests
+%%====================================================================
+
+% --------------------------------------------------------------------
+% TESTS DESCRIPTIONS -------------------------------------------------
+
+% --------------------------------------------------------------------
+% SPECIFIC SETUP FUNCTIONS -------------------------------------------
+
+% --------------------------------------------------------------------
+% ACTUAL TESTS -------------------------------------------------------
+
+% --------------------------------------------------------------------
+% SPECIFIC HELPER FUNCTIONS ------------------------------------------
+
+
+
