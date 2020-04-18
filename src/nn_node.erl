@@ -6,11 +6,10 @@
 %%%-------------------------------------------------------------------
 -module(network).
 
--export([new/0, new/1, info/1]).
+-export([new/0, info/1]).
 
--export([add_neuron/2, del_neuron/2]).
 -export([node/2, no_neurons/1, neurons/1]).
--export([sink_neurons/1, bias_neurons/1]).
+-export([is_sink/1, is_bias/1]).
 
 -export([add_link/3, add_links/3, del_link/3, del_links/3]).
 -export([no_links/1, links/1, links/2]).
@@ -20,18 +19,15 @@
 -export([out_degree/2, out_links/2, out_links/3]). 
 -export([ in_degree/2,  in_links/2,  in_links/3]).
 
--export_type([network/0, d_type/0, link/0]).
+-export_type([connections/0, d_type/0, link/0]).
 
--type id()      :: {reference(), network}.
--type d_type()  :: 'sequential' | 'recurrent'.
--type d_node()  :: neuron:id() | 'start' | 'end'.
--type link()    :: {From :: d_node(), To :: d_node()}.
--record(network, {
-    id   = {make_ref(), network} :: id(),
-    cn   :: #{d_node() => nn_node:connections()},
-    type :: d_type()
+-record(connections, {
+    seq = {[],[]} :: {In :: [d_node()], Out :: [d_node()]},
+    rcc = {[],[]} :: {In :: [d_node()], Out :: [d_node()]}
 }).
--type network() :: #network{}.
+-type connections() :: #connections{}.
+-define( IN(InOut), element(1, InOut)).
+-define(OUT(InOut), element(2, InOut)).
 
 
 %%%===================================================================
@@ -39,120 +35,65 @@
 %%%==================================================================
 
 %%-------------------------------------------------------------------
-%% @doc Creates a new network.  
+%% @doc Creates a new nn_node connections.  
 %% @end
 %%-------------------------------------------------------------------
--spec new() -> network().
-new() -> new(recurrent).
-
--spec new(Type) -> network() when
-      Type :: d_type().
-new(Type) ->
-    case check_type(Type) of
-        ok -> #network{type=Type, cn=start_cn()};
-        _  -> erlang:error(badarg)
-    end.
-
-check_type(sequential) -> ok;
-check_type( recurrent) -> ok;
-check_type(         _) -> error.
-
-start_cn() -> #{'start'=>nn_node:new(),'end'=>nn_node:new()}.
-
+-spec new() -> connections().
+new() -> #connections{}.
 
 %%-------------------------------------------------------------------
-%% @doc Information from the network.  
+%% @doc Information about the connection.  
 %% @end
 %%-------------------------------------------------------------------
--spec info(NN) -> InfoList when
-      NN :: network(),
-      InfoList :: [{'type',    Type :: d_type()} |
-                   {'size', NoWords :: non_neg_integer()}].
-info(#network{} = NN) ->
-    Type = NN#network.type,
-    Size = no_neurons(NN),
-    [{type, Type}, {size, Size}].
+-spec info(Connections) -> InfoList when
+    Connections :: connections(),
+    InfoList :: #{'sequential' => InOut,
+                  'recurrent'  => InOut},
+    InOut    :: #{'inputs'     => [network:d_node()],
+                  'outputs'    => [network:d_node()]}.
+info(#connections{} = Conn) -> #{
+    sequential => #{
+        inputs  =>  ?IN(Conn#connections.seq),
+        outputs => ?OUT(Conn#connections.seq)
+    },
+    recurrent => #{
+        inputs  =>  ?IN(Conn#connections.rcc),
+        outputs => ?OUT(Conn#connections.rcc)
+    }}.
 
 %%-------------------------------------------------------------------
-%% @doc Adds a neuron to the network.  
-%%
-%% TODO: A neuron must have at least 1 direct input
+%% @doc Returns true if no outputs, otherwise false.  
 %% @end
 %%-------------------------------------------------------------------
--spec add_neuron(NN1, N) -> NN2 when
-      NN1 :: network(),
-      NN2 :: network(),
-      N   :: neuron:id().
-add_neuron(#network{cn=CN} = NN, N) ->
-    NN#network{
-        cn = CN#{N => nn_node:new()}
-    }.
-
-%%-------------------------------------------------------------------
-%% @doc Deletes a neuron from the network.  
-%% @end
-%%-------------------------------------------------------------------
--spec del_neuron(NN, N) -> 'true' when
-      NN :: network(),
-      N  :: neuron:id().
-del_neuron(NN0, N1) ->
-    NN1 = del_links(NN0, [N1], out_neighbours(NN0,N1)),
-    NN2 = del_links(NN1, in_neighbours(NN1,N1), [N1]),
-    NN2#network{cn = maps:remove(N1, NN2#network.cn)}.
-    
-%%-------------------------------------------------------------------
-%% @doc Returns the node information or false if the node does not 
-%% belong to that network.  
-%% @end
-%%-------------------------------------------------------------------
--spec node(NN, N) -> connections:connections() | 'false' when
-      NN :: network(),
-      N  :: d_node().
-node(NN, N) ->
-    maps:get(N, NN#network.cn, 'false').
-
-%%-------------------------------------------------------------------
-%% @doc Returns the number of neurons of the network.  
-%% @end
-%%-------------------------------------------------------------------
--spec no_neurons(NN) -> non_neg_integer() when
-      NN :: network().
-no_neurons(NN) ->
-    maps:size(NN#network.cn) - 2. %(-'start' -'end')
-
-%%-------------------------------------------------------------------
-%% @doc Returns a list of all neurons of the network.  
-%% @end
-%%-------------------------------------------------------------------
--spec neurons(NN) -> Neurons when
-      NN :: network(),
-      Neurons :: [neuron:id()].
-neurons(NN) ->
-    maps:keys(NN#network.cn) -- ['start', 'end'].
-
-%%-------------------------------------------------------------------
-%% @doc Returns all neurons in the network without outputs.  
-%% @end
-%%-------------------------------------------------------------------
--spec sink_neurons(NN) -> Neurons when
-      NN :: network(),
-      Neurons :: [neuron:id()].
-sink_neurons(NN) ->
-    Pred = fun(_,Conn) -> connection:is_sink(Conn) end,
-    Sink = maps:filter(Pred, NN#network.cn),
-    Sink -- ['end'].
+-spec is_sink(Connections :: connections()) -> boolean().
+is_sink(#connections{seq={_,[]},rcc={_,[]}}) -> true;
+is_sink(#connections{})                      -> false.
 
 %%-------------------------------------------------------------------
 %% @doc Returns all neurons in the network without inputs.  
 %% @end
 %%-------------------------------------------------------------------
--spec bias_neurons(NN) -> Neurons when
-      NN :: network(),
-      Neurons :: [neuron:id()].
-bias_neurons(NN) ->
-    Pred = fun(_,Conn) -> connection:is_bias(Conn) end,
-    Bias = maps:filter(Pred, NN#network.cn),
-    Bias -- ['start'].
+-spec is_bias(Connections :: connections()) -> boolean().
+is_bias(#connections{seq={[],_},rcc={[],_}}) -> true;
+is_bias(#connections{})                      -> false.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 %%-------------------------------------------------------------------
 %% @doc Returns the in-degree of neuron N of network NN.  
