@@ -24,9 +24,9 @@
 -type d_node()  :: neuron:id() | 'start' | 'end'.
 -type link()    :: {From :: d_node(), To :: d_node()}.
 -record(network, {
-    id   = {make_ref(), network} :: id(),
-    cn   :: #{d_node() => nn_node:connections()},
-    type :: d_type()
+    id = {make_ref(), network} :: id(),
+    nodes :: #{d_node() => nn_node:connections()},
+    type  :: d_type()
 }).
 -type network() :: #network{}.
 
@@ -46,7 +46,7 @@ new() -> new(recurrent).
       Type :: d_type().
 new(Type) ->
     case check_type(Type) of
-        ok -> #network{type=Type, cn=start_cn()};
+        ok -> #network{type=Type, nodes=start_nodes()};
         _  -> erlang:error(badarg)
     end.
 
@@ -54,7 +54,7 @@ check_type(sequential) -> ok;
 check_type( recurrent) -> ok;
 check_type(         _) -> error.
 
-start_cn() -> #{'start'=>nn_node:new(),'end'=>nn_node:new()}.
+start_nodes() -> #{'start'=>nn_node:new(),'end'=>nn_node:new()}.
 
 
 %%-------------------------------------------------------------------
@@ -80,9 +80,9 @@ info(#network{} = NN) ->
       NN1 :: network(),
       NN2 :: network(),
       N   :: neuron:id().
-add_neuron(#network{cn=CN} = NN, N) ->
+add_neuron(#network{nodes=Nodes} = NN, N) ->
     NN#network{
-        cn = CN#{N => nn_node:new()}
+        nodes = Nodes#{N => nn_node:new()}
     }.
 
 %%-------------------------------------------------------------------
@@ -95,7 +95,7 @@ add_neuron(#network{cn=CN} = NN, N) ->
 del_neuron(NN0, N) ->
     NN1 = del_links(NN0, [N], nn_node:out_neighbours(N)),
     NN2 = del_links(NN1, nn_node:in_neighbours(N), [N]),
-    NN2#network{cn = maps:remove(N, NN2#network.cn)}.
+    NN2#network{nodes = maps:remove(N, NN2#network.nodes)}.
     
 %%-------------------------------------------------------------------
 %% @doc Returns the node information or false if the node does not 
@@ -106,7 +106,7 @@ del_neuron(NN0, N) ->
       NN :: network(),
       N  :: d_node().
 node(NN, N) ->
-    maps:get(N, NN#network.cn, 'false').
+    maps:get(N, NN#network.nodes, 'false').
 
 %%-------------------------------------------------------------------
 %% @doc Returns the number of neurons of the network.  
@@ -115,7 +115,7 @@ node(NN, N) ->
 -spec no_neurons(NN) -> non_neg_integer() when
       NN :: network().
 no_neurons(NN) ->
-    maps:size(NN#network.cn) - 2. %(-'start' -'end')
+    maps:size(NN#network.nodes) - 2. %(-'start' -'end')
 
 %%-------------------------------------------------------------------
 %% @doc Returns a list of all neurons of the network.  
@@ -125,7 +125,7 @@ no_neurons(NN) ->
       NN :: network(),
       Neurons :: [neuron:id()].
 neurons(NN) ->
-    maps:keys(NN#network.cn) -- ['start', 'end'].
+    maps:keys(NN#network.nodes) -- ['start', 'end'].
 
 %%-------------------------------------------------------------------
 %% @doc Returns the neurons connected to start. 
@@ -156,7 +156,7 @@ end_neurons(NN) ->
       Neurons :: [neuron:id()].
 sink_neurons(NN) ->
     Pred = fun(_,Conn) -> connection:is_sink(Conn) end,
-    Sink = maps:filter(Pred, NN#network.cn),
+    Sink = maps:filter(Pred, NN#network.nodes),
     Sink -- ['end'].
 
 %%-------------------------------------------------------------------
@@ -168,7 +168,7 @@ sink_neurons(NN) ->
       Neurons :: [neuron:id()].
 bias_neurons(NN) ->
     Pred = fun(_,Conn) -> connection:is_bias(Conn) end,
-    Bias = maps:filter(Pred, NN#network.cn),
+    Bias = maps:filter(Pred, NN#network.nodes),
     Bias -- ['start'].
 
 %%-------------------------------------------------------------------
@@ -291,8 +291,8 @@ no_links(NN) ->
 -spec links(NN) -> Links when
       NN :: network(),
       Links :: [link()].
-links(#network{cn=CN}) ->
-    [{N1,N2} || N1<-maps:keys(CN), N2<-nn_node:out_neighbours(N1)].
+links(#network{nodes=Nodes}) ->
+    [{N1,N2} || N1<-maps:keys(Nodes), N2<-nn_node:out_neighbours(N1)].
 
 %%-------------------------------------------------------------------
 %% @doc Returs all the neuron links. 
@@ -331,9 +331,9 @@ one_path([], _,             [],  _, _,  _) -> % No seq path
     false.
 
 % Inserts a sequential link on the nodes ----------------------------
-insert_seq_link(#network{cn=CN} = NN, N1, N2) ->
-    #{N1:= ConnN1, N2:=ConnN2} = CN,
-    NN#network{cn = CN#{
+insert_seq_link(#network{nodes=Nodes} = NN, N1, N2) ->
+    #{N1:= ConnN1, N2:=ConnN2} = Nodes,
+    NN#network{nodes = Nodes#{
         N1 := nn_node:add_sequential_out(ConnN1, N2),
         N2 := nn_node:add_sequential_in( ConnN2, N1)
     }}.
@@ -341,17 +341,17 @@ insert_seq_link(#network{cn=CN} = NN, N1, N2) ->
 % Inserts a recurrent link on the nodes -----------------------------
 insert_rcc_link(#network{type=sequential}, _, _, Path) ->
     error({bad_link, Path});
-insert_rcc_link(#network{cn=CN} = NN, N1, N2, _) ->
-    #{N1:= ConnN1, N2:=ConnN2} = CN,
-    NN#network{cn = CN#{
+insert_rcc_link(#network{nodes=Nodes} = NN, N1, N2, _) ->
+    #{N1:= ConnN1, N2:=ConnN2} = Nodes,
+    NN#network{nodes = Nodes#{
         N1 := nn_node:add_recurrent_out(ConnN1, N2),
         N2 := nn_node:add_recurrent_in( ConnN2, N1)
     }}.
 
 % Removes all link on the nodes -------------------------------------
-remove_link(#network{cn=CN} = NN, N1, N2) ->
-    #{N1:= ConnN1, N2:=ConnN2} = CN,
-    NN#network{cn = CN#{
+remove_link(#network{nodes=Nodes} = NN, N1, N2) ->
+    #{N1:= ConnN1, N2:=ConnN2} = Nodes,
+    NN#network{nodes = Nodes#{
         N1 := nn_node:remove_sequential_out(
                 nn_node:remove_recurrent_out(ConnN1, N2), N2),
         N2 := nn_node:remove_sequential_in(
