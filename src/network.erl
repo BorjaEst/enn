@@ -17,7 +17,7 @@
 -export([out_links/2, out_links/3, in_links/2,  in_links/3]). 
 -export([no_links/1, links/1, links/2]).
 
--export_type([network/0, d_type/0, link/0]).
+-export_type([network/0, d_type/0, d_node/0, link/0]).
 
 -type id()      :: {reference(), network}.
 -type d_type()  :: 'sequential' | 'recurrent'.
@@ -309,15 +309,6 @@ links(NN, N) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
-
-%% Collect elements for a index in a tuple --------------------------
-collect_nodes(Ns, N, Type) ->
-    CN = maps:get(N, Ns),
-    case Type of 
-        sequential -> CN#connections.seq;
-        recurrent  -> CN#connections.rcc;
-        _  -> error(badarg)
-    end.
 
 % Finds a path from N1 to N2 ----------------------------------------
 seq_path(NN, N1, N2) ->
