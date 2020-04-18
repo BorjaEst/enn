@@ -77,121 +77,115 @@ is_sink(#connections{})                      -> false.
 is_bias(#connections{seq={[],_},rcc={[],_}}) -> true;
 is_bias(#connections{})                      -> false.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 %%-------------------------------------------------------------------
-%% @doc Returns the in-degree of neuron N of network NN.  
+%% @doc Returns the in-degree of neuron N of network Connections.  
 %% @end
 %%-------------------------------------------------------------------
--spec in_degree(NN, N) -> non_neg_integer() when
-      NN :: network(),
-      N  :: d_node().
-in_degree(NN, N) ->
-    length(in_neighbours(NN, N)).
+-spec in_degree(Connections) -> non_neg_integer() when
+      Connections :: connections().
+in_degree(Connections) ->
+    length(in_neighbours(Connections)).
 
 %%-------------------------------------------------------------------
-%% @doc Returns the out-degree of neuron N of network NN.  
+%% @doc Returns the out-degree of neuron N of network Connections.  
 %% @end
 %%-------------------------------------------------------------------
--spec out_degree(NN, N) -> non_neg_integer() when
-      NN :: network(),
-      N  :: d_node().
-out_degree(NN, N) ->
-    length(out_neighbours(NN, N)).
+-spec out_degree(Connections) -> non_neg_integer() when
+      Connections :: connections().
+out_degree(Connections) ->
+    length(out_neighbours(Connections)).
 
 %%-------------------------------------------------------------------
-%% @doc Returns a list of all in-neighbors of N of network NN. 
+%% @doc Returns a list of all in-neighbors of N of network Connections. 
 %% @end
 %%-------------------------------------------------------------------
--spec in_neighbours(NN, N) -> Nodes when
-      NN :: network(),
-      N  :: d_node(),
+-spec in_neighbours(Connections) -> Nodes when
+      Connections :: connections(),
       Nodes :: [d_node()].
-in_neighbours(NN, N) ->
-    in_neighbours(NN, N, sequential) ++ 
-    in_neighbours(NN, N, recurrent).
+in_neighbours(Connections) ->
+    in_neighbours(Connections, sequential) ++ 
+    in_neighbours(Connections,  recurrent).
 
--spec in_neighbours(NN, N, Type) -> Nodes when
-      NN :: network(),
-      N  :: d_node(),
+-spec in_neighbours(Connections, Type) -> Nodes when
+      Connections :: connections(),
       Type  :: d_type(),
       Nodes :: [d_node()].
-in_neighbours(#network{cn=Ns}, N, Type) ->
-    ?IN(collect_nodes(Ns, N, Type)).
+in_neighbours(#connections{seq=Seq}, sequential) -> ?IN(Seq);
+in_neighbours(#connections{rcc=Rcc},  recurrent) -> ?IN(Rcc).
 
 %%-------------------------------------------------------------------
-%% @doc Returns a list of all out-neighbors of N of network NN. 
+%% @doc Returns a list of all out-neighbors of N of network Connections. 
 %% @end
 %%-------------------------------------------------------------------
--spec out_neighbours(NN, N) -> Nodes when
-      NN :: network(),
-      N  :: d_node(),
+-spec out_neighbours(Connections) -> Nodes when
+      Connections :: connections(),
       Nodes :: [d_node()].
-out_neighbours(NN, N) ->
-    out_neighbours(NN, N, sequential) ++ 
-    out_neighbours(NN, N, recurrent).
+out_neighbours(Connections) ->
+    out_neighbours(Connections, sequential) ++ 
+    out_neighbours(Connections,  recurrent).
 
--spec out_neighbours(NN, N, Type) -> Nodes when
-      NN :: network(),
-      N  :: d_node(),
+-spec out_neighbours(Connections, Type) -> Nodes when
+      Connections :: connections(),
       Type  :: d_type(),
       Nodes :: [d_node()].
-out_neighbours(#network{cn=Ns}, N, Type) ->
-    ?OUT(collect_nodes(Ns, N, Type)).
+out_neighbours(#connections{seq=Seq}, sequential) -> ?OUT(Seq);
+out_neighbours(#connections{rcc=Rcc},  recurrent) -> ?OUT(Rcc).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 %%-------------------------------------------------------------------
-%% @doc Returns all links incident on N of network NN. 
+%% @doc Returns all links incident on N of network Connections. 
 %% @end
 %%-------------------------------------------------------------------
--spec in_links(NN, N) -> Links when
-      NN :: network(),
+-spec in_links(Connections, N) -> Links when
+      Connections :: connections(),
       N  :: d_node(),
       Links :: [link()].
-in_links(NN, N2) ->
-    [{N1, N2} || N1 <- in_neighbours(NN, N2)].
+in_links(Connections, N2) ->
+    [{N1, N2} || N1 <- in_neighbours(Connections, N2)].
 
--spec in_links(NN, N, Type) -> Links when
-      NN :: network(),
+-spec in_links(Connections, N, Type) -> Links when
+      Connections :: connections(),
       N  :: d_node(),
       Type  :: d_type(),
       Links :: [link()].
-in_links(NN, N2, Type) -> 
-    [{N1, N2} || N1 <- in_neighbours(NN, N2, Type)].
+in_links(Connections, N2, Type) -> 
+    [{N1, N2} || N1 <- in_neighbours(Connections, N2, Type)].
 
 %%-------------------------------------------------------------------
-%% @doc Returns all links emanating from N of network NN. 
+%% @doc Returns all links emanating from N of network Connections. 
 %% @end
 %%-------------------------------------------------------------------
--spec out_links(NN, N) -> Links when
-      NN :: network(),
+-spec out_links(Connections, N) -> Links when
+      Connections :: connections(),
       N  :: d_node(),
       Links :: [link()].
-out_links(NN, N1) ->
-    [{N1, N2} || N2 <- out_neighbours(NN, N1)].
+out_links(Connections, N1) ->
+    [{N1, N2} || N2 <- out_neighbours(Connections, N1)].
 
--spec out_links(NN, N, Type) -> Links when
-      NN   :: network(),
+-spec out_links(Connections, N, Type) -> Links when
+      Connections   :: network(),
       N    :: d_node(),
       Type  :: d_type(),
       Links :: [link()].
-out_links(NN, N1, Type) ->
-    [{N1, N2} || N2 <- out_neighbours(NN, N1, Type)].
+out_links(Connections, N1, Type) ->
+    [{N1, N2} || N2 <- out_neighbours(Connections, N1, Type)].
 
 %%-------------------------------------------------------------------
 %% @doc Creates (or modifies) a link between N1 and N2. 
@@ -204,12 +198,12 @@ out_links(NN, N1, Type) ->
       N1  :: d_node(),
       N2  :: d_node(),
       NN2 :: network().
-add_link(NN, N1, N2) when N1 =:= N2 ->
-    insert_rcc_link(NN, N1, N2, [N1,N2]);
-add_link(NN, N1, N2) ->
-    case seq_path(NN, N2, N1) of
-        false -> insert_seq_link(NN, N1, N2);
-        Path  -> insert_rcc_link(NN, N1, N2, Path)
+add_link(Connections, N1, N2) when N1 =:= N2 ->
+    insert_rcc_link(Connections, N1, N2, [N1,N2]);
+add_link(Connections, N1, N2) ->
+    case seq_path(Connections, N2, N1) of
+        false -> insert_seq_link(Connections, N1, N2);
+        Path  -> insert_rcc_link(Connections, N1, N2, Path)
     end.
 
 %%-------------------------------------------------------------------
@@ -223,25 +217,25 @@ add_link(NN, N1, N2) ->
       Ns1 :: [d_node()],
       Ns2 :: [d_node()],
       NN2 :: network().
-add_links(NN, Ns1, Ns2) ->
-   add_links(NN, Ns1, Ns1, Ns2, Ns2). 
+add_links(Connections, Ns1, Ns2) ->
+   add_links(Connections, Ns1, Ns1, Ns2, Ns2). 
 
-add_links(NN, [N1|Nx1], Ns1, [N2|Nx2], Ns2) -> 
-    add_links(add_link(NN,N1,N2), [N1|Nx1], Ns1, Nx2, Ns2);
-add_links(NN, [_|Nx1], Ns1, [], Ns2) -> 
-    add_links(NN, Nx1, Ns1, Ns2, Ns2);
-add_links(NN, [], _, _, _) -> NN.
+add_links(Connections, [N1|Nx1], Ns1, [N2|Nx2], Ns2) -> 
+    add_links(add_link(Connections,N1,N2), [N1|Nx1], Ns1, Nx2, Ns2);
+add_links(Connections, [_|Nx1], Ns1, [], Ns2) -> 
+    add_links(Connections, Nx1, Ns1, Ns2, Ns2);
+add_links(Connections, [], _, _, _) -> Connections.
 
 %%-------------------------------------------------------------------
 %% @doc Deletes the link between N1 and N2. 
 %% @end
 %%-------------------------------------------------------------------
--spec del_link(NN, N1, N2) -> 'true' when
-      NN :: network(),
+-spec del_link(Connections, N1, N2) -> 'true' when
+      Connections :: connections(),
       N1 :: d_node(),
       N2 :: d_node().
-del_link(NN, N1, N2) ->
-    remove_link(NN, N1, N2).
+del_link(Connections, N1, N2) ->
+    remove_link(Connections, N1, N2).
 
 %%-------------------------------------------------------------------
 %% @doc Deletes the links using lists of neurons. 
@@ -252,45 +246,45 @@ del_link(NN, N1, N2) ->
       Ns1 :: [d_node()],
       Ns2 :: [d_node()],
       NN2 :: network().
-del_links(NN, Ns1, Ns2) -> 
-    del_links(NN, Ns1, Ns1, Ns2, Ns2).
+del_links(Connections, Ns1, Ns2) -> 
+    del_links(Connections, Ns1, Ns1, Ns2, Ns2).
 
-del_links(NN, [N1|Nx1], Ns1, [N2|Nx2], Ns2) -> 
-    del_links(del_link(NN,N1,N2), [N1|Nx1], Ns1, Nx2, Ns2);
-del_links(NN, [_|Nx1], Ns1, [], Ns2) -> 
-    del_links(NN, Nx1, Ns1, Ns2, Ns2);
-del_links(NN, [], _, _, _) -> NN.
+del_links(Connections, [N1|Nx1], Ns1, [N2|Nx2], Ns2) -> 
+    del_links(del_link(Connections,N1,N2), [N1|Nx1], Ns1, Nx2, Ns2);
+del_links(Connections, [_|Nx1], Ns1, [], Ns2) -> 
+    del_links(Connections, Nx1, Ns1, Ns2, Ns2);
+del_links(Connections, [], _, _, _) -> Connections.
 
 %%-------------------------------------------------------------------
 %% @doc Returs the number of links in the network. 
 %% @end
 %%-------------------------------------------------------------------
--spec no_links(NN) -> non_neg_integer() when
-      NN :: network().
-no_links(NN) ->
-    length(links(NN)).
+-spec no_links(Connections) -> non_neg_integer() when
+      Connections :: connections().
+no_links(Connections) ->
+    length(links(Connections)).
 
 %%-------------------------------------------------------------------
 %% @doc Returs all network links. 
 %% @end
 %%-------------------------------------------------------------------
--spec links(NN) -> Links when
-      NN :: network(),
+-spec links(Connections) -> Links when
+      Connections :: connections(),
       Links :: [link()].
-links(#network{cn=CN} = NN) ->
-    [{N1,N2} || N1<-maps:keys(CN), N2<-out_neighbours(NN, N1)].
+links(#network{cn=CN} = Connections) ->
+    [{N1,N2} || N1<-maps:keys(CN), N2<-out_neighbours(Connections, N1)].
 
 %%-------------------------------------------------------------------
 %% @doc Returs all the neuron links. 
 %% @end
 %%-------------------------------------------------------------------
--spec links(NN, N) -> Links when
-      NN :: network(),
+-spec links(Connections, N) -> Links when
+      Connections :: connections(),
       N  :: d_node(),
       Links :: [link()].
-links(NN, N) ->
-    [{N1,N} || N1 <-  in_neighbours(NN, N)] ++ 
-    [{N,N2} || N2 <- out_neighbours(NN, N)].
+links(Connections, N) ->
+    [{N1,N} || N1 <-  in_neighbours(Connections, N)] ++ 
+    [{N,N2} || N2 <- out_neighbours(Connections, N)].
 
 
 %%====================================================================
@@ -307,81 +301,81 @@ collect_nodes(Ns, N, Type) ->
     end.
 
 % Finds a path from N1 to N2 ----------------------------------------
-seq_path(NN, N1, N2) ->
-    OutSeq = out_neighbours(NN, N1, sequential),
-    one_path(OutSeq, N2, [], [N1], [N1], NN).
+seq_path(Connections, N1, N2) ->
+    OutSeq = out_neighbours(Connections, N1, sequential),
+    one_path(OutSeq, N2, [], [N1], [N1], Connections).
 
 one_path([W| _], W,    _,  _, Ps,  _) -> % The path is found
     lists:reverse([W|Ps]); 
-one_path([N|Ns], W, Cont, Xs, Ps, NN) -> 
+one_path([N|Ns], W, Cont, Xs, Ps, Connections) -> 
     case lists:member(N, Xs) of
         true  -> % That neuron were evluated before
-            one_path(Ns, W, Cont, Xs, Ps, NN);
+            one_path(Ns, W, Cont, Xs, Ps, Connections);
         false -> % That neuron out neighbours can be check firts
-            Nexts = out_neighbours(NN, N, sequential),
-            one_path(Nexts, W, [{Ns,Ps}|Cont], [N|Xs], [N|Ps], NN)
+            Nexts = out_neighbours(Connections, N, sequential),
+            one_path(Nexts, W, [{Ns,Ps}|Cont], [N|Xs], [N|Ps], Connections)
     end;
-one_path([], W, [{Ns,Ps}|Cont], Xs, _, NN) -> % End of neighbours
-    one_path(Ns, W, Cont, Xs, Ps, NN);
+one_path([], W, [{Ns,Ps}|Cont], Xs, _, Connections) -> % End of neighbours
+    one_path(Ns, W, Cont, Xs, Ps, Connections);
 one_path([], _,             [],  _, _,  _) -> % No seq path
     false.
 
 
 % Inserts a sequential link on the nodes ----------------------------
-insert_seq_link(#network{cn=CN} = NN, N1, N2) ->
+insert_seq_link(#network{cn=CN} = Connections, N1, N2) ->
     #{N1:= ConnN1, N2:=ConnN2} = CN,
-    NN#network{cn = CN#{
+    Connections#network{cn = CN#{
         N1 := ConnN1#connections{
             seq = {
-                       in_neighbours(NN, N1, sequential),
-                [N2 | out_neighbours(NN, N1, sequential)]
+                       in_neighbours(Connections, N1, sequential),
+                [N2 | out_neighbours(Connections, N1, sequential)]
             }},
         N2 := ConnN2#connections{
             seq = {
-                [N1 |  in_neighbours(NN, N2, sequential)],
-                      out_neighbours(NN, N2, sequential)
+                [N1 |  in_neighbours(Connections, N2, sequential)],
+                      out_neighbours(Connections, N2, sequential)
             }}
     }}.
 
 % Inserts a recurrent link on the nodes -----------------------------
 insert_rcc_link(#network{type=sequential}, _, _, Path) ->
     error({bad_link, Path});
-insert_rcc_link(#network{cn=CN} = NN, N1, N2, _) ->
+insert_rcc_link(#network{cn=CN} = Connections, N1, N2, _) ->
     #{N1:= ConnN1, N2:=ConnN2} = CN,
-    NN#network{cn = CN#{
+    Connections#network{cn = CN#{
         N1 := ConnN1#connections{
             rcc = {
-                       in_neighbours(NN, N1, recurrent),
-                [N2 | out_neighbours(NN, N1, recurrent)]
+                       in_neighbours(Connections, N1, recurrent),
+                [N2 | out_neighbours(Connections, N1, recurrent)]
             }},
         N2 := ConnN2#connections{
             rcc = {
-                [N1 |  in_neighbours(NN, N2, recurrent)],
-                      out_neighbours(NN, N2, recurrent)
+                [N1 |  in_neighbours(Connections, N2, recurrent)],
+                      out_neighbours(Connections, N2, recurrent)
             }}
     }}.
 
 % Inserts a recurrent link on the nodes -----------------------------
-remove_link(#network{cn=CN} = NN, N1, N2) ->
+remove_link(#network{cn=CN} = Connections, N1, N2) ->
     #{N1:= ConnN1, N2:=ConnN2} = CN,
-    NN#network{cn = CN#{
+    Connections#network{cn = CN#{
         N1 := ConnN1#connections{
             seq = { 
-                                  in_neighbours(NN, N1, recurrent),
-                lists:delete(N2, out_neighbours(NN, N1, recurrent))
+                                  in_neighbours(Connections, N1, recurrent),
+                lists:delete(N2, out_neighbours(Connections, N1, recurrent))
             },
             rcc = { 
-                                  in_neighbours(NN, N1, recurrent),
-                lists:delete(N2, out_neighbours(NN, N1, recurrent))
+                                  in_neighbours(Connections, N1, recurrent),
+                lists:delete(N2, out_neighbours(Connections, N1, recurrent))
             }},
         N2 := ConnN2#connections{
             seq = {
-                lists:delete(N1,  in_neighbours(NN, N2, recurrent)),
-                                 out_neighbours(NN, N2, recurrent)
+                lists:delete(N1,  in_neighbours(Connections, N2, recurrent)),
+                                 out_neighbours(Connections, N2, recurrent)
             },
             rcc = {
-                lists:delete(N1,  in_neighbours(NN, N2, recurrent)),
-                                 out_neighbours(NN, N2, recurrent)
+                lists:delete(N1,  in_neighbours(Connections, N2, recurrent)),
+                                 out_neighbours(Connections, N2, recurrent)
             }}
     }}.
 

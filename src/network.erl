@@ -13,12 +13,8 @@
 -export([sink_neurons/1, bias_neurons/1]).
 
 -export([add_link/3, add_links/3, del_link/3, del_links/3]).
+-export([out_links/2, out_links/3, in_links/2,  in_links/3]). 
 -export([no_links/1, links/1, links/2]).
-
--export([out_neighbours/2, out_neighbours/3]).
--export([ in_neighbours/2,  in_neighbours/3]).
--export([out_degree/2, out_links/2, out_links/3]). 
--export([ in_degree/2,  in_links/2,  in_links/3]).
 
 -export_type([network/0, d_type/0, link/0]).
 
@@ -153,66 +149,6 @@ bias_neurons(NN) ->
     Pred = fun(_,Conn) -> connection:is_bias(Conn) end,
     Bias = maps:filter(Pred, NN#network.cn),
     Bias -- ['start'].
-
-%%-------------------------------------------------------------------
-%% @doc Returns the in-degree of neuron N of network NN.  
-%% @end
-%%-------------------------------------------------------------------
--spec in_degree(NN, N) -> non_neg_integer() when
-      NN :: network(),
-      N  :: d_node().
-in_degree(NN, N) ->
-    length(in_neighbours(NN, N)).
-
-%%-------------------------------------------------------------------
-%% @doc Returns the out-degree of neuron N of network NN.  
-%% @end
-%%-------------------------------------------------------------------
--spec out_degree(NN, N) -> non_neg_integer() when
-      NN :: network(),
-      N  :: d_node().
-out_degree(NN, N) ->
-    length(out_neighbours(NN, N)).
-
-%%-------------------------------------------------------------------
-%% @doc Returns a list of all in-neighbors of N of network NN. 
-%% @end
-%%-------------------------------------------------------------------
--spec in_neighbours(NN, N) -> Nodes when
-      NN :: network(),
-      N  :: d_node(),
-      Nodes :: [d_node()].
-in_neighbours(NN, N) ->
-    in_neighbours(NN, N, sequential) ++ 
-    in_neighbours(NN, N, recurrent).
-
--spec in_neighbours(NN, N, Type) -> Nodes when
-      NN :: network(),
-      N  :: d_node(),
-      Type  :: d_type(),
-      Nodes :: [d_node()].
-in_neighbours(#network{cn=Ns}, N, Type) ->
-    ?IN(collect_nodes(Ns, N, Type)).
-
-%%-------------------------------------------------------------------
-%% @doc Returns a list of all out-neighbors of N of network NN. 
-%% @end
-%%-------------------------------------------------------------------
--spec out_neighbours(NN, N) -> Nodes when
-      NN :: network(),
-      N  :: d_node(),
-      Nodes :: [d_node()].
-out_neighbours(NN, N) ->
-    out_neighbours(NN, N, sequential) ++ 
-    out_neighbours(NN, N, recurrent).
-
--spec out_neighbours(NN, N, Type) -> Nodes when
-      NN :: network(),
-      N  :: d_node(),
-      Type  :: d_type(),
-      Nodes :: [d_node()].
-out_neighbours(#network{cn=Ns}, N, Type) ->
-    ?OUT(collect_nodes(Ns, N, Type)).
 
 %%-------------------------------------------------------------------
 %% @doc Returns all links incident on N of network NN. 
