@@ -13,6 +13,7 @@
 -export([start_neurons/1, end_neurons/1]).
 -export([sink_neurons/1, bias_neurons/1]).
 
+-export([in_degree/1, out_degree/1]).
 -export([add_link/3, add_links/3, del_link/3, del_links/3]).
 -export([out_links/2, out_links/3, in_links/2,  in_links/3]). 
 -export([no_links/1, links/1, links/2]).
@@ -170,6 +171,26 @@ bias_neurons(NN) ->
     Pred = fun(_,Conn) -> connection:is_bias(Conn) end,
     Bias = maps:filter(Pred, NN#network.nodes),
     Bias -- ['start'].
+
+%%-------------------------------------------------------------------
+%% @doc Returns the in-degree of the network.  
+%% @end
+%%-------------------------------------------------------------------
+-spec in_degree(NN) -> non_neg_integer() when
+      NN :: network().
+in_degree(NN) ->
+    NetworkInputs = node(NN, 'start'),
+    length(nn_node:out_degree(NetworkInputs)).
+
+%%-------------------------------------------------------------------
+%% @doc Returns the out-degree of the network.  
+%% @end
+%%-------------------------------------------------------------------
+-spec out_degree(NN) -> non_neg_integer() when
+      NN :: network().
+out_degree(NN) ->
+    NetworkOutputs = node(NN, 'end'),
+    length(nn_node:in_degree(NetworkOutputs)).
 
 %%-------------------------------------------------------------------
 %% @doc Returns all links incident on N of network NN. 
