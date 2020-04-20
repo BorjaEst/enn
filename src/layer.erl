@@ -11,9 +11,9 @@
 %% API
 -export([dense/1, input/1, output/1]).
 -export([dense/2, input/2, output/2, compile/2]).
--export_type([specifications/0, compiled/0]).
+-export_type([definition/0, compiled/0]).
 
--type specifications() :: #{
+-type definition() :: #{
     units       := integer(),
     activation  := activation:func(),
     aggregation := aggregation:func(),
@@ -40,19 +40,19 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @doc Returns the complilation specifications for a dense layer.
+%% @doc Returns the complilation definition for a dense layer.
 %% @end
 %%--------------------------------------------------------------------
 -spec dense(Units) -> DenseLayer when 
     Units      :: integer(),
-    DenseLayer :: specifications().
+    DenseLayer :: definition().
 dense(Units) ->
     dense(Units, #{}).
 
 -spec dense(Units, Properties) -> DenseLayer when 
     Units      :: integer(),
     Properties :: properties(),
-    DenseLayer :: specifications().
+    DenseLayer :: definition().
 dense(Units, Prop) ->
     #{
         units       => Units,
@@ -62,19 +62,19 @@ dense(Units, Prop) ->
     }.
 
 %%--------------------------------------------------------------------
-%% @doc Returns the compilation specifications for an input layer.
+%% @doc Returns the compilation definition for an input layer.
 %% @end
 %%--------------------------------------------------------------------
 -spec input(Units) -> InputsLayer when 
     Units      :: integer(),
-    InputsLayer :: specifications().
+    InputsLayer :: definition().
 input(Units) -> 
     input(Units, #{}).
 
 -spec input(Units, Properties) -> InputsLayer when 
     Units      :: integer(),
     Properties :: properties(),
-    InputsLayer :: specifications().
+    InputsLayer :: definition().
 input(Units, Prop) ->
     #{
         units       => Units,
@@ -84,19 +84,19 @@ input(Units, Prop) ->
     }.
 
 %%--------------------------------------------------------------------
-%% @doc Returns the compilation specifications for an output layer.
+%% @doc Returns the compilation definition for an output layer.
 %% @end
 %%--------------------------------------------------------------------
 -spec output(Units) -> OutputsLayer when 
     Units      :: integer(),
-    OutputsLayer :: specifications().
+    OutputsLayer :: definition().
 output(Units) -> 
     output(Units, #{}).
 
 -spec output(Units, Properties) -> OutputsLayer when 
     Units      :: integer(),
     Properties :: properties(),
-    OutputsLayer :: specifications().
+    OutputsLayer :: definition().
 output(Units, Prop) ->
     #{
         units       => Units,
@@ -107,15 +107,15 @@ output(Units, Prop) ->
 
 %%--------------------------------------------------------------------
 %% @doc Compiles a layer. Returns a tuple indicating the layer type 
-%% together with the ids of all the neuron specifications.
+%% together with the ids of all the neuron definition.
 %% @end
 %%--------------------------------------------------------------------
--spec compile(Coordinade, Specifications) -> CompiledLayer when 
+-spec compile(Coordinade, Definition) -> CompiledLayer when 
     Coordinade     :: float(),
-    Specifications :: specifications(), 
+    Definition :: definition(), 
     CompiledLayer  :: compiled().
-compile(Coordinade, Specifications) ->
-    {Units, Prop} = maps:take(units, Specifications),
+compile(Coordinade, Definition) ->
+    {Units, Prop} = maps:take(units, Definition),
     [neuron:new(Coordinade, Prop) || _ <- lists:seq(1, Units)].
 
 

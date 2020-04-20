@@ -11,7 +11,7 @@
 
 %% API
 %%-export([]).
--export_type([nature/0, specifications/0]).
+-export_type([nature/0, definition/0]).
 
 -type nature() :: sequential | recurrent.
 -type connections() :: {
@@ -19,10 +19,10 @@
     LayerId_From :: float(),
     LayerIds_To :: [float()]
 }.
--type specifications() :: #{
+-type definition() :: #{
     connections := [connections()],
     layers      := #{
-        Coordinade :: float() => Specs :: layer:specifications()
+        Coordinade :: float() => Specs :: layer:definition()
     }
 }.
 
@@ -37,11 +37,11 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @doc Returns the specifications for a sequential model from layers.
+%% @doc Returns the definition for a sequential model from layers.
 %% @end
 %%--------------------------------------------------------------------
--spec sequential(Layers :: [layer:specifications()]) ->
-    Model_specifications :: specifications().
+-spec sequential(Layers :: [layer:definition()]) ->
+    Model_definition :: definition().
 sequential(Layers) when length(Layers) > 1 ->
     Sequence = linspace(-1, + 1, length(Layers)),
     #{
@@ -50,13 +50,13 @@ sequential(Layers) when length(Layers) > 1 ->
     }.
 
 %%--------------------------------------------------------------------
-%% @doc Returns the specifications for a recurrent model from layers.
+%% @doc Returns the definition for a recurrent model from layers.
 %% RLevel indicates the number of lower layers that will be connected. 
 %% @end
 %%--------------------------------------------------------------------
--spec recurrent(Layers :: [layer:specifications()], 
+-spec recurrent(Layers :: [layer:definition()], 
                 RLevel :: integer()) ->
-    Model_specifications :: specifications().
+    Model_definition :: definition().
 recurrent(Layers, RLevel) when length(Layers) > 1 ->
     Sequence = linspace(-1, + 1, length(Layers)),
     #{
@@ -69,7 +69,7 @@ recurrent(Layers, RLevel) when length(Layers) > 1 ->
 %% @doc Compiles and stores a model in the DB returning its cortex_id.
 %% @end
 %%--------------------------------------------------------------------
--spec compile(Model :: specifications()) -> 
+-spec compile(Model :: definition()) -> 
     Cortex_id :: cortex:id().
 compile(Model) ->
     #{connections:=Connections, layers:=Layers} = Model,
