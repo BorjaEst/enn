@@ -18,7 +18,7 @@
 -export([out_links/2, out_links/3, in_links/2,  in_links/3]). 
 -export([no_links/1, links/1, links/2]).
 
--export_type([network/0, d_type/0, d_node/0, link/0]).
+-export_type([network/0, d_type/0, d_node/0, link/0, info/0]).
 
 -type id()      :: {reference(), network}.
 -type d_type()  :: 'sequential' | 'recurrent'.
@@ -30,6 +30,8 @@
     type  :: d_type()
 }).
 -type network() :: #network{}.
+-type info()    :: #{'type' =>    Type :: d_type(),
+                     'size' => NoWords :: non_neg_integer()}.
 
 
 %%%===================================================================
@@ -62,14 +64,11 @@ start_nodes() -> #{'start'=>nn_node:new(),'end'=>nn_node:new()}.
 %% @doc Information from the network.  
 %% @end
 %%-------------------------------------------------------------------
--spec info(NN) -> InfoList when
-      NN :: network(),
-      InfoList :: [{'type',    Type :: d_type()} |
-                   {'size', NoWords :: non_neg_integer()}].
+-spec info(NN :: network()) -> info().
 info(#network{} = NN) ->
     Type = NN#network.type,
     Size = no_neurons(NN),
-    [{type, Type}, {size, Size}].
+    #{type=>Type, size=>Size}.
 
 %%-------------------------------------------------------------------
 %% @doc Adds a neuron to the network.  

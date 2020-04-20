@@ -9,7 +9,7 @@
 
 %% API
 -export([]).
--export_type([enn_pool/0, enn/0]).
+-export_type([enn_pool/0, enn/0, info/0]).
 
 -type enn_pool() :: ets:tid().
 -record(enn, {
@@ -24,7 +24,10 @@
     % backward_cycles = 0 :: integer(), % Number of BP performed cycles
     % last_bperr = []  :: [float()]  % Last back propagation errors
 }).
--type enn() :: #enn{}.
+-type enn()  :: #enn{}.
+-type info() :: #{'supervisor' => pid(),
+                  'cortex'     => pid(),
+                  'nn_pool'    => nn_pool:tid()}.
 
 -define(ENN_POOL, enn_pool).
 -define(TAB_CONFIGUTATION, [
@@ -100,9 +103,7 @@ register_nn_pool(Id, NN_Pool) ->
 %%--------------------------------------------------------------------
 -spec info(Network_Id)  -> InfoMap when
       Network_Id :: network:id(),
-      InfoMap    :: #{'supervisor' => pid(),
-                      'cortex'     => pid(),
-                      'nn_pool'    => nn_pool:tid()}.
+      InfoMap    :: info().
 info(Id) -> 
     case ets:lookup(?ENN_POOL, Id) of 
         [] -> error(badarg);
