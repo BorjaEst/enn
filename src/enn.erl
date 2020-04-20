@@ -1,28 +1,22 @@
 %%%-------------------------------------------------------------------
 %%% @author borja
 %%% @doc
-%%% 
-%%% @TODO: Remove concept of layer. In the model might be correct but
-%%% not necessarely on the cortex. Be carefull with deadlocks on 
-%%% recurrence and neurons call backs.
 %%%
 %%% @end
 %%%-------------------------------------------------------------------
 -module(enn).
 -author("borja").
-
--include_lib("network.hrl").
--include_lib("kernel/include/logger.hrl").
+-compile({no_auto_import,[link/1]}).
 
 %% API
 -export([start/1, stop/1, predict/2, fit/3, clone/1]).
--export([compile/1, run/4, inputs/1, outputs/1, pformat/1]).
--export([link_network/1, cortex_pid/1]).
--export([attributes_table/0, check_nn/1]).
+-export([compile/1, run/4, inputs/1, outputs/1]).
+-export([status/1, info/1, link/1, cortex/1]).
+-export([attributes_table/0, check/1]).
 -export_types([id/0, model/0]).
 
--type id()    :: cortex:id().
--type model() :: model:specifications().
+-type id()    :: network:id().
+-type model() :: model:definition().
 
 
 %%====================================================================
@@ -58,9 +52,9 @@ compile(Model) ->
 %%--------------------------------------------------------------------
 -spec predict(Network_id :: id(), InputsList :: [[float()]]) ->
     [Prediction :: [float()]].
-predict(Cortex_Id, InputsList) ->
+predict(Network_id, InputsList) ->
     Options = [{return, [prediction]}],
-    [Prediction] = run(Cortex_Id, InputsList, [], Options),
+    [Prediction] = run(Network_id, InputsList, [], Options),
     Prediction.
 
 %%--------------------------------------------------------------------
@@ -71,9 +65,9 @@ predict(Cortex_Id, InputsList) ->
 -spec fit(Network_id :: id(), InputsList :: [float()], 
           OptimaList :: [float()]) ->
     Errors :: [float()].
-fit(Cortex_Id, InputsList, OptimaList) ->
+fit(Network_id, InputsList, OptimaList) ->
     Options = [{return, [loss]}, {print, 10}],
-    [Loss] = run(Cortex_Id, InputsList, OptimaList, Options),
+    [Loss] = run(Network_id, InputsList, OptimaList, Options),
     Loss.
 
 %%--------------------------------------------------------------------
@@ -83,8 +77,8 @@ fit(Cortex_Id, InputsList, OptimaList) ->
 -spec run(Network_id :: id(), InputsList :: [float()], 
           OptimaList :: [float()], Options :: [training:option()]) ->
     Errors :: [float()].
-run(Cortex_Id, InputsList, OptimaList, Options) ->
-    Cortex_Pid = cortex_pid(Cortex_Id),
+run(Network_id, InputsList, OptimaList, Options) ->
+    Cortex_Pid = enn:cortex_pid(Network_id),
     training:start_link(Cortex_Pid, InputsList, OptimaList, Options).
 
 %%--------------------------------------------------------------------
@@ -96,10 +90,8 @@ run(Cortex_Id, InputsList, OptimaList, Options) ->
 inputs(Model) when is_map(Model) ->
     #{layers := #{-1.0 := #{units := N_Inputs}}} = Model,
     N_Inputs;
-inputs({_, cortex} = Cortex_Id) ->
-    Cortex = edb:read(Cortex_Id),
-    % Cortex inputs are the output neurons
-    length(elements:outputs_ids(Cortex)). 
+inputs({_, network} = Network_id) ->
+    network:in_degree(edb:read(Network_id)). 
 
 %%--------------------------------------------------------------------
 %% @doc Returns the number of outputs a network expects.
@@ -110,10 +102,8 @@ inputs({_, cortex} = Cortex_Id) ->
 outputs(Model) when is_map(Model) ->
     #{layers := #{1.0 := #{units := N_Outputs}}} = Model,
     N_Outputs;
-outputs({_, cortex} = Cortex_Id) ->
-    Cortex = edb:read(Cortex_Id),
-    % Cortex outputs are the input neurons
-    length(elements:inputs_ids(Cortex)). 
+outputs({_, network} = Network_id) ->
+    network:out_degree(edb:read(Network_id)).
 
 %%--------------------------------------------------------------------
 %% @doc Clones a network. Each element of the newtork is cloned inside
@@ -122,15 +112,13 @@ outputs({_, cortex} = Cortex_Id) ->
 %%--------------------------------------------------------------------
 -spec clone(Network_id :: id()) -> 
     Cloned_Id :: id().
-clone({_, cortex} = Cortex_Id) ->
-    Cortex = edb:read(Cortex_Id),
-    {Clone, ConversionETS} = elements:clone_cortex(Cortex),
-    Neurons_Ids = elements:neurons(Cortex),
-    Neurons = [elements:clone_neuron(Neuron, ConversionETS) 
-                || Neuron <- edb:read(Neurons_Ids)],
-    ets:delete(ConversionETS),
-    edb:write([Clone | Neurons]),
-    elements:id(Clone).
+clone({_, network} = Network_id) ->
+    NN    = edb:read(Network_id),
+    NMap  = clone_and_save_neurons(network:neurons(NN)),
+            clone_and_save_links(network:links(NN), NMap),
+    Clone = network:replace(NN, NMap),
+    edb:write(Clone),
+    network:id(Clone).
 
 %%--------------------------------------------------------------------
 %% @doc Start a neural network, ready to receive inputs or training.
@@ -154,16 +142,25 @@ start(Cortex_Id) ->
 stop(Cortex_Id) ->
     enn_sup:terminate_nn(Cortex_Id).
 
-
 %%--------------------------------------------------------------------
-%% @doc Returns the pid of the cortex.
+%% @doc Returns the network information of the specified network id.
 %% @end
 %%--------------------------------------------------------------------
--spec network_info(Network_Id :: id()) -> network().
-network_info(Network_Id) -> 
-    case ets:lookup(?NN_POOL, Network_Id) of 
-        [Network] -> Network;
-        []        -> error(not_started)
+-spec info(Network_Id :: id()) -> Info when
+      Info :: network:info().
+info(Network_Id) -> 
+    network:info(edb:read(Network_Id)).
+
+%%--------------------------------------------------------------------
+%% @doc Returns the status of the specified network id.
+%% @end
+%%--------------------------------------------------------------------
+-spec status(Network_Id :: id()) -> Status when
+      Status :: enn_pool:info() | not_started.
+status(Network_Id) -> 
+    try enn_pool:info(Network_Id) of 
+          Info          -> Info
+    catch error:badarg  -> not_started
     end.
 
 %%--------------------------------------------------------------------
@@ -171,157 +168,45 @@ network_info(Network_Id) ->
 %% dies because of an exception, the newtwork die shutdown as well.
 %% @end
 %%--------------------------------------------------------------------
--spec link_network(Network_id :: id()) -> true.
-link_network(Cortex_Id) -> 
-    Pid = ets:lookup_element(?NN_POOL, Cortex_Id, #network.supervisor),
-    link(Pid).
+-spec link(Network_id :: id()) -> true.
+link(Network_Id) -> 
+    #{supervisor:=Pid} = enn_pool:info(Network_Id),
+    erlang:link(Pid).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the pid of the cortex.
 %% @end
 %%--------------------------------------------------------------------
--spec cortex_pid(Network_id :: id()) -> pid().
-cortex_pid(Cortex_Id) -> 
-    ets:lookup_element(?NN_POOL, Cortex_Id, #network.cortex).
-
-
-
-
-
-
-
-
-
-
+-spec cortex(Network_id :: id()) -> pid().
+cortex(Network_Id) -> 
+    #{cortex:=Pid} = enn_pool:info(Network_Id),
+    Pid.
 
 %%--------------------------------------------------------------------
-%% @doc Returns a character list that represents the element of the Id
-%% formatted in accordance with Format.
+%% @doc Check the network is in optimal status.
 %% @end
 %%--------------------------------------------------------------------
--spec pformat(Id) -> Chars when 
-      Id :: neuron:id() | cortex:id(),
-      Chars :: io_lib:chars().
-pformat(Id) ->
-    elements:pformat(Id).
-
-%%--------------------------------------------------------------------
-%% @doc
-%%
-%%
-%% @end
-%%--------------------------------------------------------------------
-%TODO: Correct specs
-check_nn(Cortex_Id) ->
-    Cortex = edb:read(Cortex_Id),
-    Neurons = edb:read(elements:neurons(Cortex)),
-    check_links(Cortex, Neurons),
-    check_inputs(Cortex, Neurons),
-    check_outputs(Cortex, Neurons),
+-spec check(Network_id :: id()) -> ok.
+check(Network_id) ->
+    NN  = edb:read(Network_id),
+    [] = network:sink_neurons(NN), 
+    [] = network:bias_neurons(NN),
     ok.
-
-
-
-
-
-
-
-
-
-
-
-[Network] = ets:lookup(?NN_POOL, Network_Id),
-Network.
-
-
-
-
-mount_graph(Network_Id) -> 
-    Network = edb:read(Network_Id),
-    deserialize_graph(Nerwork#network.graph).
-
-deserialize_graph({VL, EL, NL, B}) ->       
-    DG = {digraph, V, E, N, B} = case B of 
-       true -> digraph:new();
-       false -> digraph:new([acyclic])
-    end,
-    % ets:delete_all_objects(V)
-    % ets:delete_all_objects(L)
-    % ets:delete_all_objects(N)
-    ets:insert(V, VL),
-    ets:insert(E, EL),
-    ets:insert(N, NL),
-    DG.
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
 
-% -------------------------------------------------------------------
-check_links(Cortex, Neurons) -> %TODO: Check using elements:link
-    InL = lists:append(
-        [[{In, elements:id(Cortex)} || In <- elements:inputs_ids(Cortex)] |
-         [[{In, neuron:id(N)} || In <- elements:inputs_ids(N)] || N <- Neurons]]),
-    OutL = lists:append(
-        [[{elements:id(Cortex), Out} || Out <- elements:outputs_ids(Cortex)] |
-         [[{neuron:id(N), Out} || Out <- elements:outputs_ids(N)] || N <- Neurons]]),
-    case InL -- OutL of
-        [] -> ok;
-        Diff ->
-            ?LOG_ERROR("Broken NN on cortex ~p with links ~p", [elements:id(Cortex), Diff]),
-            error(broken_nn)
-    end.
+% Clones and saves the neurons ----------------------------------------
+clone_and_save_neurons(Neurons) -> 
+    Clones = [neuron:clone(N) || N <- Neurons],
+    edb:write(Clones),
+    maps:from_list(lists:zip(Neurons, Clones)).
 
-% -------------------------------------------------------------------
-check_inputs(Cortex, Neurons) ->
-    is_broken_at_inputs(Cortex),
-    case lists:any(fun is_broken_at_inputs/1, Neurons) of
-        false -> ok;
-        true ->
-            ?LOG_ERROR("Broken NN on ~p neurons", [elements:id(Cortex)]),
-            error(broken_nn)
-    end.
+% Clones and saves the links ----------------------------------------
+clone_and_save_links(Links, NMap) -> 
+    Clones = link:replace(Links, NMap),
+    edb:write(Clones).
 
-is_broken_at_inputs(Element) ->
-    Inputs = elements:inputs_idps(Element),
-    case Inputs of
-        [] ->
-            ?LOG_ERROR("Broken NN ~p, empty neuron inputs", [elements:id(Element)]),
-            true;
-        _NonEmpty ->
-            false
-    end.
-
-% -------------------------------------------------------------------
-check_outputs(Cortex, Neurons) ->
-    is_broken_at_outputs(Cortex),
-    case lists:any(fun is_broken_at_outputs/1, Neurons) of
-        false -> ok;
-        true ->
-            ?LOG_ERROR("Broken NN on ~p neurons", [elements:id(Cortex)]),
-            error(broken_nn)
-    end.
-
-is_broken_at_outputs(Element) ->
-    Outputs = elements:outputs_ids(Element),
-    case Outputs of
-        [] ->
-            ?LOG_ERROR("Broken NN ~p, empty neuron outputs", [elements:id(Element)]),
-            true;
-        _NonEmpty ->
-            false
-    end.
 
