@@ -45,8 +45,9 @@
 sequential(Layers) when length(Layers) > 1 ->
     Sequence = linspace(-1, + 1, length(Layers)),
     #{
+        type        => sequential,
         connections => sequential_connection(Sequence),
-        layers => maps:from_list(lists:zip(Sequence, Layers))
+        layers      => maps:from_list(lists:zip(Sequence, Layers))
     }.
 
 %%--------------------------------------------------------------------
@@ -60,26 +61,25 @@ sequential(Layers) when length(Layers) > 1 ->
 recurrent(Layers, RLevel) when length(Layers) > 1 ->
     Sequence = linspace(-1, + 1, length(Layers)),
     #{
+        type        => recurrent,
         connections => sequential_connection(Sequence) ++ 
                        recurrent_connection(Sequence, RLevel),
-        layers => maps:from_list(lists:zip(Sequence, Layers))
+        layers      => maps:from_list(lists:zip(Sequence, Layers))
     }.
 
 %%--------------------------------------------------------------------
 %% @doc Compiles and stores a model in the DB returning its cortex_id.
 %% @end
 %%--------------------------------------------------------------------
--spec compile(Model :: definition()) -> 
-    Cortex_id :: cortex:id().
+-spec compile(Model :: definition()) -> Network when
+    Network :: network:id().
 compile(Model) ->
-    #{connections:=Connections, layers:=Layers} = Model,
+    #{connections:=Connections, layers:=Layers, type:=Type} = Model,
     CompiledLayers = maps:map(fun layer:compile/2, Layers),
-    cortex:new(
-        _NInputs  = enn:inputs(Model),
-        _NOutputs = enn:outputs(Model),
-        _Graph    = graph(CompiledLayers, Connections)
-    ).
-
+    Network = network(CompiledLayers, Connections, Type),
+    Links   = [link:new(L) || L <- network:links(Network)],
+    edb:write([Network|Links]),
+    network:id(Network).
 
 %%====================================================================
 %% Internal functions
@@ -109,26 +109,21 @@ recurrent_connection_aux([Layer_A | Rest], RLevel) ->
     [{all, Layer_A, Rest} | recurrent_connection_aux(Rest, RLevel)].
 
 % -------------------------------------------------------------------
-graph(CompiledLayers, Connections) -> 
-    Graph = digraph:new([cyclic]),
-    add_vertex(CompiledLayers, Graph),
-    add_edges(CompiledLayers, Connections, Graph),
-    serialize_graph(Graph).
+network(CompiledLayers, Connections, Type) -> 
+    add_links(CompiledLayers, Connections, 
+        add_neurons(CompiledLayers, 
+            network:new(Type))).
 
-add_vertex(CompiledLayers, G) -> 
+add_neurons(CompiledLayers, NN) -> 
     Neurons = lists:append(maps:values(CompiledLayers)),
-    [digraph:add_vertex(G, elements:id(N)) || N <- Neurons].
+    network:add_neurons(NN, Neurons).
 
-add_edges(CompiledLayers, [{all,IFrom,IxTo} | Connections], G) -> 
-    To     = lists:append([maps:get(X, CompiledLayers) || X <- IxTo]),
-    From   = maps:get(IFrom, CompiledLayers),
-    [digraph:add_edge(G, V1, V2, uninitialized) || V1<-From, V2<-To],
-    add_edges(CompiledLayers, Connections, G);
-add_edges(_CompiledLayers, [], Graph) ->
-    Graph.
-
-serialize_graph({digraph, V, E, N, B}) ->
-    {ets:tab2list(V), ets:tab2list(E), ets:tab2list(N), B}.
+add_links(CompiledLayers, [{all,IFrom,IxTo} | Cx], NN) -> 
+    To   = lists:append([maps:get(X, CompiledLayers) || X <- IxTo]),
+    From = maps:get(IFrom, CompiledLayers),
+    add_links(CompiledLayers, Cx, network:add_links(NN,From,To));
+add_links(_CompiledLayers, [], NN) ->
+    NN.
 
 
 %%====================================================================

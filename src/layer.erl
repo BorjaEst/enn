@@ -27,14 +27,6 @@
 -type compiled() :: [Neuron_Id :: neuron:id()].
 
 
--ifdef(debug_mode).
--define(LOG(X), io:format("{~p,~p,~p}: ~p~n", [self(), ?MODULE, ?LINE, X])).
--define(STDCALL_TIMEOUT, infinity).
--else.
--define(LOG(X), true).
--define(STDCALL_TIMEOUT, 5000).
--endif.
-
 %%%===================================================================
 %%% API
 %%%===================================================================
@@ -66,14 +58,14 @@ dense(Units, Prop) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec input(Units) -> InputsLayer when 
-    Units      :: integer(),
+    Units       :: integer(),
     InputsLayer :: definition().
 input(Units) -> 
     input(Units, #{}).
 
 -spec input(Units, Properties) -> InputsLayer when 
-    Units      :: integer(),
-    Properties :: properties(),
+    Units       :: integer(),
+    Properties  :: properties(),
     InputsLayer :: definition().
 input(Units, Prop) ->
     #{
@@ -88,14 +80,14 @@ input(Units, Prop) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec output(Units) -> OutputsLayer when 
-    Units      :: integer(),
+    Units        :: integer(),
     OutputsLayer :: definition().
 output(Units) -> 
     output(Units, #{}).
 
 -spec output(Units, Properties) -> OutputsLayer when 
-    Units      :: integer(),
-    Properties :: properties(),
+    Units        :: integer(),
+    Properties   :: properties(),
     OutputsLayer :: definition().
 output(Units, Prop) ->
     #{
@@ -111,12 +103,14 @@ output(Units, Prop) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec compile(Coordinade, Definition) -> CompiledLayer when 
-    Coordinade     :: float(),
-    Definition :: definition(), 
-    CompiledLayer  :: compiled().
-compile(Coordinade, Definition) ->
-    {Units, Prop} = maps:take(units, Definition),
-    [neuron:new(Coordinade, Prop) || _ <- lists:seq(1, Units)].
+    Coordinade    :: float(),
+    Definition    :: definition(), 
+    CompiledLayer :: compiled().
+compile(_Coordinade, Definition) ->
+    {Units, Definition} = maps:take(units, Definition),
+    Ns = [neuron:new(Definition) || _ <- lists:seq(1, Units)],
+    edb:write(Ns),
+    [neuron:id(N) || N <- Ns].
 
 
 %%====================================================================
