@@ -43,18 +43,18 @@
 
 -define(PID(Id), nn_pool:pid(Id, get(tid))).
 -record(input,  {
-    id      :: id(),        % Neuron id (input)
-    s = 0.0 :: float(),     % Signal value (Xi)
-    m       :: float(),     % Momentum
-    w       :: link:weight() % Weight
+    link    :: id(),   % Input link 
+    s = 0.0 :: float() % Signal value (Xi)
 }).
 -type input() :: #input{}.
+-define(W(Input), link:weight(Input#input.link)).
+-define(S(Input), Input#input.s).
 
 -record(output, {
-    id      :: id(),        % Neuron id (output)
-    e = 0.0 :: float()      % Output error (Ei)
+    e = 0.0 :: float() % Output error (Ei)
 }).
 -type output() :: #output{}.
+-define(E(Output), Output#output.e).
 
 -record(state, {
     neuron  :: neuron(),
@@ -163,16 +163,19 @@ init(Id, Supervisor) ->
 % Receives a forward signal so updates its value in inputs
 loop({Pid,forward,S},  #state{forward_wait  = [Pid|Nx]} = State) ->
     ?LOG_FORWARD_MESSAGE_RECEIVED(Pid, S),
-    #{Pid := Input} = Inputs = get(inputs),
-    put(inputs, Inputs#{Pid := Input#input{s = S}}),
-    loop(internal, State#state{forward_wait  = Nx});
+    #{Pid := Input} = Inputs = State#state.inputs,
+    loop(internal, State#state{
+        inputs       = Inputs#{Pid := Input#input{s = S}},
+        forward_wait = Nx
+    });
 % Receives a backward signal so updates its error in outputs
 loop({Pid,backward,E}, #state{backward_wait = [Pid|Nx]} = State) ->
     ?LOG_BACKWARD_MESSAGE_RECEIVED(Pid, E),
-    #{Pid := Output} = Outputs = get(outputs),
-    put(outputs, Outputs#{Pid := Output#output{e = E}}),
-    loop(internal, State#state{backward_wait = Nx});
-
+    #{Pid := Output} = Outputs = State#state.outputs,
+    loop(internal, State#state{
+        outputs       = Outputs#{Pid := Output#output{e = E}},
+        backward_wait = Nx
+    });
 % If all forward signals have been received, state change to forward
 loop(internal, #state{forward_wait  = []} = State) -> 
     ?LOG_WAITING_NEURONS(State),
@@ -182,34 +185,36 @@ loop(internal, #state{backward_wait = []} = State) ->
     ?LOG_WAITING_NEURONS(State),
     backward_prop(internal, State);
 % If there are signals in any waiting buffer collects the next signal
-loop(internal,                              State) -> 
+loop(internal, State) -> 
     receive_next(internal, State).
 %%--------------------------------------------------------------------
 %% @doc Forwards the signal to the connected neurons. 
 %%
 %%--------------------------------------------------------------------
 forward_prop(internal, State) -> 
-    Tensor = calculate_tensor(get(inputs)),
+    #state{inputs=Inputs, outputs=Outputs} = State,
+    Tensor = calculate_tensor(Inputs),
     Soma   = calculate_soma(Tensor),
     Signal = calculate_signal(Soma),
-    Sent = [forward(P,O,Signal)|| {P,O}<-maps:to_list(get(outputs))],
+    Sent = [forward(P,O,Signal)|| {P,O} <- maps:to_list(Outputs)],
     ?LOG_FORWARD_PROPAGATION(Sent),
     loop(internal, State#state{
-        forward_wait = [Pid || Pid <- maps:keys(get(inputs))]
+        forward_wait = [Pid || Pid <- maps:keys(Inputs)]
     }).
 %%--------------------------------------------------------------------
 %% @doc Backwards the errror to the connected inputs.
 %% 
 %%--------------------------------------------------------------------
 backward_prop(internal, State) ->
-    Error = calculate_error(get(outputs)),
+    #state{inputs=Inputs, outputs=Outputs} = State,
+    Error = calculate_error(Outputs),
     Beta  = calculate_beta(Error),
     calculate_weights(Beta),
     calculate_bias(Beta),
-    Sent = [backward(P,I,Beta)|| {P,I}<-maps:to_list(get(inputs))],
+    Sent = [backward(P,I,Beta)|| {P,I} <- maps:to_list(Inputs)],
     ?LOG_BACKWARD_PROPAGATION(Sent),
     loop(internal, State#state{
-        backward_wait = [Pid || Pid <- maps:keys(get(outputs))]
+        backward_wait = [Pid || Pid <- maps:keys(Outputs)]
     }).
 %%--------------------------------------------------------------------
 %% @doc Receives the next messages and sends it to loop. It only 
@@ -235,19 +240,11 @@ receive_next(internal, State) ->
 %% @doc Terminates the neuron and saves in edb the new weiights.
 %% @end
 %%--------------------------------------------------------------------
-terminate(Reason, _State) ->
+terminate(Reason, State) ->
     % TODO: When saving the new state, those links with weights ~= 0, must be deleted (both neurons)
     % TODO: If the neuron has not at least 1 input or 1 output, it must be deleted (and bias forwarded)
-    Id     = get(id),
-    Neuron = edb:read(Id),
-    edb:write(elements:edit(Neuron,
-        #{
-            outputs_ids => [O#output.id             
-                            || {_, O} <- maps:to_list(get(outputs))],
-            inputs_idps => [{I#input.id, I#input.w} 
-                            || {_, I} <- maps:to_list(get(inputs ))],
-            bias        => get(bias)
-        })),
+    Neuron = State#state.neuron,
+    edb:write([Neuron|[L || #input{link=L} <- ?INPUTS(State)]]),
     ?LOG_NEURON_TERMINATING,
     exit(Reason).
 
@@ -273,17 +270,17 @@ wait_for_go() ->
 %% @end
 %%--------------------------------------------------------------------
 propagate_recurrent(Connections, NN_Pool) -> 
-    Empty_Output = #output{},    % Do not gen a new output each iter
+    Empty_Output = #output{}, % Do not gen a new each iteration
+    Empty_Input  = #input{link=link:new(#{weight=>0.0})}, 
     SentO = [forward(nn_pool:pid(NN_Pool, Id), Empty_Output, 0.0) 
         || Id <- nn_node:out_neighbours(Connections, recurrent)],
     ?LOG_FORWARD_PROPAGATION_RECURRENT_OUTPUTS(SentO),
-    Empty_Input = #input{w=0.0}, % Do not gen a new input each iter
     SentI = [backward(nn_pool:pid(NN_Pool, Id), Empty_Input, 0.0)
         || Id <- nn_node:in_neighbours(Connections, recurrent)],
     ?LOG_BACKWARD_PROPAGATION_RECURRENT_INPUTS(SentI).
 
 %%--------------------------------------------------------------------
-%% @doc Neuron outputs initialization.  
+%% @doc Neuron outputs loading.  
 %% @end
 %%--------------------------------------------------------------------
 init_outputs(Neuron) -> 
@@ -301,26 +298,22 @@ init_outputs(_, []) ->
     [].
 
 %%--------------------------------------------------------------------
-%% @doc Neuron inputs initialization. If a weith is not initialized
-%% a synchronised request is sent to the cortex to receive a value.  
+%% @doc Neuron inputs loading. If a link is not retreived from edb, a
+%% new link is created.  
 %% @end
 %%--------------------------------------------------------------------
-init_inputs(Neuron, NN_id) -> 
-    Coordinade = elements:coordinade(Neuron),
-    Inputs     = elements:inputs_idps(Neuron),
-    maps:from_list(init_inputs(Coordinade, Inputs, NN_id)).
+load_inputs(Id, Connections, NN_Pool) -> 
+    Ids = [link:id(X,Id) || X <- nn_node:in_neighbours(Connections)],
+    Links = edb:read(Ids),
+    maps:from_list(inputs_from_links(Links, Ids, NN_Pool)).
 
-init_inputs(Coordinade, [{Id,uninitialized}|IdWix], NN_id)        -> 
-    Wi = calculate_winit(Coordinade, NN_id),
-    init_inputs(Coordinade, [{Id,Wi}|IdWix], NN_id);
-init_inputs(Coordinade, [{Id,Wi}|IdWix], NN_id) when is_float(Wi) -> 
-    Input = #input{
-        id = Id, 
-        w  = Wi, 
-        r  = not elements:is_dir_input(Coordinade, Id)
-    },
-    [{?PID(Id), Input} | init_inputs(Coordinade, IdWix, NN_id)];
-init_inputs(_, [], _) -> 
+inputs_from_links([undefined|Lx], [Id|Ids], NN_Pool) -> 
+    L = link:new(link:from(Id), link:to(Id)),
+    inputs_from_links([L|Lx], [Id|Ids], NN_Pool);
+inputs_from_links([L|Lx], [Id|Ids], NN_Pool) -> 
+    Pid = nn_pool:pid(NN_Pool, link:from(Id)),
+    [{Pid,#input{link=L}} | inputs_from_links(Lx, Ids, NN_Pool)];
+inputs_from_links([], [], _) -> 
     [].
 
 %%--------------------------------------------------------------------

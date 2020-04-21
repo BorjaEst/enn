@@ -73,8 +73,8 @@ from({From, _, link}) -> From.
 %% @doc Returns the link receiver.
 %% @end
 %%-------------------------------------------------------------------
--spec from(Link :: link()) -> neuron:id().
-from({_, To, link}) -> To.
+-spec to(Link :: link()) -> neuron:id().
+to({_, To, link}) -> To.
 
 %%--------------------------------------------------------------------
 %% @doc Returns the link weight.
