@@ -128,9 +128,9 @@ clone({_, network} = Network_id) ->
     Network_id :: id().
 start(Model) when is_map(Model) ->
     start(compile(Model));
-start(Cortex_id) ->
-    ok = enn_sup:start_nn(Cortex_id),
-    Cortex_id.
+start(Network_id) ->
+    ok = enn_sup:start_nn(Network_id),
+    Network_id.
 
 %%--------------------------------------------------------------------
 %% @doc Stops a neural network.
@@ -139,8 +139,8 @@ start(Cortex_id) ->
 -spec stop(Network_id :: id()) -> Result when
       Result :: 'ok' | {'error', Error},
       Error :: 'not_found' | 'simple_one_for_one'.
-stop(Cortex_id) ->
-    enn_sup:terminate_nn(Cortex_id).
+stop(Network_id) ->
+    enn_sup:terminate_nn(Network_id).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the network information of the specified network id.
