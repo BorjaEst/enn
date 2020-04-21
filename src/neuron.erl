@@ -302,21 +302,21 @@ init_outputs(_, []) ->
 %% a synchronised request is sent to the cortex to receive a value.  
 %% @end
 %%--------------------------------------------------------------------
-init_inputs(Neuron, NN_Id) -> 
+init_inputs(Neuron, NN_id) -> 
     Coordinade = elements:coordinade(Neuron),
     Inputs     = elements:inputs_idps(Neuron),
-    maps:from_list(init_inputs(Coordinade, Inputs, NN_Id)).
+    maps:from_list(init_inputs(Coordinade, Inputs, NN_id)).
 
-init_inputs(Coordinade, [{Id,uninitialized}|IdWix], NN_Id)        -> 
-    Wi = calculate_winit(Coordinade, NN_Id),
-    init_inputs(Coordinade, [{Id,Wi}|IdWix], NN_Id);
-init_inputs(Coordinade, [{Id,Wi}|IdWix], NN_Id) when is_float(Wi) -> 
+init_inputs(Coordinade, [{Id,uninitialized}|IdWix], NN_id)        -> 
+    Wi = calculate_winit(Coordinade, NN_id),
+    init_inputs(Coordinade, [{Id,Wi}|IdWix], NN_id);
+init_inputs(Coordinade, [{Id,Wi}|IdWix], NN_id) when is_float(Wi) -> 
     Input = #input{
         id = Id, 
         w  = Wi, 
         r  = not elements:is_dir_input(Coordinade, Id)
     },
-    [{?PID(Id), Input} | init_inputs(Coordinade, IdWix, NN_Id)];
+    [{?PID(Id), Input} | init_inputs(Coordinade, IdWix, NN_id)];
 init_inputs(_, [], _) -> 
     [].
 
@@ -325,10 +325,10 @@ init_inputs(_, [], _) ->
 %% a synchronised request is sent to the cortex to receive a value.  
 %% @end
 %%--------------------------------------------------------------------
-init_bias(Neuron, NN_Id) ->
+init_bias(Neuron, NN_id) ->
     Coordinade = elements:coordinade(Neuron),
     case elements:bias(Neuron) of 
-        uninitialized          -> calculate_winit(Coordinade, NN_Id);
+        uninitialized          -> calculate_winit(Coordinade, NN_id);
         Val when is_float(Val) -> Val
     end.
 
@@ -401,8 +401,8 @@ calculate_bias(Beta) ->
 %% @doc Calculates the new bias from back propagation of the error.
 %% @end
 %%--------------------------------------------------------------------
-calculate_winit(Coordinade, NN_Id) -> 
-    {Fan_In, Fan_Out} = cortex:fan_inout(NN_Id, Coordinade),
+calculate_winit(Coordinade, NN_id) -> 
+    {Fan_In, Fan_Out} = cortex:fan_inout(NN_id, Coordinade),
     initializer:value(get(initializer), #{
         fan_in  => Fan_In,
         fan_out => Fan_Out

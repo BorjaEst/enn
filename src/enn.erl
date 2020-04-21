@@ -111,7 +111,7 @@ outputs({_, network} = Network_id) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec clone(Network_id :: id()) -> 
-    Cloned_Id :: id().
+    Cloned_id :: id().
 clone({_, network} = Network_id) ->
     NN    = edb:read(Network_id),
     NMap  = clone_and_save_neurons(network:neurons(NN)),
@@ -128,9 +128,9 @@ clone({_, network} = Network_id) ->
     Network_id :: id().
 start(Model) when is_map(Model) ->
     start(compile(Model));
-start(Cortex_Id) ->
-    ok = enn_sup:start_nn(Cortex_Id),
-    Cortex_Id.
+start(Cortex_id) ->
+    ok = enn_sup:start_nn(Cortex_id),
+    Cortex_id.
 
 %%--------------------------------------------------------------------
 %% @doc Stops a neural network.
@@ -139,26 +139,26 @@ start(Cortex_Id) ->
 -spec stop(Network_id :: id()) -> Result when
       Result :: 'ok' | {'error', Error},
       Error :: 'not_found' | 'simple_one_for_one'.
-stop(Cortex_Id) ->
-    enn_sup:terminate_nn(Cortex_Id).
+stop(Cortex_id) ->
+    enn_sup:terminate_nn(Cortex_id).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the network information of the specified network id.
 %% @end
 %%--------------------------------------------------------------------
--spec info(Network_Id :: id()) -> Info when
+-spec info(Network_id :: id()) -> Info when
       Info :: network:info().
-info(Network_Id) -> 
-    network:info(edb:read(Network_Id)).
+info(Network_id) -> 
+    network:info(edb:read(Network_id)).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the status of the specified network id.
 %% @end
 %%--------------------------------------------------------------------
--spec status(Network_Id :: id()) -> Status when
+-spec status(Network_id :: id()) -> Status when
       Status :: enn_pool:info() | not_started.
-status(Network_Id) -> 
-    try enn_pool:info(Network_Id) of 
+status(Network_id) -> 
+    try enn_pool:info(Network_id) of 
           Info          -> Info
     catch error:badarg  -> not_started
     end.
@@ -169,8 +169,8 @@ status(Network_Id) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec link(Network_id :: id()) -> true.
-link(Network_Id) -> 
-    #{supervisor:=Pid} = enn_pool:info(Network_Id),
+link(Network_id) -> 
+    #{supervisor:=Pid} = enn_pool:info(Network_id),
     erlang:link(Pid).
 
 %%--------------------------------------------------------------------
@@ -178,8 +178,8 @@ link(Network_Id) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec cortex(Network_id :: id()) -> pid().
-cortex(Network_Id) -> 
-    #{cortex:=Pid} = enn_pool:info(Network_Id),
+cortex(Network_id) -> 
+    #{cortex:=Pid} = enn_pool:info(Network_id),
     Pid.
 
 %%--------------------------------------------------------------------

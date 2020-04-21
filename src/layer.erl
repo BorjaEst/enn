@@ -24,7 +24,7 @@
     aggregation => aggregation:func(),
     initializer => initializer:func()
 }.
--type compiled() :: [Neuron_Id :: neuron:id()].
+-type compiled() :: [Neuron_id :: neuron:id()].
 
 
 %%%===================================================================

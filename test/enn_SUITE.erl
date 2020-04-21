@@ -271,29 +271,29 @@ test_model(FileName, Model, Training) ->
 % -------------------------------------------------------------------
 correct_model_compilation(Model) ->
     ?HEAD("Correct model compilation .............................."),
-    Cx_Id    = enn:compile(Model), ?INFO("Model", Model),
-    Cortex   = edb:read(Cx_Id),    ?INFO("Cortex", Cortex),
+    Cx_id    = enn:compile(Model), ?INFO("Model", Model),
+    Cortex   = edb:read(Cx_id),    ?INFO("Cortex", Cortex),
     true     = elements:is_cortex(Cortex),
-    [N_Id|_] = elements:neurons(Cortex),
-    put(cx_id, Cx_Id),
-    put( n_id,  N_Id),
+    [N_id|_] = elements:neurons(Cortex),
+    put(cx_id, Cx_id),
+    put( n_id,  N_id),
     ?END(ok).
 
 % -------------------------------------------------------------------
 correct_model_start() ->
     ?HEAD("Correct neural network start form a cortex id .........."),
-    _Cortex_Id = enn:start(get(cx_id)), % Ret Cx_id for non_comp start
+    _Cortex_id = enn:start(get(cx_id)), % Ret Cx_id for non_comp start
     ?END(ok).
 
 % -------------------------------------------------------------------
 correct_model_training(FileName, Training) ->
     ?HEAD("Correct fit of model using backpropagation ............."),
-    Cx_Id = get(cx_id),
+    Cx_id = get(cx_id),
     Options = [{print, 3}, {log, FileName}, {return, [loss]}],
-    {Inputs, Optimas} = Training(enn:inputs(Cx_Id), 
-                                 enn:outputs(Cx_Id), 
+    {Inputs, Optimas} = Training(enn:inputs(Cx_id), 
+                                 enn:outputs(Cx_id), 
                                  ?TRAINING_LINES),
-    [Loss] = enn:run(Cx_Id, Inputs, Optimas, Options),
+    [Loss] = enn:run(Cx_id, Inputs, Optimas, Options),
     ?END({ok, average(Loss, 10)}).
 
 % -------------------------------------------------------------------

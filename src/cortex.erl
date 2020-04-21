@@ -49,26 +49,26 @@
 %% @doc Returns the cortex id of from a network id.  
 %% @end
 %%--------------------------------------------------------------------
--spec id(Network_Id :: netwrok:id()) -> Cortex_Id :: id().
-id(Network_Id) -> {element(1, Network_Id), cortex}.
+-spec id(Network_id :: netwrok:id()) -> Cortex_id :: id().
+id(Network_id) -> {element(1, Network_id), cortex}.
 
 %%--------------------------------------------------------------------
 %% @doc Cortex id start function for supervisor. 
 %% @end
 %%--------------------------------------------------------------------
--spec pid(Network_Id :: netwrok:id()) -> Cortex_Pid :: pid().
-pid(Network_Id) -> 
-    ENN = enn_pool:info(Network_Id),
+-spec pid(Network_id :: netwrok:id()) -> Cortex_Pid :: pid().
+pid(Network_id) -> 
+    ENN = enn_pool:info(Network_id),
     maps:get(cortex, ENN).
 
 %%--------------------------------------------------------------------
 %% @doc Cortex id start function for supervisor. 
 %% @end
 %%--------------------------------------------------------------------
--spec start_link(Network_Id :: netwrok:id()) -> 
+-spec start_link(Network_id :: netwrok:id()) -> 
     gen_statem:start_ret().
-start_link(Network_Id) -> 
-    gen_statem:start_link(?MODULE, [Network_Id, self()], []).
+start_link(Network_id) -> 
+    gen_statem:start_link(?MODULE, [Network_id, self()], []).
 
 %%--------------------------------------------------------------------
 %% @doc Makes a prediction using the external inputs.
@@ -106,13 +106,13 @@ fit(Pid, Errors) ->
 %%                     {stop, StopReason}
 %% @end
 %%--------------------------------------------------------------------
-init([Network_Id, NN_Sup]) -> 
-    true = enn_pool:register_as_cortex(Network_Id),
+init([Network_id, NN_Sup]) -> 
+    true = enn_pool:register_as_cortex(Network_id),
     process_flag(trap_exit, true), % To catch supervisor 'EXIT'
-    put(id, id(Network_Id)),
+    put(id, id(Network_id)),
     ?LOG_STATE_CHANGE(undefined),
     {ok, inactive, #state{wait = []},
-        {next_event, internal, {start_nn, Network_Id, NN_Sup}}}.
+        {next_event, internal, {start_nn, Network_id, NN_Sup}}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -189,9 +189,9 @@ inactive({call, From}, {backprop, Errors}, State) ->
     {next_state, on_backpropagation, State#state{
         wait = [Pid || {Pid, _}  <- get(outputs)]
     }};
-inactive(internal, {start_nn, Network_Id, NN_Sup}, State) ->
+inactive(internal, {start_nn, Network_id, NN_Sup}, State) ->
     ?LOG_EVENT_START_NEURONS_NETWORK,
-    handle_start(Network_Id, NN_Sup),
+    handle_start(Network_id, NN_Sup),
     {keep_state, State};
 inactive(EventType, EventContent, State) ->
     handle_common(EventType, EventContent, State).
@@ -332,10 +332,10 @@ backward(Input_Pid, Error) ->
     {Input_Pid, Error}.
 
 % -------------------------------------------------------------------
-handle_start(Network_Id, NN_Sup) ->
-    NN      = edb:read(Network_Id),
-    NN_Pool = nn_pool:mount(NN_Sup, id(Network_Id), NN),
-    true    = enn_pool:register_nn_pool(Network_Id, NN_Pool),
+handle_start(Network_id, NN_Sup) ->
+    NN      = edb:read(Network_id),
+    NN_Pool = nn_pool:mount(NN_Sup, id(Network_id), NN),
+    true    = enn_pool:register_nn_pool(Network_id, NN_Pool),
     put( inputs,  % System outputs are the cortex inputs
         [{nn_pool:pid(Id,NN_Pool),#input{ }} 
             || Id <-  network:in_neighbours(NN,   'end')]), 
