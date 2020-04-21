@@ -59,6 +59,13 @@ check_type(         _) -> error.
 
 start_nodes() -> #{'start'=>nn_node:new(),'end'=>nn_node:new()}.
 
+%%--------------------------------------------------------------------
+%% @doc Returns the network id.
+%% @end
+%%-------------------------------------------------------------------
+-spec id(Network :: network()) -> id().
+id(NN) -> NN#network.id.
+
 %%-------------------------------------------------------------------
 %% @doc Record fields from network.  
 %% @end
@@ -74,7 +81,7 @@ record_fields() -> record_info(fields, network).
 info(#network{} = NN) ->
     Type = NN#network.type,
     Size = no_neurons(NN),
-    #{type=>Type, size=>Size}.
+    #{id=>id(NN), type=>Type, size=>Size}.
 
 %%-------------------------------------------------------------------
 %% @doc Adds a neuron to the network.  
