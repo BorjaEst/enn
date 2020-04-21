@@ -8,7 +8,7 @@
 
 -export([new/0, new/1, record_fields/0, info/1]).
 
--export([add_neuron/2, del_neuron/2]).
+-export([add_neuron/2, add_neurons/2, del_neuron/2, del_neurons/2]).
 -export([node/2, no_neurons/1, neurons/1]).
 -export([start_neurons/1, end_neurons/1]).
 -export([sink_neurons/1, bias_neurons/1]).
@@ -99,17 +99,44 @@ add_neuron(#network{nodes=Nodes} = NN, N) ->
     }.
 
 %%-------------------------------------------------------------------
+%% @doc Adds a list of neurons to the network.  
+%% @end
+%%-------------------------------------------------------------------
+-spec add_neurons(NN0, Ns) -> NN when
+      NN0 :: network(),
+      NN  :: network(),
+      Ns  :: [neuron:id()].
+add_neurons(NN, [N|Nx]) ->
+    add_neurons(add_neuron(NN,N), Nx);
+add_neurons(NN, []) ->
+    NN.
+
+%%-------------------------------------------------------------------
 %% @doc Deletes a neuron from the network.  
 %% @end
 %%-------------------------------------------------------------------
--spec del_neuron(NN, N) -> 'true' when
-      NN :: network(),
-      N  :: neuron:id().
+-spec del_neuron(NN0, N) -> NN when
+      NN0 :: network(),
+      NN  :: network(),
+      N   :: neuron:id().
 del_neuron(NN0, N) ->
     NN1 = del_links(NN0, [N], nn_node:out_neighbours(N)),
     NN2 = del_links(NN1, nn_node:in_neighbours(N), [N]),
     NN2#network{nodes = maps:remove(N, NN2#network.nodes)}.
-    
+
+%%-------------------------------------------------------------------
+%% @doc Deletes a list of neurons from the network.  
+%% @end
+%%-------------------------------------------------------------------
+-spec del_neurons(NN0, Ns) -> NN when
+      NN0 :: network(),
+      NN  :: network(),
+      Ns  :: [neuron:id()].
+del_neurons(NN, [N|Nx]) ->
+    del_neurons(del_neuron(NN,N), Nx);
+del_neurons(NN, []) -> 
+    NN.
+
 %%-------------------------------------------------------------------
 %% @doc Returns the node information or false if the node does not 
 %% belong to that network.  
