@@ -24,7 +24,7 @@
 
 %% API
 %%-export([]).
--export_type([id/0, neuron/0, property/0, properties/0]).
+-export_type([id/0, neuron/0, properties/0]).
 
 -type id() :: {{Coordinate :: float(), reference()}, neuron}.
 -record(neuron, {
@@ -35,8 +35,11 @@
     bias        :: link:weight()
 }).  
 -type neuron()     :: #neuron{}.
--type property()   :: activation | aggregation | initializer | bias.
--type properties() :: #{Key :: property() => Value :: term()}.
+-type properties() :: #{activation  := activation:func(),
+                        aggregation := aggregation:func(),
+                        initializer := initializer:func(),
+                        bias        := link:weight()
+}.
 
 -define(PID(Id), nn_pool:pid(Id, get(tid))).
 -record(input,  {

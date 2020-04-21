@@ -29,10 +29,11 @@
 %% @end
 %%--------------------------------------------------------------------
 -spec attributes_table() -> 
-    [{Elem :: network | neuron, [Attr :: atom()]}].
+    [{Elem :: network | link | neuron, [Attr :: atom()]}].
 attributes_table() ->
     [
         {network, network:record_fields()},
+        {   link,    link:record_fields()},
         { neuron,  neuron:record_fields()}
     ].
 
