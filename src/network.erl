@@ -6,7 +6,7 @@
 %%%-------------------------------------------------------------------
 -module(network).
 
--export([new/0, new/1, info/1]).
+-export([new/0, new/1, record_fields/0, info/1]).
 
 -export([add_neuron/2, del_neuron/2]).
 -export([node/2, no_neurons/1, neurons/1]).
@@ -59,6 +59,12 @@ check_type(         _) -> error.
 
 start_nodes() -> #{'start'=>nn_node:new(),'end'=>nn_node:new()}.
 
+%%-------------------------------------------------------------------
+%% @doc Record fields from network.  
+%% @end
+%%-------------------------------------------------------------------
+-spec record_fields() -> ListOfFields :: [atom()].
+record_fields() -> record_info(fields, network).
 
 %%-------------------------------------------------------------------
 %% @doc Information from the network.  

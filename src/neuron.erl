@@ -99,6 +99,13 @@ new(Properties) ->
 -spec id(Neuron :: neuron()) -> id().
 id(Neuron) -> Neuron#neuron.id.
 
+%%-------------------------------------------------------------------
+%% @doc Record fields from neuron.  
+%% @end
+%%-------------------------------------------------------------------
+-spec record_fields() -> ListOfFields :: [atom()].
+record_fields() -> record_info(fields, neuron).
+
 %%--------------------------------------------------------------------
 %% @doc Neuron id start function for supervisor. 
 %% @end
