@@ -157,11 +157,11 @@ info(Network_id) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec status(Network_id :: id()) -> Status when
-      Status :: enn_pool:info() | not_started.
+      Status :: enn_pool:info() | not_running.
 status(Network_id) -> 
     try enn_pool:info(Network_id) of 
           Info          -> Info
-    catch error:badarg  -> not_started
+    catch error:badarg  -> not_running 
     end.
 
 %%--------------------------------------------------------------------
