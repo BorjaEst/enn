@@ -76,8 +76,8 @@ recurrent(Layers, RLevel) when length(Layers) > 1 ->
 compile(Model) ->
     #{connections:=Connections, layers:=Layers, type:=Type} = Model,
     CompiledLayers = maps:map(fun layer:compile/2, Layers),
-    Network = network(CompiledLayers, Connections, Type),
-    Links   = [link:new(L) || L <- network:links(Network)],
+    Links   = links(CompiledLayers, Connections),
+    Network = network(CompiledLayers, Links, Type),
     edb:write([Network|Links]),
     network:id(Network).
 
@@ -91,39 +91,55 @@ linspace(From, To, N) ->
     [round((From + Step * X) * 100) / 100 || X <- lists:seq(0, N - 1)].
 
 % -------------------------------------------------------------------
-sequential_connection([Layer_A, Layer_B | Rest] = _Layers) ->
-    [{all, Layer_A, [Layer_B]} | sequential_connection([Layer_B | Rest])];
-sequential_connection([_Layer_A] = _Layers) ->
-    [].
+sequential_connection([L|Lx]) -> 
+    [{all, 'start', L} | sequential_connection(L, Lx)].
+
+sequential_connection(LA, [LB | Lx]) ->
+    [{all, LA, [LB]} | sequential_connection(LB, Lx)];
+sequential_connection(LA, []) ->
+    [{all, LA, ['end']}].
 
 % -------------------------------------------------------------------
 recurrent_connection(Layers, RLevel) ->
-    recurrent_connection_aux(lists:reverse(Layers), RLevel).
+    [L | Lx] = lists:reverse(Layers),
+    lists:reverse([{all,L,['end']}|recurrent_connection(L,Lx,RLevel)]).
 
-recurrent_connection_aux([_Last_Layer], _RLevel) ->
-    [];
-recurrent_connection_aux([Layer_A | Rest], RLevel) when length(Rest) >= RLevel ->
-    ToConnect = lists:sublist(Rest, RLevel),
-    [{all, Layer_A, ToConnect} | recurrent_connection_aux(Rest, RLevel)];
-recurrent_connection_aux([Layer_A | Rest], RLevel) ->
-    [{all, Layer_A, Rest} | recurrent_connection_aux(Rest, RLevel)].
+recurrent_connection(LA, [LB|Lx], R) when length(Lx)>=R ->
+    ToConnect = lists:sublist(Lx, R),
+    [{all, LA, ToConnect} | recurrent_connection(LB, Lx, R)];
+recurrent_connection(LA, [LB|Lx], R) -> 
+    recurrent_connection(LA, [LB|Lx], R-1);
+recurrent_connection(LA,      [],_R) -> 
+    [{all, 'start', LA}].
 
-% -------------------------------------------------------------------
-network(CompiledLayers, Connections, Type) -> 
-    add_links(CompiledLayers, Connections, 
-        add_neurons(CompiledLayers, 
-            network:new(Type))).
+% Creates the network links -----------------------------------------
+
+links(CompiledLayers, [{all,IFrom,IxTo} | Cx])  -> 
+    links(CompiledLayers#{
+        start => [start],
+        'end' => ['end']
+    }, [{all,IFrom,IxTo} | Cx], []).
+
+links(CompiledLayers, [{all,IFrom,IxTo} | Cx], Acc) -> 
+    From  = maps:get(IFrom, CompiledLayers),
+    To    = lists:append([maps:get(X, CompiledLayers) || X <- IxTo]),
+    Links = [link:new(N1,N2) || N1 <- From, N2 <- To],
+    links(CompiledLayers, Cx, [Links|Acc]);
+links(_CompiledLayers, [], Acc) ->
+    lists:append(Acc).
+
+% Creates the network -----------------------------------------------
+network(CompiledLayers, Links, Type) ->
+    add_links(Links, 
+        add_neurons(CompiledLayers, network:new(Type))).
+
+add_links(Links, NN) -> 
+    Links_ids = [link:id(L) || L <- Links],
+    network:add_links(NN, Links_ids).
 
 add_neurons(CompiledLayers, NN) -> 
-    Neurons = lists:append(maps:values(CompiledLayers)),
-    network:add_neurons(NN, Neurons).
-
-add_links(CompiledLayers, [{all,IFrom,IxTo} | Cx], NN) -> 
-    To   = lists:append([maps:get(X, CompiledLayers) || X <- IxTo]),
-    From = maps:get(IFrom, CompiledLayers),
-    add_links(CompiledLayers, Cx, network:add_links(NN,From,To));
-add_links(_CompiledLayers, [], NN) ->
-    NN.
+    Neurons_ids = lists:append(maps:values(CompiledLayers)),
+    network:add_neurons(NN, Neurons_ids).
 
 
 %%====================================================================
