@@ -100,12 +100,9 @@ groups() ->
 all() ->
     [
         eunit_model,
-        eunit_layer,
-        eunit_elements,
-        eunit_transform,
         eunit_activation,
         eunit_aggregation,
-        eunit_cortex
+        eunit_initializer
         ].
 
 %%--------------------------------------------------------------------
@@ -122,20 +119,12 @@ all() ->
 eunit_model() -> [].
 eunit_model(_Config) -> ok = eunit:test([model]).
 
-eunit_layer() -> [].
-eunit_layer(_Config) -> ok = eunit:test([layer]).
-
-eunit_elements() -> [].
-eunit_elements(_Config) -> ok = eunit:test([elements]).
-
-eunit_transform() -> [].
-eunit_transform(_Config) -> ok = eunit:test([transform]).
-
 eunit_activation() -> [].
 eunit_activation(_Config) -> ok = eunit:test([activation]).
 
 eunit_aggregation() -> [].
 eunit_aggregation(_Config) -> ok = eunit:test([aggregation]).
 
-eunit_cortex() -> [].
-eunit_cortex(_Config) -> ok = eunit:test([cortex]).
+eunit_initializer() -> [].
+eunit_initializer(_Config) -> ok = eunit:test([initializer]).
+

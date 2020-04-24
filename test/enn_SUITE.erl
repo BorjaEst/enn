@@ -17,13 +17,12 @@
 -include_lib("layers.hrl").
 
 -define(HEAD, [$- || _ <-lists:seq(1,80)] ++ "\n").
--define(HEAD(Text),  ct:log(?LOW_IMPORTANCE, ?HEAD ++ "~p", [Text])).
+-define(HEAD(Text), ct:log(?LOW_IMPORTANCE, ?HEAD ++ "~p", [Text])).
 -define(END,  [$_ || _ <-lists:seq(1,80)]).
--define(END(Value), ct:log(?LOW_IMPORTANCE, "~p~n" ++ ?END, [Value]),
-                    Value).
+-define(END(V), ct:log(?LOW_IMPORTANCE, "~p~n" ++ ?END, [V]), V).
 
--define(INFO(Text, Info), ct:log(?LOW_IMPORTANCE, "~p: ~p", [Text, Info])).
--define(ERROR(Error),     ct:pal(?HI_IMPORTANCE, "Error: ~p", [Error])).
+-define(INFO(A,B),    ct:log(?LOW_IMPORTANCE,    "~p: ~p",   [A,B])).
+-define(ERROR(Error), ct:pal( ?HI_IMPORTANCE, "Error: ~p", [Error])).
 -define(PROGRESS_BAR, #{size => 20}).
 
 -define(TEST_MODEL(Model, Training), 
@@ -262,49 +261,43 @@ random_dense_random_inputs(_Config) ->
 
 % -------------------------------------------------------------------
 test_model(FileName, Model, Training) ->
-    ok = correct_model_compilation(Model),
-    ok = correct_model_start(),
-    {ok, Loss10} = correct_model_training(FileName, Training),
-    ok           = correct_model_stop(),
+    {ok,    Id}  = correct_model_compilation(Model),
+    ok           = correct_model_start(Id),
+    {ok, Loss10} = correct_model_training(Id, Training, FileName),
+    ok           = correct_model_stop(Id),
     {ok, Loss10}.
 
 % -------------------------------------------------------------------
 correct_model_compilation(Model) ->
     ?HEAD("Correct model compilation .............................."),
-    Cx_id    = enn:compile(Model), ?INFO("Model", Model),
-    Cortex   = edb:read(Cx_id),    ?INFO("Cortex", Cortex),
-    true     = elements:is_cortex(Cortex),
-    [N_id|_] = elements:neurons(Cortex),
-    put(cx_id, Cx_id),
-    put( n_id,  N_id),
+    Id      = enn:compile(Model), ?INFO(  "Model",   Model),
+    NN_Info = enn:info(Id),       ?INFO("Network", NN_Info),
+    ?END({ok, Id}).
+
+% -------------------------------------------------------------------
+correct_model_start(Id) ->
+    ?HEAD("Correct neural network start form a network id ........"),
+    Id = enn:start(Id), % Return NN_id for non_compiled start
     ?END(ok).
 
 % -------------------------------------------------------------------
-correct_model_start() ->
-    ?HEAD("Correct neural network start form a cortex id .........."),
-    _Cortex_id = enn:start(get(cx_id)), % Ret Cx_id for non_comp start
-    ?END(ok).
-
-% -------------------------------------------------------------------
-correct_model_training(FileName, Training) ->
+correct_model_training(Id, Training, FileName) ->
     ?HEAD("Correct fit of model using backpropagation ............."),
-    Cx_id = get(cx_id),
     Options = [{print, 3}, {log, FileName}, {return, [loss]}],
-    {Inputs, Optimas} = Training(enn:inputs(Cx_id), 
-                                 enn:outputs(Cx_id), 
+    {Inputs, Optimas} = Training(enn:inputs(Id), 
+                                 enn:outputs(Id), 
                                  ?TRAINING_LINES),
-    [Loss] = enn:run(Cx_id, Inputs, Optimas, Options),
+    [Loss] = enn:run(Id, Inputs, Optimas, Options),
     ?END({ok, average(Loss, 10)}).
 
 % -------------------------------------------------------------------
-correct_model_stop() ->
-    ?HEAD("Correct neural network stop form a cortex id ..........."),
-    Neuron_BeforeTraining = edb:read(get(n_id)), 
-    ok = enn:stop(get(cx_id)),
-    Neuron_AfterTraining  = edb:read(get(n_id)), 
-    ?INFO("Neuron before training", Neuron_BeforeTraining),
-    ?INFO("Neuron  after training", Neuron_AfterTraining),
-    true = Neuron_BeforeTraining /= Neuron_AfterTraining,
+correct_model_stop(Id) ->
+    ?HEAD("Correct neural network stop form a network id ........."),
+    Cortex = enn:cortex(Id),
+    true   = is_process_alive(Cortex), 
+    ok     = enn:stop(Id),
+    false  = is_process_alive(Cortex), 
+    not_running = enn:status(Id),
     ?END(ok).
 
 
