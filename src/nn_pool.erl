@@ -38,10 +38,10 @@
     Supervisor :: pid(),
     Cortex_id  :: cortex:id(), 
     NN         :: network:network().
-mount(Supervisor, Cx_id, NN) -> 
+mount(Supervisor, Cortex_id, NN) -> 
     PT   = ets:new(processes, ?TABS_CONFIGURATION),
     Regs = [start_neuron(Supervisor,Id) || Id<-network:neurons(NN)],
-    true = ets:insert(PT, [{Cx_id,self()} || {self(),Cx_id}]),
+    true = ets:insert(PT, cortex_registers(Cortex_id)),
     true = ets:insert(PT, [{Id,Pid} || {Id,Pid} <- Regs]),
     true = ets:insert(PT, [{Pid,Id} || {Id,Pid} <- Regs]),
     NN_Pool = #nn_pool{ptab = PT},
@@ -75,6 +75,10 @@ id(#nn_pool{ptab = PT}, Pid) ->
 start_neuron(Supervisor,Id) -> 
     {ok, Pid} = nn_sup:start_neuron(Supervisor,Id),
     {Id, Pid}.
+
+% Cortex registers in the ptab --------------------------------------
+cortex_registers(Id) ->
+    [{Id,self()}, {self(),Id}, {'end',self()}, {'start',self()}].
 
 
 %%====================================================================
