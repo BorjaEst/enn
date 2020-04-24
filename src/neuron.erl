@@ -40,15 +40,18 @@
                         initializer := initializer:func(),
                         bias        := link:weight()
 }.
+-define( ACTIVATION(S), element( #neuron.activation, ?NEURON(S))).
+-define(AGGREGATION(S), element(#neuron.aggregation, ?NEURON(S))).
+-define(       BIAS(S), element(       #neuron.bias, ?NEURON(S))).
 
--define(PID(Id), nn_pool:pid(Id, get(tid))).
 -record(input,  {
     link    :: id(),   % Input link 
     s = 0.0 :: float() % Signal value (Xi)
 }).
 -type input() :: #input{}.
--define(W(Input), link:weight(Input#input.link)).
--define(S(Input), Input#input.s).
+-define(S(Input), element(#input.s,    Input)).
+-define(L(Input), element(#input.link, Input)).
+-define(W(Input), link:weight(?L(Input))).
 
 -record(output, {
     e = 0.0 :: float() % Output error (Ei)
@@ -63,9 +66,9 @@
     forward_wait  :: [pid()],
     backward_wait :: [pid()]
 }).
--define( NEURON(State),  State#state.neuron).
--define( INPUTS(State),  State#state.inputs).
--define(OUTPUTS(State), State#state.outputs).
+-define( NEURON(State), element( #state.neuron, State)).
+-define( INPUTS(State), element( #state.inputs, State)).
+-define(OUTPUTS(State), element(#state.outputs, State)).
 
 % Learning parameters (to be moved to a module optimizer in a future)
 -define(LEARNING_FACTOR, 0.01).  
@@ -148,7 +151,7 @@ init(Id, Supervisor) ->
     process_flag(trap_exit, true), % Catch supervisor exits
     ?LOG_NEURON_STARTED,
     loop(internal, #state{
-        neuron  = edb:read(Id),
+        neuron  = load_neuron(edb:read(Id)),
         inputs  = load_inputs(Id, Connections, NN_Pool),
         outputs = load_outputs(Connections, NN_Pool),
         forward_wait  = [Pid || Pid <- maps:keys(get(inputs ))],
@@ -194,8 +197,8 @@ loop(internal, State) ->
 forward_prop(internal, State) -> 
     #state{inputs=Inputs, outputs=Outputs} = State,
     Tensor = calculate_tensor(Inputs),
-    Soma   = calculate_soma(Tensor),
-    Signal = calculate_signal(Soma),
+    Soma   = calculate_soma(?NEURON(State), Tensor),
+    Signal = calculate_signal(?NEURON(State), Soma),
     Sent = [forward(P,O,Signal)|| {P,O} <- maps:to_list(Outputs)],
     ?LOG_FORWARD_PROPAGATION(Sent),
     loop(internal, State#state{
@@ -208,12 +211,12 @@ forward_prop(internal, State) ->
 backward_prop(internal, State) ->
     #state{inputs=Inputs, outputs=Outputs} = State,
     Error = calculate_error(Outputs),
-    Beta  = calculate_beta(Error),
-    calculate_weights(Beta),
-    calculate_bias(Beta),
+    Beta  = calculate_beta(?NEURON(State), Error),
     Sent = [backward(P,I,Beta)|| {P,I} <- maps:to_list(Inputs)],
     ?LOG_BACKWARD_PROPAGATION(Sent),
     loop(internal, State#state{
+        neuron = calculate_bias(?NEURON(State), Beta),
+        inputs = calculate_weights(Inputs, Beta),
         backward_wait = [Pid || Pid <- maps:keys(Outputs)]
     }).
 %%--------------------------------------------------------------------
@@ -280,22 +283,22 @@ propagate_recurrent(Connections, NN_Pool) ->
     ?LOG_BACKWARD_PROPAGATION_RECURRENT_INPUTS(SentI).
 
 %%--------------------------------------------------------------------
+%% @doc Here goes the internal dictionary savings which requires 
+%% global module access for simplification.
+%% @end
+%%--------------------------------------------------------------------
+load_neuron(#neuron{} = Neuron) -> 
+    put(initializer, Neuron#neuron.initializer), % Save for winit()
+    calculate_bias(Neuron, 0.0).
+
+%%--------------------------------------------------------------------
 %% @doc Neuron outputs loading.  
 %% @end
 %%--------------------------------------------------------------------
-init_outputs(Neuron) -> 
-    Coordinade = elements:coordinade(Neuron),
-    Outputs    = elements:outputs_ids(Neuron),
-    maps:from_list(init_outputs(Coordinade, Outputs)).
-
-init_outputs(Coordinade, [Id|Idx]) ->
-    Output = #output{
-        id = Id, 
-        r  = not elements:is_dir_output(Coordinade, Id)
-    },
-    [{?PID(Id), Output} | init_outputs(Coordinade, Idx)];
-init_outputs(_, []) -> 
-    [].
+load_outputs(Connections, NN_Pool) -> 
+    Out = nn_node:out_neighbours(Connections),
+    put(fan_out, length(Out)), % Save for winit()
+    maps:from_list([{nn_pool:pid(NN_Pool,X),#output{}} || X<-Out]).
 
 %%--------------------------------------------------------------------
 %% @doc Neuron inputs loading. If a link is not retreived from edb, a
@@ -303,30 +306,20 @@ init_outputs(_, []) ->
 %% @end
 %%--------------------------------------------------------------------
 load_inputs(Id, Connections, NN_Pool) -> 
-    Ids = [link:id(X,Id) || X <- nn_node:in_neighbours(Connections)],
-    Links = edb:read(Ids),
-    maps:from_list(inputs_from_links(Links, Ids, NN_Pool)).
+    In = [link:id(X,Id) || X <- nn_node:in_neighbours(Connections)],
+    put(fan_in, length(In)), % Save for winit()
+    Inputs = maps:from_list(load_links(edb:read(In),In,NN_Pool)),
+    put(prev_signals, [{P,0.0,0.0} || P <- maps:keys(Inputs)]),
+    calculate_weights(Inputs, 0.0). % Weights initialisation
 
-inputs_from_links([undefined|Lx], [Id|Ids], NN_Pool) -> 
+load_links([undefined|Lx], [Id|Ids], NN_Pool) -> 
     L = link:new(link:from(Id), link:to(Id)),
-    inputs_from_links([L|Lx], [Id|Ids], NN_Pool);
-inputs_from_links([L|Lx], [Id|Ids], NN_Pool) -> 
+    load_links([L|Lx], [Id|Ids], NN_Pool);
+load_links([L|Lx], [Id|Ids], NN_Pool) -> 
     Pid = nn_pool:pid(NN_Pool, link:from(Id)),
-    [{Pid,#input{link=L}} | inputs_from_links(Lx, Ids, NN_Pool)];
-inputs_from_links([], [], _) -> 
+    [{Pid,#input{link=L}} | load_links(Lx, Ids, NN_Pool)];
+load_links([], [], _) -> 
     [].
-
-%%--------------------------------------------------------------------
-%% @doc Neuron bias initialization. If a the bias is not initialized
-%% a synchronised request is sent to the cortex to receive a value.  
-%% @end
-%%--------------------------------------------------------------------
-init_bias(Neuron, NN_id) ->
-    Coordinade = elements:coordinade(Neuron),
-    case elements:bias(Neuron) of 
-        uninitialized          -> calculate_winit(Coordinade, NN_id);
-        Val when is_float(Val) -> Val
-    end.
 
 
 %%%===================================================================
@@ -338,76 +331,85 @@ init_bias(Neuron, NN_id) ->
 %% @end
 %%--------------------------------------------------------------------
 calculate_tensor(Inputs) ->
-    Tensors = [{Pid, {Input#input.w, Input#input.s}} 
-                   || {Pid, Input} <- maps:to_list(Inputs)],
-    put(tensor, Tensors), % Saves tensor for weights calculation
-    [WiXix || {_,WiXix} <- Tensors].
+    Tensors = [{Pid,?W(I),?S(I)} || {Pid,I} <- maps:to_list(Inputs)],
+    put(prev_signals, Tensors), % Save for weights calculation
+    Tensors.
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the value of soma.
 %% @end
 %%--------------------------------------------------------------------
-calculate_soma(WiXix) -> 
-    Soma = aggregation:func(get(aggregation), WiXix, get(bias)),
-    put(soma, Soma),   % Saves the soma value for the beta calculation
+calculate_soma(Neuron, Tensors) -> 
+    WiXi = [{Wi,Xi} || {_,Wi,Xi} <- Tensors],
+    Soma = aggregation:func(?AGGREGATION(Neuron),WiXi,?BIAS(Neuron)),
+    put(soma, Soma),  % Save for the beta calculation
     Soma.
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the value of soma.
 %% @end
 %%--------------------------------------------------------------------
-calculate_signal(Soma) -> 
-    activation:func(get(activation), Soma).
+calculate_signal(Neuron, Soma) -> 
+    activation:func(?ACTIVATION(Neuron), Soma).
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the error from propagation.
 %% @end
 %%--------------------------------------------------------------------
 calculate_error(Outputs) ->
-    lists:sum([O#output.e || {_, O} <- maps:to_list(Outputs)]).
+    lists:sum([O#output.e || {_,O} <- maps:to_list(Outputs)]).
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the value of beta for back propagation).
 %% @end
 %%--------------------------------------------------------------------
-calculate_beta(Error) -> 
-    activation:beta(get(activation), Error, get(soma)).
+calculate_beta(Neuron, Error) -> 
+    activation:beta(?ACTIVATION(Neuron), Error, get(soma)).
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the new weights from back propagation of the error.
 %% @end
 %%--------------------------------------------------------------------
-calculate_weights(Beta) -> 
-    put(inputs, calculate_weights(get(tensor), get(inputs), Beta)).
+calculate_weights(Inputs, Beta) -> 
+    calculate_weights(get(prev_signals), Inputs, Beta).
 
-calculate_weights([{Pid, {Wi,Xi}} | Tx], Inputs, B) -> 
+calculate_weights([{Pid,_,Xi}|Tx], Inputs, B) -> 
     I = maps:get(Pid, Inputs),
-    calculate_weights(Tx, Inputs#{Pid:=I#input{w=Wi+dw(Xi,B)}}, B);
+    calculate_weights(Tx, Inputs#{Pid:=updt_input(I,Xi,B)}, B);
 calculate_weights([], Inputs, _) -> 
     Inputs.
 
-%%--------------------------------------------------------------------
-%% @doc Calculates the new bias from back propagation of the error.
-%% @end
-%%--------------------------------------------------------------------
-calculate_bias(Beta) -> 
-    put(bias, get(bias) + dw(1.0, Beta)).
+updt_input(I, Xi, Beta) -> 
+    I#input{link=link:edit(?L(I), updt_weight(?W(I),Xi,Beta))}.
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the new bias from back propagation of the error.
 %% @end
 %%--------------------------------------------------------------------
-calculate_winit(Coordinade, NN_id) -> 
-    {Fan_In, Fan_Out} = cortex:fan_inout(NN_id, Coordinade),
-    initializer:value(get(initializer), #{
-        fan_in  => Fan_In,
-        fan_out => Fan_Out
-    }).
-
+calculate_bias(Neuron, Beta) -> 
+    Neuron#neuron{bias = updt_weight(?BIAS(Neuron), 1.0, Beta)}.
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @doc Updates the weight value. If it is uninitialized, a new value
+%% is generated.
+%% @end
+%%--------------------------------------------------------------------
+updt_weight(Wi,Xi,B) when is_number(Wi) -> Wi+dw(Xi,B);
+updt_weight(uninitialized, _, _)        -> winit().
+
+%%--------------------------------------------------------------------
+%% @doc Initialises a weight.
+%% @end
+%%--------------------------------------------------------------------
+winit() -> 
+    initializer:value(get(initializer), #{
+        fan_in  => get( fan_in),
+        fan_out => get(fan_out)
+    }).
 
 % % Weight variation calculation with momentum .........................
 % m <- ?MOMENTUM_FACTOR*m - ?LEARNING_FACTOR*get(beta) * Xi,
@@ -434,7 +436,7 @@ forward(Pid, _Output, Signal) ->
 
 % -------------------------------------------------------------------
 backward(Pid, Input, Beta) ->
-    BP_Error = Input#input.w * Beta,
+    BP_Error = ?W(Input) * Beta,
     Pid ! {self(), backward, BP_Error},
     {Pid, BP_Error}.
 
