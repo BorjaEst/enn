@@ -92,7 +92,7 @@ linspace(From, To, N) ->
 
 % -------------------------------------------------------------------
 sequential_connection([L|Lx]) -> 
-    [{all, 'start', L} | sequential_connection(L, Lx)].
+    [{all, 'start', [L]} | sequential_connection(L, Lx)].
 
 sequential_connection(LA, [LB | Lx]) ->
     [{all, LA, [LB]} | sequential_connection(LB, Lx)];
@@ -102,18 +102,17 @@ sequential_connection(LA, []) ->
 % -------------------------------------------------------------------
 recurrent_connection(Layers, RLevel) ->
     [L | Lx] = lists:reverse(Layers),
-    lists:reverse([{all,L,['end']}|recurrent_connection(L,Lx,RLevel)]).
+    recurrent_connection(L,Lx,RLevel).
 
-recurrent_connection(LA, [LB|Lx], R) when length(Lx)>=R ->
-    ToConnect = lists:sublist(Lx, R),
+recurrent_connection(LA, [LB|Lx], R) when length([LB|Lx])>=R ->
+    ToConnect = lists:sublist([LB|Lx], R),
     [{all, LA, ToConnect} | recurrent_connection(LB, Lx, R)];
 recurrent_connection(LA, [LB|Lx], R) -> 
     recurrent_connection(LA, [LB|Lx], R-1);
-recurrent_connection(LA,      [],_R) -> 
-    [{all, 'start', LA}].
+recurrent_connection( _,      [],_R) -> 
+    [].
 
 % Creates the network links -----------------------------------------
-
 links(CompiledLayers, [{all,IFrom,IxTo} | Cx])  -> 
     links(CompiledLayers#{
         start => [start],
@@ -181,8 +180,10 @@ test_for_sequential_connection(_) ->
     Layers = [-1.0, 0.0, 1.0],
     [
         ?_assertEqual([
-                          {all, -1.0, [0.0]},
-                          {all, 0.0, [1.0]}
+                          {all, start, [ -1.0]},
+                          {all,  -1.0, [  0.0]},
+                          {all,   0.0, [  1.0]},
+                          {all,   1.0, ['end']}
                       ], sequential_connection(Layers))
     ].
 
@@ -190,8 +191,8 @@ test_for_recurrent_connection(_) ->
     Layers = [-1.0, 0.0, 1.0],
     [
         ?_assertEqual([
-                          {all, 1.0, []},
-                          {all, 0.0, []}
+                          {all,   1.0, []},
+                          {all,   0.0, []}
                       ], recurrent_connection(Layers, _RLevel = 0)),
         ?_assertEqual([
                           {all, 1.0, [0.0]},
