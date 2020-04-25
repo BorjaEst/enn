@@ -107,10 +107,10 @@ output(Units, Prop) ->
     Definition    :: definition(), 
     CompiledLayer :: compiled().
 compile(_Coordinade, Definition) ->
-    Units = maps:get(units, Definition),
-    Ns = [neuron:new(Definition) || _ <- lists:seq(1, Units)],
-    edb:write(Ns),
-    [neuron:id(N) || N <- Ns].
+    Units   = maps:get(units, Definition),
+    Neurons = [neuron:new(Definition) || _ <- lists:seq(1, Units)],
+    edb:write(Neurons),
+    [neuron:id(N) || N <- Neurons].
 
 
 %%====================================================================
