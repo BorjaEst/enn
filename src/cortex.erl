@@ -337,11 +337,11 @@ handle_start(Network_id, NN_Sup) ->
     NN_Pool = nn_pool:mount(NN_Sup, id(Network_id), NN),
     true    = enn_pool:register_nn_pool(Network_id, NN_Pool),
     put( inputs,  % System outputs are the cortex inputs
-        [{nn_pool:pid(Id,NN_Pool),#input{ }} 
-            || Id <-  network:in_neighbours(NN,   'end')]), 
+        [{nn_pool:pid(NN_Pool,Id),#input{ }} 
+            || Id <-   network:end_neurons(NN)]), 
     put(outputs,  % System inputs are the cortex outputs
-        [{nn_pool:pid(Id,NN_Pool),#output{}}
-            || Id <- network:out_neighbours(NN, 'start')]).
+        [{nn_pool:pid(NN_Pool,Id),#output{}}
+            || Id <- network:start_neurons(NN)]).
 
 
 %%====================================================================
