@@ -16,7 +16,7 @@
     id         :: network:id(), % Network identifier
     supervisor :: pid(),        % Pid of the supervisor
     cortex     :: pid(),        % Pid of the cortex 
-    nn_pool    :: ets:tid()     % ETS table with neurons pid<->id
+    nn_pool    :: nn_pool:pool() % Pool with neurons pid<->id
     % graph      :: graph(),      % Mounted graph with network
     % neurons     :: integer(),
     % links       :: integer(),
@@ -106,10 +106,10 @@ register_nn_pool(Id, NN_Pool) ->
       InfoMap    :: info().
 info(Id) -> 
     case ets:lookup(?ENN_POOL, Id) of 
-        [] -> error(badarg);
-        NN -> #{supervisor => NN#enn.supervisor,
-                cortex     => NN#enn.cortex,
-                nn_pool    => NN#enn.nn_pool}
+        []   -> error(badarg);
+        [NN] -> #{supervisor => NN#enn.supervisor,
+                  cortex     => NN#enn.cortex,
+                  nn_pool    => NN#enn.nn_pool}
     end.
 
 
