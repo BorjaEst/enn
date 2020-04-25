@@ -280,7 +280,8 @@ receive_next(internal, State) ->
 terminate(Reason, State) ->
     % TODO: When saving the new state, those links with weights ~= 0, must be deleted (both neurons)
     % TODO: If the neuron has not at least 1 input or 1 output, it must be deleted (and bias forwarded)
-    edb:write([?NEURON(State)|[L||#input{link=L}<-?INPUTS(State)]]),
+    Links = [L || #input{link=L} <- maps:values(?INPUTS(State))],
+    edb:write([?NEURON(State)|Links]),
     ?LOG_NEURON_TERMINATING,
     exit(Reason).
 
