@@ -40,9 +40,6 @@
                         initializer := initializer:func(),
                         bias        := link:weight()
 }.
--define( ACTIVATION(S), element( #neuron.activation, ?NEURON(S))).
--define(AGGREGATION(S), element(#neuron.aggregation, ?NEURON(S))).
--define(       BIAS(S), element(       #neuron.bias, ?NEURON(S))).
 
 -record(input,  {
     link    :: id(),   % Input link 
@@ -66,9 +63,12 @@
     forward_wait  :: [pid()],
     backward_wait :: [pid()]
 }).
--define( NEURON(State), element( #state.neuron, State)).
--define( INPUTS(State), element( #state.inputs, State)).
--define(OUTPUTS(State), element(#state.outputs, State)).
+-define(     NEURON(State), element( #state.neuron, State)).
+-define(     INPUTS(State), element( #state.inputs, State)).
+-define(    OUTPUTS(State), element(#state.outputs, State)).
+-define( ACTIVATION(State),  activation(?NEURON(State))).
+-define(AGGREGATION(State), aggregation(?NEURON(State))).
+-define(       BIAS(State),        bias(?NEURON(State))).
 
 % Learning parameters (to be moved to a module optimizer in a future)
 -define(LEARNING_FACTOR, 0.01).  
@@ -104,6 +104,27 @@ new(Properties) ->
 %%-------------------------------------------------------------------
 -spec id(Neuron :: neuron()) -> id().
 id(Neuron) -> Neuron#neuron.id.
+
+%%--------------------------------------------------------------------
+%% @doc Returns the neuron activation.
+%% @end
+%%-------------------------------------------------------------------
+-spec activation(Neuron :: neuron()) -> activation:func().
+activation(Neuron) -> Neuron#neuron.activation.
+
+%%--------------------------------------------------------------------
+%% @doc Returns the neuron aggregation.
+%% @end
+%%-------------------------------------------------------------------
+-spec aggregation(Neuron :: neuron()) -> aggregation:func().
+aggregation(Neuron) -> Neuron#neuron.aggregation.
+
+%%--------------------------------------------------------------------
+%% @doc Returns the neuron initializer.
+%% @end
+%%-------------------------------------------------------------------
+-spec initializer(Neuron :: neuron()) -> initializer:func().
+initializer(Neuron) -> Neuron#neuron.initializer.
 
 %%--------------------------------------------------------------------
 %% @doc Returns the neuron bias.
