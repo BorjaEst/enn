@@ -10,7 +10,7 @@
 -export([]).
 -export_type([id/0, weight/0, link/0]).
 
--type id()     :: {From :: neuron:id(), To :: neuron:id(), link}.
+-type id()     :: {{From :: neuron:id(), To :: neuron:id()}, link}.
 -type weight() :: float() | uninitialized.
 -record(link, {
     id :: id(),
@@ -53,7 +53,7 @@ id(Link) -> Link#link.id.
 -spec id(N1, N2) -> id() when
     N1 :: neuron:id(),
     N2 :: neuron:id().
-id(N1, N2) -> {N1, N2, link}.
+id(N1, N2) -> {{N1, N2}, link}.
 
 %%-------------------------------------------------------------------
 %% @doc Record fields from link.  
@@ -67,14 +67,14 @@ record_fields() -> record_info(fields, link).
 %% @end
 %%-------------------------------------------------------------------
 -spec from(Link :: link()) -> neuron:id().
-from({From, _, link}) -> From.
+from({{From, _}, link}) -> From.
 
 %%--------------------------------------------------------------------
 %% @doc Returns the link receiver.
 %% @end
 %%-------------------------------------------------------------------
 -spec to(Link :: link()) -> neuron:id().
-to({_, To, link}) -> To.
+to({{_, To}, link}) -> To.
 
 %%--------------------------------------------------------------------
 %% @doc Returns the link weight.
