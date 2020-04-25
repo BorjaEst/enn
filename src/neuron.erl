@@ -165,8 +165,8 @@ init(Id, Supervisor) ->
     }).
 
 load_wait(State) -> 
-    ?LOG_NEURON_STARTED,
-    loop(internal, #state{
+    ?LOG_NEURON_STARTED(State),
+    loop(internal, State#state{
         forward_wait  = [Pid || Pid <- maps:keys( ?INPUTS(State))],
         backward_wait = [Pid || Pid <- maps:keys(?OUTPUTS(State))]
     }).
@@ -301,6 +301,7 @@ propagate_recurrent(Connections, NN_Pool) ->
 %% @end
 %%--------------------------------------------------------------------
 load_neuron(#neuron{} = Neuron) -> 
+    put(id, id(Neuron)),
     calculate_bias(Neuron, 0.0).
 
 %%--------------------------------------------------------------------
