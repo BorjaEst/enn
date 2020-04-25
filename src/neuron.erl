@@ -59,10 +59,10 @@
 -type output() :: #output{}.
 -define(E(Output), Output#output.e).
 
--record(state, {
-    neuron  :: neuron(),
-    inputs  :: [input()],
+-record(state, { %Order is relevant: outputs -> inputs -> neuron
     outputs :: [output()],
+    inputs  :: [input()],
+    neuron  :: neuron(),
     forward_wait  :: [pid()],
     backward_wait :: [pid()]
 }).
@@ -104,6 +104,13 @@ new(Properties) ->
 %%-------------------------------------------------------------------
 -spec id(Neuron :: neuron()) -> id().
 id(Neuron) -> Neuron#neuron.id.
+
+%%--------------------------------------------------------------------
+%% @doc Returns the neuron bias.
+%% @end
+%%-------------------------------------------------------------------
+-spec bias(Neuron :: neuron()) -> link:weight().
+bias(Neuron) -> Neuron#neuron.bias.
 
 %%-------------------------------------------------------------------
 %% @doc Record fields from neuron.  
@@ -149,13 +156,19 @@ init(Id, Supervisor) ->
     {Connections, NN_Pool} = wait_for_go(),      % Cortex synch
     propagate_recurrent(Connections, NN_Pool), 
     process_flag(trap_exit, true), % Catch supervisor exits
+    Neuron = edb:read(Id),
+    put(initializer, Neuron#neuron.initializer), % Save for winit()
+    load_wait(#state{
+        outputs = load_outputs(Connections, NN_Pool),
+        inputs  = load_inputs(Id, Connections, NN_Pool),
+        neuron  = load_neuron(Neuron)
+    }).
+
+load_wait(State) -> 
     ?LOG_NEURON_STARTED,
     loop(internal, #state{
-        neuron  = load_neuron(edb:read(Id)),
-        inputs  = load_inputs(Id, Connections, NN_Pool),
-        outputs = load_outputs(Connections, NN_Pool),
-        forward_wait  = [Pid || Pid <- maps:keys(get(inputs ))],
-        backward_wait = [Pid || Pid <- maps:keys(get(outputs))]
+        forward_wait  = [Pid || Pid <- maps:keys( ?INPUTS(State))],
+        backward_wait = [Pid || Pid <- maps:keys(?OUTPUTS(State))]
     }).
 
 %%--------------------------------------------------------------------
@@ -166,17 +179,17 @@ init(Id, Supervisor) ->
 % Receives a forward signal so updates its value in inputs
 loop({Pid,forward,S},  #state{forward_wait  = [Pid|Nx]} = State) ->
     ?LOG_FORWARD_MESSAGE_RECEIVED(Pid, S),
-    #{Pid := Input} = Inputs = State#state.inputs,
+    #{Pid := I} = Inputs = State#state.inputs,
     loop(internal, State#state{
-        inputs       = Inputs#{Pid := Input#input{s = S}},
+        inputs       = Inputs#{Pid := I#input{s = S}},
         forward_wait = Nx
     });
 % Receives a backward signal so updates its error in outputs
 loop({Pid,backward,E}, #state{backward_wait = [Pid|Nx]} = State) ->
     ?LOG_BACKWARD_MESSAGE_RECEIVED(Pid, E),
-    #{Pid := Output} = Outputs = State#state.outputs,
+    #{Pid := O} = Outputs = State#state.outputs,
     loop(internal, State#state{
-        outputs       = Outputs#{Pid := Output#output{e = E}},
+        outputs       = Outputs#{Pid := O#output{e = E}},
         backward_wait = Nx
     });
 % If all forward signals have been received, state change to forward
@@ -274,7 +287,7 @@ wait_for_go() ->
 %%--------------------------------------------------------------------
 propagate_recurrent(Connections, NN_Pool) -> 
     Empty_Output = #output{}, % Do not gen a new each iteration
-    Empty_Input  = #input{link=link:new(#{weight=>0.0})}, 
+    Empty_Input  = #input{link=link:new(n1,n2,#{weight=>0.0})}, 
     SentO = [forward(nn_pool:pid(NN_Pool, Id), Empty_Output, 0.0) 
         || Id <- nn_node:out_neighbours(Connections, recurrent)],
     ?LOG_FORWARD_PROPAGATION_RECURRENT_OUTPUTS(SentO),
@@ -288,7 +301,6 @@ propagate_recurrent(Connections, NN_Pool) ->
 %% @end
 %%--------------------------------------------------------------------
 load_neuron(#neuron{} = Neuron) -> 
-    put(initializer, Neuron#neuron.initializer), % Save for winit()
     calculate_bias(Neuron, 0.0).
 
 %%--------------------------------------------------------------------
@@ -387,7 +399,7 @@ updt_input(I, Xi, Beta) ->
 %% @end
 %%--------------------------------------------------------------------
 calculate_bias(Neuron, Beta) -> 
-    Neuron#neuron{bias = updt_weight(?BIAS(Neuron), 1.0, Beta)}.
+    Neuron#neuron{bias = updt_weight(bias(Neuron), 1.0, Beta)}.
 
 %%%===================================================================
 %%% Internal functions
