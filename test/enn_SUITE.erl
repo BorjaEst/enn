@@ -49,7 +49,6 @@ suite() ->
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     application:start(enn),
-    application:start(datalog),
     Config.
 
 %%--------------------------------------------------------------------
@@ -58,7 +57,6 @@ init_per_suite(Config) ->
 %%--------------------------------------------------------------------
 end_per_suite(_Config) ->
     application:stop(enn),
-    application:stop(datalog),
     ok.
 
 %%--------------------------------------------------------------------
@@ -125,7 +123,7 @@ groups() ->
         {test_complex_architectures, [sequence],
          [
             mult_random_inputs,
-            sequence_1_input,
+            recurrent_1_input,
             weights_0_network
          ]
         },
@@ -227,12 +225,12 @@ mult_random_inputs(_Config) ->
     console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
-sequence_1_input() ->
+recurrent_1_input() ->
     [].
-sequence_1_input(_Config) ->
+recurrent_1_input(_Config) ->
     ?TEST_MODEL(
-        _Model = test_architectures:sequence(),
-        _Data  = fun test_data_generators:sequence_of_1_input/3
+        _Model = test_architectures:recurrent(),
+        _Data  = fun test_data_generators:recurrent_of_1_input/3
     ).
 
 % -------------------------------------------------------------------
