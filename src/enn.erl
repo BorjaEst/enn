@@ -79,7 +79,7 @@ fit(Network_id, InputsList, OptimaList) ->
           OptimaList :: [float()], Options :: [training:option()]) ->
     Errors :: [float()].
 run(Network_id, InputsList, OptimaList, Options) ->
-    Cortex_Pid = enn:cortex_pid(Network_id),
+    Cortex_Pid = cortex(Network_id),
     training:start_link(Cortex_Pid, InputsList, OptimaList, Options).
 
 %%--------------------------------------------------------------------
