@@ -280,8 +280,7 @@ receive_next(internal, State) ->
 terminate(Reason, State) ->
     % TODO: When saving the new state, those links with weights ~= 0, must be deleted (both neurons)
     % TODO: If the neuron has not at least 1 input or 1 output, it must be deleted (and bias forwarded)
-    Neuron = State#state.neuron,
-    edb:write([Neuron|[L || #input{link=L} <- ?INPUTS(State)]]),
+    edb:write([?NEURON(State)|[L||#input{link=L}<-?INPUTS(State)]]),
     ?LOG_NEURON_TERMINATING,
     exit(Reason).
 
@@ -375,7 +374,7 @@ calculate_tensor(Inputs) ->
 %%--------------------------------------------------------------------
 calculate_soma(Neuron, Tensors) -> 
     WiXi = [{Wi,Xi} || {_,Wi,Xi} <- Tensors],
-    Soma = aggregation:func(?AGGREGATION(Neuron),WiXi,?BIAS(Neuron)),
+    Soma = aggregation:func(aggregation(Neuron),WiXi,?BIAS(Neuron)),
     put(soma, Soma),  % Save for the beta calculation
     Soma.
 
@@ -384,7 +383,7 @@ calculate_soma(Neuron, Tensors) ->
 %% @end
 %%--------------------------------------------------------------------
 calculate_signal(Neuron, Soma) -> 
-    activation:func(?ACTIVATION(Neuron), Soma).
+    activation:func(activation(Neuron), Soma).
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the error from propagation.
@@ -398,7 +397,7 @@ calculate_error(Outputs) ->
 %% @end
 %%--------------------------------------------------------------------
 calculate_beta(Neuron, Error) -> 
-    activation:beta(?ACTIVATION(Neuron), Error, get(soma)).
+    activation:beta(activation(Neuron), Error, get(soma)).
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the new weights from back propagation of the error.
