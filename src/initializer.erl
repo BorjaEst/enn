@@ -107,8 +107,8 @@ random(#{distribution := uniform} = Arg) ->
 
 random_test() -> 
     % Test the normal distribution 
-    ?assert(0.1 > lists:sum([random(#{distribution => normal}) 
-                                || _<- lists:seq(1, 9)])),
+    ?assert(0.1 < abs(lists:sum([random(#{distribution => normal}) 
+                                || _<- lists:seq(1, 9)]))),
     % Test the uniform distribution
     [?assert(+0.05 > random(#{distribution => uniform})) 
         || _<- lists:seq(1, 9)],
