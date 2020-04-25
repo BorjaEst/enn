@@ -375,7 +375,7 @@ calculate_tensor(Inputs) ->
 %%--------------------------------------------------------------------
 calculate_soma(Neuron, Tensors) -> 
     WiXi = [{Wi,Xi} || {_,Wi,Xi} <- Tensors],
-    Soma = aggregation:func(aggregation(Neuron),WiXi,?BIAS(Neuron)),
+    Soma = aggregation:func(aggregation(Neuron), WiXi, bias(Neuron)),
     put(soma, Soma),  % Save for the beta calculation
     Soma.
 
