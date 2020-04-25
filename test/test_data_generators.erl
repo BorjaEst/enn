@@ -82,7 +82,7 @@ inputs_always_0(N_Inputs, N_Outputs, N_Loops) ->
 
 % -------------------------------------------------------------------
 % TODO: Define specs and comments
-sequence_of_1_input(1, 1, N_Loops) ->
+recurrent_of_1_input(1, 1, N_Loops) ->
     Inputs = [[rand:uniform(10) / 10.0] || _ <- lists:seq(1, N_Loops)],
     Outputs = [[0.0] | lists:droplast(Inputs)],
     {Inputs, Outputs}.

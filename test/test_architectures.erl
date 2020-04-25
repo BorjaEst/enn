@@ -82,7 +82,7 @@ network_0_weights() ->
 
 % -------------------------------------------------------------------
 % TODO: Define specs and comments
-sequence() ->
+recurrent() ->
     _Model = model:recurrent([
                                ?input(1, #{activation => sigmoid}),
                                ?dense(2, #{activation => sigmoid}),
