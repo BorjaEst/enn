@@ -6,7 +6,7 @@
 %%%-------------------------------------------------------------------
 -module(network).
 
--export([new/0, new/1, id/1, record_fields/0, info/1]).
+-export([new/0, new/1, id/1, clone/2, record_fields/0, info/1]).
 
 -export([add_neuron/2, add_neurons/2, del_neuron/2, del_neurons/2]).
 -export([node/2, no_neurons/1, neurons/1]).
@@ -64,6 +64,19 @@ start_nodes() -> #{'start'=>nn_node:new(),'end'=>nn_node:new()}.
 %%-------------------------------------------------------------------
 -spec id(Network :: network()) -> id().
 id(NN) -> NN#network.id.
+
+%%-------------------------------------------------------------------
+%% @doc Clones a link replacing the From and To ids using a map.
+%% @end
+%%-------------------------------------------------------------------
+-spec clone(NN :: network(), #{Old => New}) -> network() when 
+    Old :: neuron:id(),
+    New :: neuron:id().
+clone(NN, Map) ->
+    NN#network{
+        id    = {make_ref(), network},
+        nodes = replace(NN#network.nodes, Map)
+    }.
 
 %%-------------------------------------------------------------------
 %% @doc Record fields from network.  
@@ -406,4 +419,9 @@ remove_link(#network{nodes=Nodes} = NN, N1, N2) ->
         N2 := nn_node:remove_sequential_in(
                 nn_node:remove_recurrent_in(ConnN2, N1), N1)
     }}.
+
+% Replaces all nodes and their links --------------------------------
+replace(Nodes, Map) -> 
+    maps:from_list([{maps:get(N,Map,N), nn_node:replace(Conn,Map)} 
+        || {N,Conn} <- maps:to_list(Nodes)]).
 

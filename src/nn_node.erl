@@ -6,7 +6,7 @@
 %%%-------------------------------------------------------------------
 -module(nn_node).
 
--export([new/0, info/1]).
+-export([new/0, info/1, replace/2]).
 
 -export([add_sequential_in/2, add_sequential_out/2]).
 -export([ add_recurrent_in/2,  add_recurrent_out/2]).
@@ -217,6 +217,20 @@ out_neighbours(Connections) ->
 out_neighbours(#connections{seq=Seq}, sequential) -> ?OUT(Seq);
 out_neighbours(#connections{rcc=Rcc},  recurrent) -> ?OUT(Rcc).
 
+%%-------------------------------------------------------------------
+%% @doc Returns a list of all out-neighbors of N connections. 
+%% @end
+%%-------------------------------------------------------------------
+-spec replace(Connections, #{Old => New}) -> connections() when
+      Connections :: connections(),
+      Old :: neuron:id(),
+      New :: neuron:id().
+replace(Connections, Map) ->
+    #connections{
+        seq = replace_inout(?SEQ(Connections), Map),
+        rcc = replace_inout(?RCC(Connections), Map)
+    }.
+
 
 %%====================================================================
 %% Internal functions
@@ -237,4 +251,11 @@ remove_in(#inout{} = InOut, N) ->
 %% Removes and output from the inout record -------------------------
 remove_out(#inout{} = InOut, N) ->  
     InOut#inout{out=lists:delete(N, InOut#inout.out)}.
+
+%% Repalces the inout using a map -----------------------------------
+replace_inout(InOut, Map) ->  
+    #inout{
+        in  = [maps:get(N,Map,N) || N <-  ?IN(InOut)],
+        out = [maps:get(N,Map,N) || N <- ?OUT(InOut)]
+    }.
 

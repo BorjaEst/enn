@@ -43,7 +43,7 @@ new(N1, N2, Properties) ->
         w  = maps:get(weight, Properties, uninitialized)
     }.
 
-%%--------------------------------------------------------------------
+%%-------------------------------------------------------------------
 %% @doc Returns the link id.
 %% @end
 %%-------------------------------------------------------------------
@@ -56,6 +56,18 @@ id(Link) -> Link#link.id.
 id(N1, N2) -> {{N1, N2}, link}.
 
 %%-------------------------------------------------------------------
+%% @doc Clones a link replacing the From and To ids using a map.
+%% @end
+%%-------------------------------------------------------------------
+-spec clone(Link :: link(), #{Old => New}) -> link() when 
+    Old :: neuron:id(),
+    New :: neuron:id().
+clone(#link{id = {{From,To},link}} = Link, Map) -> 
+    NewTo   = maps:get(  To, Map,   To),
+    NewFrom = maps:get(From, Map, From),
+    Link#link{id = {{NewFrom, NewTo}, link}}.
+
+%%-------------------------------------------------------------------
 %% @doc Record fields from link.  
 %% @end
 %%-------------------------------------------------------------------
@@ -66,14 +78,14 @@ record_fields() -> record_info(fields, link).
 %% @doc Returns the link issuer.
 %% @end
 %%-------------------------------------------------------------------
--spec from(Link :: link()) -> neuron:id().
+-spec from(Link :: link:id()) -> neuron:id().
 from({{From, _}, link}) -> From.
 
 %%--------------------------------------------------------------------
 %% @doc Returns the link receiver.
 %% @end
 %%-------------------------------------------------------------------
--spec to(Link :: link()) -> neuron:id().
+-spec to(Link :: link:id()) -> neuron:id().
 to({{_, To}, link}) -> To.
 
 %%--------------------------------------------------------------------
