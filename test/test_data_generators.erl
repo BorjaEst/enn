@@ -64,14 +64,12 @@ random_sum_of_inputs(N_Inputs, N_Outputs, N_Loops) ->
     Outputs = [lists:duplicate(N_Outputs, lists:sum(InList)) || InList <- Inputs],
     {Inputs, Outputs}.
 
-
 % -------------------------------------------------------------------
 % TODO: Define specs and comments
 random_mult_of_inputs(N_Inputs, N_Outputs, N_Loops) ->
     Inputs = [[2*rand:uniform() - 1 || _ <- lists:seq(1, N_Inputs)] || _ <- lists:seq(1, N_Loops)],
     Outputs = [lists:duplicate(N_Outputs, ltools:mult(InList)) || InList <- Inputs],
     {Inputs, Outputs}.
-
 
 % -------------------------------------------------------------------
 % TODO: Define specs and comments

@@ -1,13 +1,6 @@
 %%%-------------------------------------------------------------------
-%%% File    : example_SUITE.erl
 %%% Author  :
 %%% Description :
-%%%
-%%%
-%%%
-%%% TODO: If you kill the nn sup/cortex/neuron, etc, the nn is
-%%%       destroyed, the nn_sup dead and is not restarted.
-%%%
 %%% Created :
 %%%-------------------------------------------------------------------
 -module(enn_SUITE).
