@@ -154,7 +154,9 @@ correct_network_clonation(_Config) ->
     Id1 = enn:compile(test_architectures:example()),
     Id2 = enn:clone(Id1),
     true = neurons(Id1) /= neurons(Id2),
+    true =  biases(Id1) ==  biases(Id2),
     true =   links(Id1) /=   links(Id2),
+    true = weights(Id1) == weights(Id2),
     ?END(ok).
 
 
@@ -167,11 +169,19 @@ neurons(Network_id) ->
     Ids = network:neurons(NN),
     edb:read(Ids). 
 
+% Gets the network id neuron bias -----------------------------------
+biases(Network_id) -> 
+    [neuron:bias(N) || N <- neurons(Network_id)]. 
+
 % Gets the network id links -----------------------------------------
 links(Network_id) -> 
     NN  = edb:read(Network_id),
     Ids = network:links(NN),
     edb:read(Ids). 
+
+% Gets the network id link weights ----------------------------------
+weights(Network_id) -> 
+    [link:weight(L) || L <- links(Network_id)]. 
 
 
 % --------------------------------------------------------------------
