@@ -134,11 +134,15 @@ aggregation(Neuron) -> Neuron#neuron.aggregation.
 initializer(Neuron) -> Neuron#neuron.initializer.
 
 %%--------------------------------------------------------------------
-%% @doc Returns the neuron bias.
+%% @doc Returns the neuron bias. If a second parameter is included, it
+%% will return a neuron witht the modified bias value.
 %% @end
 %%-------------------------------------------------------------------
 -spec bias(Neuron :: neuron()) -> link:weight().
 bias(Neuron) -> Neuron#neuron.bias.
+
+-spec bias(Neuron :: neuron(), Bias :: float()) -> neuron().
+bias(Neuron, Bias) -> Neuron#neuron{bias = Bias}.
 
 %%-------------------------------------------------------------------
 %% @doc Record fields from neuron.  
