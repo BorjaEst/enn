@@ -116,7 +116,7 @@ outputs({_, network} = Network_id) ->
 clone({_, network} = Network_id) ->
     NN    = edb:read(Network_id),
     NMap  = clone_and_save_neurons(network:neurons(NN)),
-            clone_and_save_links(network:links(NN), NMap),
+    ok = link:clone(network:links(NN), NMap),
     Clone = network:clone(NN, NMap),
     edb:write(Clone),
     network:id(Clone).
@@ -204,9 +204,4 @@ clone_and_save_neurons(Neurons) ->
     Clones = [neuron:clone(N) || N <- edb:read(Neurons)],
     edb:write(Clones),
     maps:from_list(lists:zip(Neurons, [neuron:id(N) || N <- Clones])).
-
-% Clones and saves the links -----------------------------------------
-clone_and_save_links(Links, NMap) -> 
-    Clones = [link:clone(L, NMap) || L <- edb:read(Links)],
-    edb:write(Clones).
 

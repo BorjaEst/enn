@@ -42,13 +42,12 @@
 }.
 
 -record(input,  {
-    link    :: id(),   % Input link 
-    s = 0.0 :: float() % Signal value (Xi)
+    w = 0.0 :: link:weight(), % Input weight 
+    s = 0.0 :: float()        % Signal value (Xi)
 }).
 -type input() :: #input{}.
--define(S(Input), element(#input.s,    Input)).
--define(L(Input), element(#input.link, Input)).
--define(W(Input), link:weight(?L(Input))).
+-define(S(Input), element(#input.s, Input)).
+-define(W(Input), element(#input.w, Input)).
 
 -record(output, {
     e = 0.0 :: float() % Output error (Ei)
@@ -94,8 +93,7 @@ new(Properties) ->
     #neuron{
         activation  = maps:get( activation, Properties,   direct),
         aggregation = maps:get(aggregation, Properties, dot_prod),
-        initializer = maps:get(initializer, Properties,   glorot),
-        bias        = maps:get(bias, Properties, uninitialized)
+        initializer = maps:get(initializer, Properties,   glorot)
     }.
 
 %%--------------------------------------------------------------------
@@ -185,14 +183,15 @@ go(Pid, Connections, NN_Pool) ->
 %%--------------------------------------------------------------------
 init(Id, Supervisor) ->
     proc_lib:init_ack(Supervisor, {ok, self()}), % Supervisor synch
-    {Connections, NN_Pool} = wait_for_go(),      % Cortex synch
-    propagate_recurrent(Connections, NN_Pool), 
+    {Connections, NNPool} = wait_for_go(),      % Cortex synch
+    propagate_recurrent(Connections, NNPool), 
     process_flag(trap_exit, true), % Catch supervisor exits
     Neuron = edb:read(Id),
     put(initializer, Neuron#neuron.initializer), % Save for winit()
+    put(nn_pool, NNPool), % Save for terminate (save links)
     load_wait(#state{
-        outputs = load_outputs(Connections, NN_Pool),
-        inputs  = load_inputs(Id, Connections, NN_Pool),
+        outputs = load_outputs(Connections, NNPool),
+        inputs  = load_inputs(Id, Connections, NNPool),
         neuron  = load_neuron(Neuron)
     }).
 
@@ -291,8 +290,8 @@ receive_next(internal, State) ->
 terminate(Reason, State) ->
     % TODO: When saving the new state, those links with weights ~= 0, must be deleted (both neurons)
     % TODO: If the neuron has not at least 1 input or 1 output, it must be deleted (and bias forwarded)
-    Links = [L || #input{link=L} <- maps:values(?INPUTS(State))],
-    edb:write([?NEURON(State)|Links]),
+    save_links(?INPUTS(State)),
+    edb:write(?NEURON(State)),
     ?LOG_NEURON_TERMINATING,
     exit(Reason).
 
@@ -318,12 +317,10 @@ wait_for_go() ->
 %% @end
 %%--------------------------------------------------------------------
 propagate_recurrent(Connections, NN_Pool) -> 
-    Empty_Output = #output{}, % Do not gen a new each iteration
-    Empty_Input  = #input{link=link:new(n1,n2,#{weight=>0.0})}, 
-    SentO = [forward(nn_pool:pid(NN_Pool, Id), Empty_Output, 0.0) 
+    SentO = [forward(nn_pool:pid(NN_Pool, Id), #output{}, 0.0) 
         || Id <- nn_node:out_neighbours(Connections, recurrent)],
     ?LOG_FORWARD_PROPAGATION_RECURRENT_OUTPUTS(SentO),
-    SentI = [backward(nn_pool:pid(NN_Pool, Id), Empty_Input, 0.0)
+    SentI = [backward(nn_pool:pid(NN_Pool, Id), #input{}, 0.0)
         || Id <- nn_node:in_neighbours(Connections, recurrent)],
     ?LOG_BACKWARD_PROPAGATION_RECURRENT_INPUTS(SentI).
 
@@ -351,18 +348,15 @@ load_outputs(Connections, NN_Pool) ->
 %% @end
 %%--------------------------------------------------------------------
 load_inputs(Id, Connections, NN_Pool) -> 
-    In = [link:id(X,Id) || X <- nn_node:in_neighbours(Connections)],
+    In = [{X,Id} || X <- nn_node:in_neighbours(Connections)],
     put(fan_in, length(In)), % Save for winit()
-    Inputs = maps:from_list(load_links(edb:read(In),In,NN_Pool)),
+    Inputs = maps:from_list(load_links(In,link:read(In),NN_Pool)),
     put(prev_signals, [{P,0.0,0.0} || P <- maps:keys(Inputs)]),
     calculate_weights(Inputs, 0.0). % Weights initialisation
 
-load_links([undefined|Lx], [Id|Ids], NN_Pool) -> 
-    L = link:new(link:from(Id), link:to(Id)),
-    load_links([L|Lx], [Id|Ids], NN_Pool);
-load_links([L|Lx], [Id|Ids], NN_Pool) -> 
-    Pid = nn_pool:pid(NN_Pool, link:from(Id)),
-    [{Pid,#input{link=L}} | load_links(Lx, Ids, NN_Pool)];
+load_links([{From,_}|Lx], [W|Wx], NN_Pool) -> 
+    Pid = nn_pool:pid(NN_Pool, From),
+    [{Pid,#input{w=W}} | load_links(Lx, Wx, NN_Pool)];
 load_links([], [], _) -> 
     [].
 
@@ -425,7 +419,7 @@ calculate_weights([], Inputs, _) ->
     Inputs.
 
 updt_input(I, Xi, Beta) -> 
-    I#input{link=link:edit(?L(I), updt_weight(?W(I),Xi,Beta))}.
+    I#input{w=updt_weight(?W(I),Xi,Beta)}.
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the new bias from back propagation of the error.
@@ -444,7 +438,7 @@ calculate_bias(Neuron, Beta) ->
 %% @end
 %%--------------------------------------------------------------------
 updt_weight(Wi,Xi,B) when is_number(Wi) -> Wi+dw(Xi,B);
-updt_weight(uninitialized, _, _)        -> winit().
+updt_weight(undefined, _, _)            -> winit().
 
 %%--------------------------------------------------------------------
 %% @doc Initialises a weight.
@@ -484,6 +478,19 @@ backward(Pid, Input, Beta) ->
     BP_Error = ?W(Input) * Beta,
     Pid ! {self(), backward, BP_Error},
     {Pid, BP_Error}.
+
+% -------------------------------------------------------------------
+save_links(Inputs) ->
+    Id     = get(id),
+    NNPool = get(nn_pool),
+    {Links,Weights} = links(maps:to_list(Inputs), Id, NNPool,[],[]),
+    link:write(Links, Weights).
+
+links([{Pid,I}|Ix], To, NNPool, LAcc, WAcc) -> 
+    From = nn_pool:id(NNPool,Pid),
+    links(Ix, To, NNPool, [{From,To}|LAcc], [I#input.w|WAcc]);
+links([], _, _, LAcc, WAcc) -> 
+    {LAcc, WAcc}.
 
 
 %%====================================================================

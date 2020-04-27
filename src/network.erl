@@ -247,17 +247,17 @@ out_degree(NN) ->
 -spec in_links(NN, N) -> Links when
       NN :: network(),
       N  :: d_node(),
-      Links :: [link:id()].
+      Links :: [link:link()].
 in_links(NN, N2) ->
-    [link:id(N1,N2) || N1<-nn_node:in_neighbours(node(NN,N2))].
+    [{N1,N2} || N1<-nn_node:in_neighbours(node(NN,N2))].
 
 -spec in_links(NN, N, Type) -> Links when
       NN :: network(),
       N  :: d_node(),
       Type  :: d_type(),
-      Links :: [link:id()].
+      Links :: [link:link()].
 in_links(NN, N2, Type) -> 
-    [link:id(N1,N2) || N1<-nn_node:in_neighbours(node(NN,N2),Type)].
+    [{N1,N2} || N1<-nn_node:in_neighbours(node(NN,N2),Type)].
 
 %%-------------------------------------------------------------------
 %% @doc Returns all links emanating from N of network NN. 
@@ -266,17 +266,17 @@ in_links(NN, N2, Type) ->
 -spec out_links(NN, N) -> Links when
       NN :: network(),
       N  :: d_node(),
-      Links :: [link:id()].
+      Links :: [link:link()].
 out_links(NN, N1) ->
-    [link:id(N1,N2) || N2<-nn_node:out_neighbours(node(NN,N1))].
+    [{N1,N2} || N2<-nn_node:out_neighbours(node(NN,N1))].
 
 -spec out_links(NN, N, Type) -> Links when
       NN   :: network(),
       N    :: d_node(),
       Type  :: d_type(),
-      Links :: [link:id()].
+      Links :: [link:link()].
 out_links(NN, N1, Type) ->
-    [link:id(N1,N2) || N2<-nn_node:out_neighbours(node(NN,N1),Type)].
+    [{N1,N2} || N2<-nn_node:out_neighbours(node(NN,N1),Type)].
 
 %%-------------------------------------------------------------------
 %% @doc Creates (or modifies) a link between N1 and N2. Atoms 'start'
@@ -286,10 +286,9 @@ out_links(NN, N1, Type) ->
 %%------------------------------------------------------------------
 -spec add_link(NN0, Link) -> NN1 when
       NN0  :: network(),
-      Link :: link:id(),
+      Link :: link:link(),
       NN1  :: network().
-add_link(NN, Link) ->
-    {N1, N2}  = {link:from(Link), link:to(Link)},
+add_link(NN, {N1, N2}) ->
     case seq_path(NN, N2, N1) of
         false -> insert_seq_link(NN, N1, N2);
         Path  -> insert_rcc_link(NN, N1, N2, Path)
@@ -301,7 +300,7 @@ add_link(NN, Link) ->
 %%------------------------------------------------------------------
 -spec add_links(NN0, Links) -> NN1 when
       NN0   :: network(),
-      Links :: [link:id()],
+      Links :: [link:link()],
       NN1   :: network().
 add_links(NN, [L|Lx]) -> add_links(add_link(NN, L), Lx);
 add_links(NN,     []) -> NN.
@@ -312,10 +311,9 @@ add_links(NN,     []) -> NN.
 %%-------------------------------------------------------------------
 -spec del_link(NN0, Links) -> NN1 when
       NN0   :: network(),
-      Links :: [link:id()],
+      Links :: [link:link()],
       NN1   :: network().
-del_link(NN, Link) ->
-    {N1, N2}  = {link:from(Link), link:to(Link)},
+del_link(NN, {N1, N2}) ->
     remove_link(NN, N1, N2).
 
 %%-------------------------------------------------------------------
@@ -324,7 +322,7 @@ del_link(NN, Link) ->
 %%-------------------------------------------------------------------
 -spec del_links(NN0, Links) -> NN1 when
       NN0   :: network(),
-      Links :: [link:id()],
+      Links :: [link:link()],
       NN1   :: network().
 del_links(NN, [L|Lx]) -> del_links(del_link(NN, L), Lx);
 del_links(NN,     []) -> NN.
@@ -344,7 +342,7 @@ no_links(NN) ->
 %%-------------------------------------------------------------------
 -spec links(NN) -> Links when
       NN :: network(),
-      Links :: [link:id()].
+      Links :: [link:link()].
 links(#network{nodes=Nodes} = NN) ->
     lists:append([out_links(NN,N) || N <- maps:keys(Nodes)]).
 
@@ -355,7 +353,7 @@ links(#network{nodes=Nodes} = NN) ->
 -spec links(NN, N) -> Links when
       NN :: network(),
       N  :: d_node(),
-      Links :: [link:id()].
+      Links :: [link:link()].
 links(NN, N) ->
     in_links(NN, N) ++ out_links(NN, N).
 

@@ -78,7 +78,7 @@ compile(Model) ->
     CompiledLayers = maps:map(fun layer:compile/2, Layers),
     Links   = links(CompiledLayers, Connections),
     Network = network(CompiledLayers, Links, Type),
-    edb:write([Network|Links]),
+    edb:write([Network]),
     network:id(Network).
 
 %%====================================================================
@@ -122,19 +122,15 @@ links(CompiledLayers, [{all,IFrom,IxTo} | Cx])  ->
 links(CompiledLayers, [{all,IFrom,IxTo} | Cx], Acc) -> 
     From  = maps:get(IFrom, CompiledLayers),
     To    = lists:append([maps:get(X, CompiledLayers) || X <- IxTo]),
-    Links = [link:new(N1,N2) || N1 <- From, N2 <- To],
-    links(CompiledLayers, Cx, [Links|Acc]);
+    links(CompiledLayers, Cx, [[{F,T}|| F<-From, T<-To]|Acc]);
 links(_CompiledLayers, [], Acc) ->
     lists:append(Acc).
 
 % Creates the network -----------------------------------------------
 network(CompiledLayers, Links, Type) ->
-    add_links(Links, 
-        add_neurons(CompiledLayers, network:new(Type))).
-
-add_links(Links, NN) -> 
-    Links_ids = [link:id(L) || L <- Links],
-    network:add_links(NN, Links_ids).
+    network:add_links(
+        add_neurons(CompiledLayers, network:new(Type)), 
+        Links).
 
 add_neurons(CompiledLayers, NN) -> 
     Neurons_ids = lists:append(maps:values(CompiledLayers)),

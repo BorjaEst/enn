@@ -147,10 +147,10 @@ test_add_links() ->
     [].
 test_add_links(_Config) -> 
     ?HEAD("Correct addition of links in a network ................"),
-    % SeqLinks = [link:id(A,B) || A <- [n1],    B <- [n2]          ],
-    % RecLinks = [link:id(A,B) || A <- [n1,n2], B <- [n1,n2], A=/=B],
-    SeqL = link:id(n1,n2),
-    RccL = link:id(n1,n1),
+    % SeqLinks = [{A,B} || A <- [n1],    B <- [n2]          ],
+    % RecLinks = [{A,B} || A <- [n1,n2], B <- [n1,n2], A=/=B],
+    SeqL = {n1,n2},
+    RccL = {n1,n1},
     [SeqL] = network:links(
                network:add_link(seq_network([n1,n2]), SeqL)),
     [SeqL] = network:links( 
@@ -169,7 +169,7 @@ test_start_node(_Config) ->
     NN0 = seq_network([n1,n2]),
     0   = network:in_degree(NN0), 
     NN1 = network:add_links(NN0, 
-            [link:id(A,B) || A <- [start], B <- [n1,n2]]),
+            [{A,B} || A <- [start], B <- [n1,n2]]),
     []  = network:bias_neurons(NN1),
     2   = network:in_degree(NN1),
     ?END(ok).
@@ -182,7 +182,7 @@ test_end_node(_Config) ->
     NN0 = seq_network([n1,n2]),
     0   = network:out_degree(NN0),
     NN1 = network:add_links(NN0, 
-            [link:id(A,B) || A <- [n1,n2], B <- ['end']]),
+            [{A,B} || A <- [n1,n2], B <- ['end']]),
     []  = network:sink_neurons(NN1),
     2   = network:out_degree(NN1),
     ?END(ok).
@@ -193,14 +193,14 @@ test_delete_node() ->
 test_delete_node(_Config) -> 
     ?HEAD("Correct delete of a network node ......................"),
     NN0 = seq_network([n1,n2]),
-    NN1 = network:add_links(NN0, [link:id(start,X) || X<-[n1,n2]] ++ 
-                                 [link:id(X,'end') || X<-[n1,n2]] ++
-                                 [link:id(n1,n2)]),
+    NN1 = network:add_links(NN0, [{start,X} || X<-[n1,n2]] ++ 
+                                 [{X,'end'} || X<-[n1,n2]] ++
+                                 [{n1,n2}]),
     NN2 = network:del_neurons(NN1, [n2]),
     [n1] = network:start_neurons(NN2), 
     [n1] = network:end_neurons(NN2),
-    'end' = link:to(  hd(network:out_links(NN2, n1))),
-    start = link:from(hd( network:in_links(NN2, n1))),
+    {_,'end'} = hd(network:out_links(NN2, n1)),
+    {start,_} = hd( network:in_links(NN2, n1)),
     ?END(ok).
 
 

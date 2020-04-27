@@ -137,13 +137,13 @@ training_saved_after_stop(_Config) ->
     ?HEAD("Correct neural network saving after stop .............."),
     Id = enn:start(test_architectures:example()),
     Ns = neurons(Id),
-    Ls = links(Id),
+    Ws = weights(Id),
     {In,Opt} = test_data_generators:random_sum_of_inputs(
                                   enn:inputs(Id),enn:outputs(Id),10),
     _  = enn:fit(Id, In, Opt),
     ok = enn:stop(Id),
     true = Ns /= neurons(Id),
-    true = Ls /=   links(Id),
+    true = Ws /= weights(Id),
     ?END(ok).
 
 % -------------------------------------------------------------------
@@ -176,12 +176,11 @@ biases(Network_id) ->
 % Gets the network id links -----------------------------------------
 links(Network_id) -> 
     NN  = edb:read(Network_id),
-    Ids = network:links(NN),
-    edb:read(Ids). 
+    network:links(NN). 
 
 % Gets the network id link weights ----------------------------------
 weights(Network_id) -> 
-    [link:weight(L) || L <- links(Network_id)]. 
+    link:read([L || L <- links(Network_id)]). 
 
 
 % --------------------------------------------------------------------
