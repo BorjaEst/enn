@@ -341,7 +341,14 @@ handle_start(Network_id, NN_Sup) ->
             || Id <-   network:end_neurons(NN)]), 
     put(outputs,  % System inputs are the cortex outputs
         [{nn_pool:pid(NN_Pool,Id),#output{}}
-            || Id <- network:start_neurons(NN)]).
+            || Id <- network:start_neurons(NN)]),
+    discard_rcc_signals().
+
+discard_rcc_signals() -> 
+    receive {_, backward, _} -> discard_rcc_signals();
+            {_,  forward, _} -> discard_rcc_signals()
+    after 10                 -> ok
+    end.
 
 
 %%====================================================================
