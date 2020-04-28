@@ -336,19 +336,67 @@ handle_start(Network_id, NN_Sup) ->
     NN      = edb:read(Network_id),
     NN_Pool = nn_pool:mount(NN_Sup, id(Network_id), NN),
     true    = enn_pool:register_nn_pool(Network_id, NN_Pool),
+
+
+
     put( inputs,  % System outputs are the cortex inputs
         [{nn_pool:pid(NN_Pool,Id),#input{ }} 
             || Id <-   network:end_neurons(NN)]), 
     put(outputs,  % System inputs are the cortex outputs
         [{nn_pool:pid(NN_Pool,Id),#output{}}
             || Id <- network:start_neurons(NN)]),
-    discard_rcc_signals().
 
-discard_rcc_signals() -> 
-    receive {_, backward, _} -> discard_rcc_signals();
-            {_,  forward, _} -> discard_rcc_signals()
-    after 10                 -> ok
+
+
+
+    assembly_inputs().
+
+synchronise_cortex(Inputs) -> 
+    receive {_, backward, _} -> synchronise_cortex(Inputs);
+            {P,  forward, _} -> synchronise_cortex(sets:add_element(P,Inputs))
+    after 10                 -> sets:
     end.
+
+
+
+
+
+%%--------------------------------------------------------------------
+%% @doc Adds the Pids and their signals to the inputs.
+%% @end
+%%--------------------------------------------------------------------
+add_inputs(Requests) -> 
+    {[], Inputs} = add_inputs(Requests, get(id), []),
+    put(inputs, Inputs).
+
+add_inputs([{Pid,Xi}|Rx], Id2, LAcc) -> 
+    Id1 = ?ID(Pid),
+    {[Wi|Wx], Inputs} = add_inputs(Rx, Id2, [{Id1,Id2}|LAcc]),
+    {Wx, Inputs#{Pid => #input{id=Id1, w=Wi, s=Xi}}};
+add_inputs([], _, LAcc) -> 
+    {link:read(LAcc), get(inputs)}.
+
+%%--------------------------------------------------------------------
+%% @doc Adds the Pids and their signals to the inputs.
+%% @end
+%%--------------------------------------------------------------------
+add_outputs(Ids) -> 
+    Outputs = add_outputs(Ids, get(outputs)),
+    put(outputs, Outputs).
+
+add_outputs([Id|Rx], Outputs) ->
+    Pid = ?PID(Id),
+    add_outputs([Id|Rx], Outputs#{Pid => #output{id=Id}});
+add_outputs([], Outputs) -> 
+    Outputs.
+
+
+
+
+
+
+
+
 
 
 %%====================================================================

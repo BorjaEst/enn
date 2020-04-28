@@ -42,32 +42,26 @@
 }.
 
 -record(input,  {
+    id      :: neuron:id(),
     w = 0.0 :: link:weight(), % Input weight 
     s = 0.0 :: float()        % Signal value (Xi)
 }).
--type input() :: #input{}.
 -define(S(Input), element(#input.s, Input)).
 -define(W(Input), element(#input.w, Input)).
 
 -record(output, {
+    id      :: neuron:id(),
     e = 0.0 :: float() % Output error (Ei)
 }).
--type output() :: #output{}.
 -define(E(Output), Output#output.e).
 
--record(state, { %Order is relevant: outputs -> inputs -> neuron
-    outputs :: [output()],
-    inputs  :: [input()],
-    neuron  :: neuron(),
-    forward_wait  :: [pid()],
-    backward_wait :: [pid()]
+-define(PID(Id), nn_pool:pid(get(nn_pool)), Id).
+-define(ID(Pid), nn_pool:id(get(nn_pool)), Pid).
+
+-record(state, {
+    forward_wait   :: [id()],
+    backward_wait  :: [id()]
 }).
--define(     NEURON(State), element( #state.neuron, State)).
--define(     INPUTS(State), element( #state.inputs, State)).
--define(    OUTPUTS(State), element(#state.outputs, State)).
--define( ACTIVATION(State),  activation(?NEURON(State))).
--define(AGGREGATION(State), aggregation(?NEURON(State))).
--define(       BIAS(State),        bias(?NEURON(State))).
 
 % Learning parameters (to be moved to a module optimizer in a future)
 -define(LEARNING_FACTOR, 0.01).  
@@ -165,16 +159,16 @@ start_link(Id) ->
 %% TODO: Improve info passing by having all on the NN_Pool ets.
 %% @end
 %%--------------------------------------------------------------------
--spec go(Pid, Connections, NN_Pool) -> NonRelevant :: term() when 
+-spec go(Pid, Outputs, NN_Pool) -> NonRelevant :: term() when 
     Pid :: pid(),
-    Connections :: nn_node:connections(),
-    NN_Pool     :: nn_pool:pool().
-go(Pid, Connections, NN_Pool) ->
-    Pid ! {continue_init, Connections, NN_Pool}.
+    Outputs :: [neuron:id()],
+    NN_Pool :: nn_pool:pool().
+go(Pid, Outputs, NN_Pool) ->
+    Pid ! {continue_init, Outputs, NN_Pool}.
 
 
 %%%===================================================================
-%%% neuron callbacks
+%%% Initialization functions
 %%%===================================================================
 
 %%--------------------------------------------------------------------
@@ -183,187 +177,155 @@ go(Pid, Connections, NN_Pool) ->
 %%--------------------------------------------------------------------
 init(Id, Supervisor) ->
     proc_lib:init_ack(Supervisor, {ok, self()}), % Supervisor synch
-    {Connections, NNPool} = wait_for_go(),      % Cortex synch
-    propagate_recurrent(Connections, NNPool), 
+    {OutRequests, NNPool} = wait_for_go(),       % Cortex synch
     process_flag(trap_exit, true), % Catch supervisor exits
     Neuron = edb:read(Id),
-    put(initializer, Neuron#neuron.initializer), % Save for winit()
-    put(nn_pool, NNPool), % Save for terminate (save links)
-    load_wait(#state{
-        outputs = load_outputs(Connections, NNPool),
-        inputs  = load_inputs(Id, Connections, NNPool),
-        neuron  = load_neuron(Neuron)
+    put(nn_pool, NNPool),
+    put(outputs,    #{}), 
+    put( inputs,    #{}), 
+    put(         id,          Neuron#neuron.id),
+    put(       bias,        Neuron#neuron.bias),
+    put( activation,  Neuron#neuron.activation),    
+    put(aggregation, Neuron#neuron.aggregation),    
+    put(initializer, Neuron#neuron.initializer), 
+    add_outputs(OutRequests),
+    loop(#state{ % wait starts at [] to trigger rcc links
+        forward_wait  = [], 
+        backward_wait = []
     }).
 
-load_wait(State) -> 
-    ?LOG_NEURON_STARTED(State),
-    loop(internal, State#state{
-        forward_wait  = [Pid || Pid <- maps:keys( ?INPUTS(State))],
-        backward_wait = [Pid || Pid <- maps:keys(?OUTPUTS(State))]
-    }).
-
-%%--------------------------------------------------------------------
-%% @doc The neuron loop. It collects all the signals until fowrward or
-%% backward is completed. Then starts a forwad or back propagation.  
-%%
-%%--------------------------------------------------------------------
-% Receives a forward signal so updates its value in inputs
-loop({Pid,forward,S},  #state{forward_wait  = [Pid|Nx]} = State) ->
-    ?LOG_FORWARD_MESSAGE_RECEIVED(Pid, S),
-    #{Pid := I} = Inputs = State#state.inputs,
-    loop(internal, State#state{
-        inputs       = Inputs#{Pid := I#input{s = S}},
-        forward_wait = Nx
-    });
-% Receives a backward signal so updates its error in outputs
-loop({Pid,backward,E}, #state{backward_wait = [Pid|Nx]} = State) ->
-    ?LOG_BACKWARD_MESSAGE_RECEIVED(Pid, E),
-    #{Pid := O} = Outputs = State#state.outputs,
-    loop(internal, State#state{
-        outputs       = Outputs#{Pid := O#output{e = E}},
-        backward_wait = Nx
-    });
-% If all forward signals have been received, state change to forward
-loop(internal, #state{forward_wait  = []} = State) -> 
-    ?LOG_WAITING_NEURONS(State),
-    forward_prop(internal, State);
-% If all backward signals have been received, state change to backward
-loop(internal, #state{backward_wait = []} = State) ->
-    ?LOG_WAITING_NEURONS(State),
-    backward_prop(internal, State);
-% If there are signals in any waiting buffer collects the next signal
-loop(internal, State) -> 
-    receive_next(internal, State).
-%%--------------------------------------------------------------------
-%% @doc Forwards the signal to the connected neurons. 
-%%
-%%--------------------------------------------------------------------
-forward_prop(internal, State) -> 
-    #state{inputs=Inputs, outputs=Outputs} = State,
-    Tensor = calculate_tensor(Inputs),
-    Soma   = calculate_soma(?NEURON(State), Tensor),
-    Signal = calculate_signal(?NEURON(State), Soma),
-    Sent = [forward(P,O,Signal)|| {P,O} <- maps:to_list(Outputs)],
-    ?LOG_FORWARD_PROPAGATION(Sent),
-    loop(internal, State#state{
-        forward_wait = [Pid || Pid <- maps:keys(Inputs)]
-    }).
-%%--------------------------------------------------------------------
-%% @doc Backwards the errror to the connected inputs.
-%% 
-%%--------------------------------------------------------------------
-backward_prop(internal, State) ->
-    #state{inputs=Inputs, outputs=Outputs} = State,
-    Error = calculate_error(Outputs),
-    Beta  = calculate_beta(?NEURON(State), Error),
-    Sent = [backward(P,I,Beta)|| {P,I} <- maps:to_list(Inputs)],
-    ?LOG_BACKWARD_PROPAGATION(Sent),
-    loop(internal, State#state{
-        neuron = calculate_bias(?NEURON(State), Beta),
-        inputs = calculate_weights(Inputs, Beta),
-        backward_wait = [Pid || Pid <- maps:keys(Outputs)]
-    }).
-%%--------------------------------------------------------------------
-%% @doc Receives the next messages and sends it to loop. It only 
-%% passes the messages that would be matched, the rest are stored on 
-%% the inbox (as they will be used later). 
-%%
-%%--------------------------------------------------------------------
-receive_next(internal, State) ->
-    ?LOG_WAITING_NEURONS(State),
-    #state{forward_wait=[Nf|_] , backward_wait = [Nb|_]} = State,
-    receive {N,forward, _}=Msg when N==Nf -> loop(Msg, State);
-            {N,backward,_}=Msg when N==Nb -> loop(Msg, State);
-            {'EXIT',_,Reason}             -> terminate(Reason, State)
-    after ?STDIDLE_TIMEOUT                ->
-        ?LOG_NEURON_IDLE(State),
-        receive_next(internal, State)
-    end.
-%%--------------------------------------------------------------------
-%% @end  
-%%--------------------------------------------------------------------
-
-%%--------------------------------------------------------------------
-%% @doc Terminates the neuron and saves in edb the new weiights.
-%% @end
-%%--------------------------------------------------------------------
-terminate(Reason, State) ->
-    % TODO: When saving the new state, those links with weights ~= 0, must be deleted (both neurons)
-    % TODO: If the neuron has not at least 1 input or 1 output, it must be deleted (and bias forwarded)
-    save_links(?INPUTS(State)),
-    edb:write(?NEURON(State)),
-    ?LOG_NEURON_TERMINATING,
-    exit(Reason).
-
-
-%%%===================================================================
-%%% Initialization functions
-%%%===================================================================
-
-%%--------------------------------------------------------------------
-%% @doc Waits the 'continue_init' signal with the required information
-%% to start (connections and the nn_pool).  
-%% @end
-%%--------------------------------------------------------------------
 wait_for_go() -> 
     receive 
         {continue_init, Connections, NN_Pool} -> 
             {Connections, NN_Pool}
     end.
 
-%%--------------------------------------------------------------------
-%% @doc Propagates a signal to the recurrent connections to avoid 
-%% deadlock.  
-%% @end
-%%--------------------------------------------------------------------
-propagate_recurrent(Connections, NN_Pool) -> 
-    SentO = [forward(nn_pool:pid(NN_Pool, Id), #output{}, 0.0) 
-        || Id <- nn_node:out_neighbours(Connections, recurrent)],
-    ?LOG_FORWARD_PROPAGATION_RECURRENT_OUTPUTS(SentO),
-    SentI = [backward(nn_pool:pid(NN_Pool, Id), #input{}, 0.0)
-        || Id <- nn_node:in_neighbours(Connections, recurrent)],
-    ?LOG_BACKWARD_PROPAGATION_RECURRENT_INPUTS(SentI).
+
+%%%===================================================================
+%%% neuron callbacks
+%%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @doc Here goes the internal dictionary savings which requires 
-%% global module access for simplification.
-%% @end
+%% @doc The neuron loop. Receives the next messages and triggers the
+%% specific action. 
+%%
 %%--------------------------------------------------------------------
-load_neuron(#neuron{} = Neuron) -> 
-    put(id, id(Neuron)),
-    calculate_bias(Neuron, 0.0).
+% If all forward signals have been received, state change to forward
+loop(#state{forward_wait  = []} = State) -> 
+    ?LOG_WAITING_NEURONS(State),
+    add_inputs(inbox_forwards()),
+    forward_prop(),
+    loop(State#state{forward_wait = maps:keys(get(inputs))});
+% If all backward signals have been received, state change to backward
+loop(#state{backward_wait = []} = State) ->
+    ?LOG_WAITING_NEURONS(State),
+    backward_prop(),
+    loop(State#state{backward_wait = maps:keys(get(outputs))});
+% If there are signals in any waiting buffer collects the next signal
+loop(State) -> 
+    ?LOG_WAITING_NEURONS(State),
+    receive_next(State).
 
 %%--------------------------------------------------------------------
-%% @doc Neuron outputs loading.  
-%% @end
+%% @doc The neuron loop. Receives the next messages and triggers the
+%% specific action. 
+%%
 %%--------------------------------------------------------------------
-load_outputs(Connections, NN_Pool) -> 
-    Out = nn_node:out_neighbours(Connections),
-    put(fan_out, length(Out)), % Save for winit()
-    maps:from_list([{nn_pool:pid(NN_Pool,X),#output{}} || X<-Out]).
+receive_next(State) ->
+    #state{forward_wait=[Nf|Rf] , backward_wait=[Nb|Rb]} = State,
+    receive 
+        {Nf,forward, X}   -> 
+             forward_in(Nf, X, State#state{ forward_wait=Rf});
+        {Nb,backward,E}   -> 
+            backward_in(Nb, E, State#state{backward_wait=Rb});
+        {'EXIT',_,Reason} -> 
+            terminate(Reason, State)
+    after   
+        ?STDIDLE_TIMEOUT  -> 
+            idle(State)
+    end.
+% Receives a forward signal so updates its value in inputs ----------
+forward_in(Pid, Xi, State)  ->
+    #{Pid := I} = Inputs = get(inputs),
+    put(inputs, Inputs#{Pid := I#input{s = Xi}}),
+    loop(State).
+
+% Receives a backward error so updates its value in outputs ---------
+backward_in(Pid, Ei, State)  ->
+    #{Pid := O} = Outputs = get(outputs),
+    put(outputs, Outputs#{Pid := O#output{e = Ei}}),
+    loop(State).
+
+% Neuron has been idle for a long time ------------------------------
+idle(State) -> 
+    ?LOG_NEURON_IDLE(State),
+    receive_next(State).
 
 %%--------------------------------------------------------------------
-%% @doc Neuron inputs loading. If a link is not retreived from edb, a
-%% new link is created.  
-%% @end
+%% @doc Terminates the neuron and saves in edb the new weights.
+%%
 %%--------------------------------------------------------------------
-load_inputs(Id, Connections, NN_Pool) -> 
-    In = [{X,Id} || X <- nn_node:in_neighbours(Connections)],
-    put(fan_in, length(In)), % Save for winit()
-    Inputs = maps:from_list(load_links(In,link:read(In),NN_Pool)),
-    put(prev_signals, [{P,0.0,0.0} || P <- maps:keys(Inputs)]),
-    calculate_weights(Inputs, 0.0). % Weights initialisation
+terminate(Reason, _State) ->
+    % TODO: When saving the new state, those links with weights ~= 0, must be deleted (both neurons)
+    % TODO: If the neuron has not at least 1 input or 1 output, it must be deleted (and bias forwarded)
+    save_links(),
+    edb:write(#neuron{
+        id          = get(id),
+        activation  = get(activation),
+        aggregation = get(aggregation),
+        initializer = get(initializer),
+        bias        = get(bias)
+    }),
+    ?LOG_NEURON_TERMINATING,
+    exit(Reason).
 
-load_links([{From,_}|Lx], [W|Wx], NN_Pool) -> 
-    Pid = nn_pool:pid(NN_Pool, From),
-    [{Pid,#input{w=W}} | load_links(Lx, Wx, NN_Pool)];
-load_links([], [], _) -> 
-    [].
+%%--------------------------------------------------------------------
+%% @end  
+%%--------------------------------------------------------------------
+
+
+%%%===================================================================
+%%% Message functions
+%%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @doc Forwards the signal to the connected neurons. 
+%%
+%%--------------------------------------------------------------------
+forward_prop() -> 
+    Inputs = get(inputs), Outputs = get(outputs),
+    Tensor = calculate_tensor(Inputs),
+    Soma   = calculate_soma(Tensor),
+    Signal = calculate_signal(Soma),
+    Sent = [forward(P,O,Signal) || {P,O} <- maps:to_list(Outputs)],
+    ?LOG_FORWARD_PROPAGATION(Sent).
+
+forward(Pid, _Output, Signal) ->
+    Pid ! {self(), forward, Signal}, 
+    {Pid, Signal}.
+
+%%--------------------------------------------------------------------
+%% @doc Backwards the errror to the connected inputs.
+%% 
+%%--------------------------------------------------------------------
+backward_prop() ->
+    Inputs = get(inputs), Outputs = get(outputs),
+    Error = calculate_error(Outputs),
+    Beta  = calculate_beta(Error),
+    Sent = [backward(P,I,Beta) || {P,I} <- maps:to_list(Inputs)],
+    ?LOG_BACKWARD_PROPAGATION(Sent),
+    calculate_bias(Beta),
+    calculate_weights(Inputs, Beta).
+
+backward(Pid, Input, Beta) ->
+    BP_Error = ?W(Input) * Beta,
+    Pid ! {self(), backward, BP_Error},
+    {Pid, BP_Error}.
 
 
 %%%===================================================================
 %%% Calculation functions
-%%%==================================================================
+%%%===================================================================
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the tensor.
@@ -378,9 +340,9 @@ calculate_tensor(Inputs) ->
 %% @doc Calculates the value of soma.
 %% @end
 %%--------------------------------------------------------------------
-calculate_soma(Neuron, Tensors) -> 
+calculate_soma(Tensors) -> 
     WiXi = [{Wi,Xi} || {_,Wi,Xi} <- Tensors],
-    Soma = aggregation:func(aggregation(Neuron), WiXi, bias(Neuron)),
+    Soma = aggregation:func(get(aggregation), WiXi, get(bias)),
     put(soma, Soma),  % Save for the beta calculation
     Soma.
 
@@ -388,8 +350,8 @@ calculate_soma(Neuron, Tensors) ->
 %% @doc Calculates the value of soma.
 %% @end
 %%--------------------------------------------------------------------
-calculate_signal(Neuron, Soma) -> 
-    activation:func(activation(Neuron), Soma).
+calculate_signal(Soma) -> 
+    activation:func(get(activation), Soma).
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the error from propagation.
@@ -402,8 +364,8 @@ calculate_error(Outputs) ->
 %% @doc Calculates the value of beta for back propagation).
 %% @end
 %%--------------------------------------------------------------------
-calculate_beta(Neuron, Error) -> 
-    activation:beta(activation(Neuron), Error, get(soma)).
+calculate_beta(Error) -> 
+    activation:beta(get(activationn), Error, get(soma)).
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the new weights from back propagation of the error.
@@ -425,12 +387,41 @@ updt_input(I, Xi, Beta) ->
 %% @doc Calculates the new bias from back propagation of the error.
 %% @end
 %%--------------------------------------------------------------------
-calculate_bias(Neuron, Beta) -> 
-    Neuron#neuron{bias = updt_weight(bias(Neuron), 1.0, Beta)}.
+calculate_bias(Beta) -> 
+    put(bias, updt_weight(get(bias), 1.0, Beta)).
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @doc Adds the Pids and their signals to the inputs.
+%% @end
+%%--------------------------------------------------------------------
+add_inputs(Requests) -> 
+    {[], Inputs} = add_inputs(Requests, get(id), []),
+    put(inputs, Inputs).
+
+add_inputs([{Pid,Xi}|Rx], Id2, LAcc) -> 
+    Id1 = ?ID(Pid),
+    {[Wi|Wx], Inputs} = add_inputs(Rx, Id2, [{Id1,Id2}|LAcc]),
+    {Wx, Inputs#{Pid => #input{id=Id1, w=Wi, s=Xi}}};
+add_inputs([], _, LAcc) -> 
+    {link:read(LAcc), get(inputs)}.
+
+%%--------------------------------------------------------------------
+%% @doc Adds the Pids and their signals to the inputs.
+%% @end
+%%--------------------------------------------------------------------
+add_outputs(Ids) -> 
+    Outputs = add_outputs(Ids, get(outputs)),
+    put(outputs, Outputs).
+
+add_outputs([Id|Rx], Outputs) ->
+    Pid = ?PID(Id),
+    add_outputs([Id|Rx], Outputs#{Pid => #output{id=Id}});
+add_outputs([], Outputs) -> 
+    Outputs.
 
 %%--------------------------------------------------------------------
 %% @doc Updates the weight value. If it is uninitialized, a new value
@@ -446,8 +437,8 @@ updt_weight(undefined, _, _)            -> winit().
 %%--------------------------------------------------------------------
 winit() -> 
     initializer:value(get(initializer), #{
-        fan_in  => get( fan_in),
-        fan_out => get(fan_out)
+        fan_in  => length(get( inputs)),
+        fan_out => length(get(outputs))
     }).
 
 % % Weight variation calculation with momentum .........................
@@ -463,33 +454,29 @@ winit() ->
 % Weight variation calculation .......................................
 dw(Xi, Beta) -> ?LEARNING_FACTOR * Beta * Xi.
 
-
-%%%===================================================================
-%%% Message functions
-%%%===================================================================
+% -------------------------------------------------------------------
+inbox_forwards() -> 
+    receive {Pid,forward,Xi} -> [{Pid,Xi}|inbox_forwards()]
+    after 0                  -> []
+    end.
 
 % -------------------------------------------------------------------
-forward(Pid, _Output, Signal) ->
-    Pid ! {self(), forward, Signal}, 
-    {Pid, Signal}.
+inbox_backwards() -> 
+    receive {Pid,backward,Xi} -> [{Pid,Xi}|inbox_backwards()]
+    after 0                   -> []
+    end.
 
 % -------------------------------------------------------------------
-backward(Pid, Input, Beta) ->
-    BP_Error = ?W(Input) * Beta,
-    Pid ! {self(), backward, BP_Error},
-    {Pid, BP_Error}.
-
-% -------------------------------------------------------------------
-save_links(Inputs) ->
+save_links() ->
     Id     = get(id),
-    NNPool = get(nn_pool),
-    {Links,Weights} = links(maps:to_list(Inputs), Id, NNPool,[],[]),
+    Inputs = get(inputs),
+    {Links,Weights} = links(maps:values(Inputs), Id, [],[]),
     link:write(Links, Weights).
 
-links([{Pid,I}|Ix], To, NNPool, LAcc, WAcc) -> 
-    From = nn_pool:id(NNPool,Pid),
-    links(Ix, To, NNPool, [{From,To}|LAcc], [I#input.w|WAcc]);
-links([], _, _, LAcc, WAcc) -> 
+links([I|Ix], To, LAcc, WAcc) -> 
+    From = I#input.id,
+    links(Ix, To, [{From,To}|LAcc], [I#input.w|WAcc]);
+links([], _, LAcc, WAcc) -> 
     {LAcc, WAcc}.
 
 
