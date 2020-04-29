@@ -197,8 +197,8 @@ test_delete_node(_Config) ->
                                  [{X,'end'} || X<-[n1,n2]] ++
                                  [{n1,n2}]),
     NN2 = network:del_neurons(NN1, [n2]),
-    [n1] = network:start_neurons(NN2), 
-    [n1] = network:end_neurons(NN2),
+    [n1] = network:in_nodes(NN2), 
+    [n1] = network:out_nodes(NN2),
     {_,'end'} = hd(network:out_links(NN2, n1)),
     {start,_} = hd( network:in_links(NN2, n1)),
     ?END(ok).
