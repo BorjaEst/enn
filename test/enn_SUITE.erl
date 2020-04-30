@@ -221,19 +221,21 @@ mult_random_inputs(_Config) ->
 recurrent_1_input() ->
     [].
 recurrent_1_input(_Config) ->
-    ?TEST_MODEL(
+    {ok, Loss10} = ?TEST_MODEL(
         _Model = test_architectures:recurrent(),
         _Data  = fun test_data_generators:recurrent_of_1_input/3
-    ).
+    ),
+    console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
 weights_0_network() ->
     [].
 weights_0_network(_Config) ->
-    ?TEST_MODEL(
+    {ok, Loss10} = ?TEST_MODEL(
         _Model = test_architectures:network_0_weights(),
         _Data  = fun test_data_generators:inputs_always_0/3
-    ).
+    ),
+    console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
 random_dense_random_inputs() ->
