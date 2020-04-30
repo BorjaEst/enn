@@ -45,7 +45,8 @@ mount(Supervisor, Cortex_id, NN) ->
     true = ets:insert(PT, [{Id,Pid} || {Id,Pid} <- Regs]),
     true = ets:insert(PT, [{Pid,Id} || {Id,Pid} <- Regs]),
     NN_Pool = #nn_pool{ptab = PT},
-    [neuron:go(Pid,network:node(NN,Id),NN_Pool) || {Id,Pid} <- Regs],
+    [neuron:go(Pid,network:connections(NN,Id),NN_Pool) 
+        || {Id,Pid} <- Regs],
     NN_Pool.
 
 %%--------------------------------------------------------------------

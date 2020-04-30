@@ -195,7 +195,7 @@ del_neurons(NN, []) ->
       NN :: network(),
       N  :: d_node().
 connections(NN, N) ->
-    map_nodes(N, maps:get(N, NN)).
+    map_nodes(N, maps:get(N, NN#network.nodes)).
 
 %%-------------------------------------------------------------------
 %% @doc Returns the number of neurons of the network.  
