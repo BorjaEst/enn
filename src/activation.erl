@@ -49,7 +49,7 @@ apply_fun(softsign, Soma) -> softsign(Soma);
 apply_fun(elu,      Soma) -> elu(Soma);
 apply_fun(selu,     Soma) -> selu(Soma);
 apply_fun(relu,     Soma) -> relu(Soma);
-apply_fun(_Ref,    _Soma) -> error(not_defined).
+apply_fun(Ref,     _Soma) -> error({not_defined, Ref}).
 
 %%--------------------------------------------------------------------
 %% @doc Applies the derivade of the indicated activation funtion.
@@ -71,7 +71,7 @@ apply_dfun(softsign, Soma) -> d_softsign(Soma);
 apply_dfun(elu,      Soma) -> d_elu(Soma);
 apply_dfun(selu,     Soma) -> d_selu(Soma);
 apply_dfun(relu,     Soma) -> d_relu(Soma);
-apply_dfun(_Ref,    _Soma) -> error(not_defined).
+apply_dfun(Ref,     _Soma) -> error({not_defined, Ref}).
 
 %%--------------------------------------------------------------------
 %% @doc Applies the beta calculation for the activation funtion.
