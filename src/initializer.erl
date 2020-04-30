@@ -130,7 +130,8 @@ vscal(Arg) ->
     case ?ARG(distribution, Arg, uniform) of 
         normal  ->  
             Stddev = math:sqrt(Scale/N),
-            random(Arg#{stddev => Stddev, distribution => normal});
+            random(Arg#{stddev => Stddev, 
+                        distribution => normal});
         uniform -> 
             Limit = math:sqrt(3*Scale/N),
             random(Arg#{maxval => Limit,  minval => -Limit, 
