@@ -215,11 +215,9 @@
 %% @end
 %%--------------------------------------------------------------------
 -ifdef(debug_neurons_status).
--define(LOG_NEURON_STARTED(State),
+-define(LOG_NEURON_STARTED,
     ?LOG_DEBUG(#{what => "Neuron started", pid =>self(), id=>get(id), 
-                 details => #{neuron  => State#state.neuron,
-                              inputs  => State#state.inputs,
-                              outputs => State#state.outputs}},
+                 details => #{}},
                #{logger_formatter=>#{title=>"NEURON STATUS"}})
 ).
 -define(LOG_WAITING_NEURONS(State),
@@ -242,9 +240,9 @@
                #{logger_formatter=>#{title=>"NEURON STATUS"}})
 ).
 -else.
--define(LOG_NEURON_STARTED(State), State).
+-define(LOG_NEURON_STARTED,            ok).
 -define(LOG_WAITING_NEURONS(State), State).
--define(LOG_NEURON_IDLE(State), State).
--define(LOG_NEURON_TERMINATING, ok).
+-define(LOG_NEURON_IDLE(State),     State).
+-define(LOG_NEURON_TERMINATING,        ok).
 -endif.
 
