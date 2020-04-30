@@ -42,21 +42,19 @@
 }.
 
 -record(input,  {
-    id      :: neuron:id(),
     w = 0.0 :: link:weight(), % Input weight 
-    s = 0.0 :: float()        % Signal value (Xi)
+    x = 0.0 :: float()        % Signal value (Xi)
 }).
--define(S(Input), element(#input.s, Input)).
+-define(X(Input), element(#input.x, Input)).
 -define(W(Input), element(#input.w, Input)).
 
 -record(output, {
-    id      :: neuron:id(),
     e = 0.0 :: float() % Output error (Ei)
 }).
 -define(E(Output), Output#output.e).
 
--define(PID(Id), nn_pool:pid(get(nn_pool)), Id).
--define(ID(Pid), nn_pool:id(get(nn_pool)), Pid).
+-define(PID(Id), nn_pool:pid(get(nn_pool), Id)).
+-define(ID(Pid), nn_pool:id(get(nn_pool), Pid)).
 
 -record(state, {
     forward_wait   :: [id()],
@@ -159,12 +157,12 @@ start_link(Id) ->
 %% TODO: Improve info passing by having all on the NN_Pool ets.
 %% @end
 %%--------------------------------------------------------------------
--spec go(Pid, Outputs, NN_Pool) -> NonRelevant :: term() when 
+-spec go(Pid, Connections, NN_Pool) -> NonRelevant :: term() when 
     Pid :: pid(),
-    Outputs :: [neuron:id()],
+    Connections :: network:connections(),
     NN_Pool :: nn_pool:pool().
-go(Pid, Outputs, NN_Pool) ->
-    Pid ! {continue_init, Outputs, NN_Pool}.
+go(Pid, Connections, NN_Pool) ->
+    Pid ! {continue_init, Connections, NN_Pool}.
 
 
 %%%===================================================================
@@ -177,27 +175,37 @@ go(Pid, Outputs, NN_Pool) ->
 %%--------------------------------------------------------------------
 init(Id, Supervisor) ->
     proc_lib:init_ack(Supervisor, {ok, self()}), % Supervisor synch
-    {OutRequests, NNPool} = wait_for_go(),       % Cortex synch
+    {InConn, OutConn, NNPool} = wait_for_go(),   % Cortex synch
     process_flag(trap_exit, true), % Catch supervisor exits
-    Neuron = edb:read(Id),
+    % Load specific keys in dictionary
     put(nn_pool, NNPool),
-    put(outputs,    #{}), 
-    put( inputs,    #{}), 
+    % Load neuron related dictionary
+    Neuron = edb:read(Id),
     put(         id,          Neuron#neuron.id),
     put(       bias,        Neuron#neuron.bias),
     put( activation,  Neuron#neuron.activation),    
     put(aggregation, Neuron#neuron.aggregation),    
     put(initializer, Neuron#neuron.initializer), 
-    add_outputs(OutRequests),
-    loop(#state{ % wait starts at [] to trigger rcc links
-        forward_wait  = [], 
-        backward_wait = []
+    % Load inputs and outputs in dictionary
+    put(outputs, #{}),
+    add_outputs(maps:to_list(OutConn)),
+    put( inputs, #{}),
+    add_inputs( maps:to_list( InConn)),
+    % First propagation for rcc links
+    calculate_bias(0.0),
+    forward_prop(),   
+    backward_prop(),  
+    % Neuron start log and initialization of waits
+    ?LOG_NEURON_STARTED,
+    loop(#state{ 
+        forward_wait  = maps:keys(get( inputs)), 
+        backward_wait = maps:keys(get(outputs))
     }).
 
 wait_for_go() -> 
     receive 
-        {continue_init, Connections, NN_Pool} -> 
-            {Connections, NN_Pool}
+        {continue_init, #{in:=InConn, out:=OutConn}, NN_Pool} -> 
+            {InConn, OutConn, NN_Pool}
     end.
 
 
@@ -247,7 +255,7 @@ receive_next(State) ->
 % Receives a forward signal so updates its value in inputs ----------
 forward_in(Pid, Xi, State)  ->
     #{Pid := I} = Inputs = get(inputs),
-    put(inputs, Inputs#{Pid := I#input{s = Xi}}),
+    put(inputs, Inputs#{Pid := I#input{x = Xi}}),
     loop(State).
 
 % Receives a backward error so updates its value in outputs ---------
@@ -293,11 +301,10 @@ terminate(Reason, _State) ->
 %%
 %%--------------------------------------------------------------------
 forward_prop() -> 
-    Inputs = get(inputs), Outputs = get(outputs),
-    Tensor = calculate_tensor(Inputs),
+    Tensor = calculate_tensor(get(inputs)),
     Soma   = calculate_soma(Tensor),
     Signal = calculate_signal(Soma),
-    Sent = [forward(P,O,Signal) || {P,O} <- maps:to_list(Outputs)],
+    Sent = [forward(P,O,Signal) || {P,O}<-maps:to_list(get(outputs))],
     ?LOG_FORWARD_PROPAGATION(Sent).
 
 forward(Pid, _Output, Signal) ->
@@ -309,13 +316,12 @@ forward(Pid, _Output, Signal) ->
 %% 
 %%--------------------------------------------------------------------
 backward_prop() ->
-    Inputs = get(inputs), Outputs = get(outputs),
-    Error = calculate_error(Outputs),
+    Error = calculate_error(get(outputs)),
     Beta  = calculate_beta(Error),
-    Sent = [backward(P,I,Beta) || {P,I} <- maps:to_list(Inputs)],
+    Sent = [backward(P,I,Beta) || {P,I}<-maps:to_list(get(inputs))],
     ?LOG_BACKWARD_PROPAGATION(Sent),
     calculate_bias(Beta),
-    calculate_weights(Inputs, Beta).
+    calculate_weights(Beta).
 
 backward(Pid, Input, Beta) ->
     BP_Error = ?W(Input) * Beta,
@@ -332,7 +338,7 @@ backward(Pid, Input, Beta) ->
 %% @end
 %%--------------------------------------------------------------------
 calculate_tensor(Inputs) ->
-    Tensors = [{Pid,?W(I),?S(I)} || {Pid,I} <- maps:to_list(Inputs)],
+    Tensors = [{Pid,?W(I),?X(I)} || {Pid,I} <- maps:to_list(Inputs)],
     put(prev_signals, Tensors), % Save for weights calculation
     Tensors.
 
@@ -365,14 +371,15 @@ calculate_error(Outputs) ->
 %% @end
 %%--------------------------------------------------------------------
 calculate_beta(Error) -> 
-    activation:beta(get(activationn), Error, get(soma)).
+    activation:beta(get(activation), Error, get(soma)).
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the new weights from back propagation of the error.
 %% @end
 %%--------------------------------------------------------------------
-calculate_weights(Inputs, Beta) -> 
-    calculate_weights(get(prev_signals), Inputs, Beta).
+calculate_weights(Beta) -> 
+    Inputs = calculate_weights(get(prev_signals), get(inputs), Beta),
+    put(inputs, Inputs).
 
 calculate_weights([{Pid,_,Xi}|Tx], Inputs, B) -> 
     I = maps:get(Pid, Inputs),
@@ -398,28 +405,37 @@ calculate_bias(Beta) ->
 %% @doc Adds the Pids and their signals to the inputs.
 %% @end
 %%--------------------------------------------------------------------
+add_inputs(      []) -> ok;
 add_inputs(Requests) -> 
-    {[], Inputs} = add_inputs(Requests, get(id), []),
+    {[], Inputs} = add_inputs(Requests, get(id), [], get(inputs)),
     put(inputs, Inputs).
 
-add_inputs([{Pid,Xi}|Rx], Id2, LAcc) -> 
-    Id1 = ?ID(Pid),
-    {[Wi|Wx], Inputs} = add_inputs(Rx, Id2, [{Id1,Id2}|LAcc]),
-    {Wx, Inputs#{Pid => #input{id=Id1, w=Wi, s=Xi}}};
-add_inputs([], _, LAcc) -> 
-    {link:read(LAcc), get(inputs)}.
+add_inputs([{Id1,link}|Rx], Id2, LAcc, Ix1) -> % Using Id
+    Pid = ?PID(Id1),
+    {[Wi|Wx], Ix2} = add_inputs(Rx, Id2, [{Id1,Id2}|LAcc], 
+                                Ix1#{Pid=>#input{}}),
+    {Wx, Ix2#{Pid:=#input{w=Wi}}};
+add_inputs([{Pid,Xi}|Rx], Id2, LAcc, Ix1)   -> % Using Pid
+    Id1 = ?ID(Pid), % Note: Id is a tuple {Ref,neuron}
+    {[Wi|Wx], Ix2} = add_inputs(Rx, Id2, [{Id1,Id2}|LAcc], 
+                                Ix1#{Pid=>#input{}}),
+    {Wx, Ix2#{Pid:=#input{w=Wi, x=Xi}}};
+add_inputs([], _, LAcc, Inputs) -> 
+    put(inputs, Inputs), % Needed for correct winit fan_in/out
+    {[updt_weight(W,0.0,0.0) || W <- link:read(LAcc)], Inputs}.
 
 %%--------------------------------------------------------------------
 %% @doc Adds the Pids and their signals to the inputs.
 %% @end
 %%--------------------------------------------------------------------
-add_outputs(Ids) -> 
-    Outputs = add_outputs(Ids, get(outputs)),
+add_outputs(      []) -> ok;
+add_outputs(Requests) -> 
+    Outputs = add_outputs(Requests, get(outputs)),
     put(outputs, Outputs).
 
-add_outputs([Id|Rx], Outputs) ->
+add_outputs([{Id,link}|Rx], Outputs) ->
     Pid = ?PID(Id),
-    add_outputs([Id|Rx], Outputs#{Pid => #output{id=Id}});
+    add_outputs(Rx, Outputs#{Pid => #output{}});
 add_outputs([], Outputs) -> 
     Outputs.
 
@@ -437,8 +453,8 @@ updt_weight(undefined, _, _)            -> winit().
 %%--------------------------------------------------------------------
 winit() -> 
     initializer:value(get(initializer), #{
-        fan_in  => length(get( inputs)),
-        fan_out => length(get(outputs))
+        fan_in  => maps:size(get( inputs)),
+        fan_out => maps:size(get(outputs))
     }).
 
 % % Weight variation calculation with momentum .........................
@@ -469,15 +485,17 @@ inbox_backwards() ->
 % -------------------------------------------------------------------
 save_links() ->
     Id     = get(id),
+    NNPool = get(nn_pool),
     Inputs = get(inputs),
-    {Links,Weights} = links(maps:values(Inputs), Id, [],[]),
+    {Links,Weights} = links(maps:to_list(Inputs), Id, NNPool,[],[]),
     link:write(Links, Weights).
 
-links([I|Ix], To, LAcc, WAcc) -> 
-    From = I#input.id,
-    links(Ix, To, [{From,To}|LAcc], [I#input.w|WAcc]);
-links([], _, LAcc, WAcc) -> 
+links([{Pid,I}|Ix], To, NNPool, LAcc, WAcc) -> 
+    From = nn_pool:id(NNPool,Pid),
+    links(Ix, To, NNPool, [{From,To}|LAcc], [I#input.w|WAcc]);
+links([], _, _, LAcc, WAcc) -> 
     {LAcc, WAcc}.
+
 
 
 %%====================================================================
@@ -495,6 +513,4 @@ links([], _, LAcc, WAcc) ->
 
 % --------------------------------------------------------------------
 % SPECIFIC HELPER FUNCTIONS ------------------------------------------
-
-
 
