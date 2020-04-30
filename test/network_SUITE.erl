@@ -107,6 +107,7 @@ all() ->
     [
         test_add_nodes,
         test_add_links,
+        test_connections,
         test_start_node,
         test_end_node,
         test_delete_node
@@ -159,6 +160,21 @@ test_add_links(_Config) ->
         (catch network:add_link(seq_network([n1,n2]), RccL)),
     [RccL] = network:links(
                network:add_link(rcc_network([n1,n2]), RccL)),
+    ?END(ok).
+
+% -------------------------------------------------------------------
+test_connections() ->
+    [].
+test_connections(_Config) ->
+    ?HEAD("Connections can correctly be retrieved ................"),
+    NN0 = rcc_network([n1,n2]),
+    0   = network:in_degree(NN0), 
+    NN1 = network:add_links(NN0, 
+            [{A,B} || A <- [start,n1,n2], B <- [n1,n2,'end']]),
+    #{
+        in :=#{start:=link, n1:=link, n2:=link}, 
+        out:=#{'end':=link, n1:=link, n2:=link}
+    } = network:connections(NN1, n1),
     ?END(ok).
 
 % -------------------------------------------------------------------
