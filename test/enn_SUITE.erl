@@ -41,6 +41,7 @@ suite() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
+    application:start(datalog),
     application:start(enn),
     Config.
 
@@ -49,6 +50,7 @@ init_per_suite(Config) ->
 %% Config0 = Config1 = [tuple()]
 %%--------------------------------------------------------------------
 end_per_suite(_Config) ->
+    application:stop(datalog),
     application:stop(enn),
     ok.
 

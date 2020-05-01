@@ -15,13 +15,6 @@
 
 -define(SERVER, ?MODULE).
 
--define(SPECS_DATALOG, #{
-    id       => datalog,
-    start    => {datalog, start_link, []},
-    restart  => permanent,
-    shutdown => 500,
-    modules  => [gen_server]
-}).
 -define(SPECS_NN_SUP(Network_id), #{
     id       => nn_sup:id(Network_id),
     start    => {nn_sup, start_link, [Network_id]},
@@ -76,9 +69,7 @@ init([]) ->
     SupFlags = #{strategy  => one_for_all,
                  intensity => 10,
                  period    => 36},
-    ChildSpecs = [
-        ?SPECS_DATALOG
-    ],
+    ChildSpecs = [],
     enn_pool:start(),
     {ok, {SupFlags, ChildSpecs}}.
 

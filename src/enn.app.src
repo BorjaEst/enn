@@ -24,7 +24,7 @@
          enn_sup
      ]}, 
      {mod, {enn_app, []}},
-     {applications, [kernel, stdlib]},
+     {applications, [kernel, stdlib, datalog]},
      {env, []},
      {maintainers, []},
      {links, []}
