@@ -54,7 +54,8 @@ end_per_suite(_Config) ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 init_per_group(_GroupName, Config) ->
-    Config.
+    Id = enn:compile(test_architectures:example()),
+    [{network_id, Id} | Config].
 
 %%--------------------------------------------------------------------
 %% Function: end_per_group(GroupName, Config0) ->
@@ -98,7 +99,20 @@ end_per_testcase(_TestCase, _Config) ->
 %% N = integer() | forever
 %%--------------------------------------------------------------------
 groups() ->
-    [ ].
+    [
+        {sequence_training_and_saving, [sequence, shuffle],
+         [
+            training_saved_after_stop,
+            correct_network_clonation
+         ]
+        },
+        {parallel_training_and_saving, [parallel, shuffle],
+         [
+            training_saved_after_stop | % Parallel training not possible
+            [correct_network_clonation || _ <- lists:seq(1,5)]
+         ]
+        }
+    ].
 
 %%--------------------------------------------------------------------
 %% Function: all() -> GroupsAndTestCases | {skip,Reason}
@@ -109,8 +123,8 @@ groups() ->
 %%--------------------------------------------------------------------
 all() ->
     [ 
-        training_saved_after_stop,
-        correct_network_clonation
+        {group, sequence_training_and_saving},
+        {group, parallel_training_and_saving}
     ].
 
 %%--------------------------------------------------------------------
@@ -137,9 +151,10 @@ my_test_case_example(_Config) ->
 % -------------------------------------------------------------------
 training_saved_after_stop() ->
     [].
-training_saved_after_stop(_Config) ->
+training_saved_after_stop(Config) ->
     ?HEAD("Correct neural network saving after stop .............."),
-    Id = enn:start(test_architectures:example()),
+    Id = ?config(network_id, Config),
+    Id = enn:start(Id),
     Ns = neurons(Id),
     Ws = weights(Id),
     {In,Opt} = test_data_generators:random_sum_of_inputs(
@@ -153,9 +168,9 @@ training_saved_after_stop(_Config) ->
 % -------------------------------------------------------------------
 correct_network_clonation() -> 
     [].
-correct_network_clonation(_Config) -> 
+correct_network_clonation(Config) -> 
     ?HEAD("Network can be cloned ................................."),
-    Id1 = enn:compile(test_architectures:example()),
+    Id1 = ?config(network_id, Config),
     Id2 = enn:clone(Id1),
     true = neurons(Id1) /= neurons(Id2),
     true =  biases(Id1) ==  biases(Id2),
