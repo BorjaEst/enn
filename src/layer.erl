@@ -100,6 +100,7 @@ output(Units, Prop) ->
 %%--------------------------------------------------------------------
 %% @doc Compiles a layer. Returns a tuple indicating the layer type 
 %% together with the ids of all the neuron definition.
+%% Should run inside a mnesia transaction.
 %% @end
 %%--------------------------------------------------------------------
 -spec compile(Coordinade, Definition) -> CompiledLayer when 
@@ -109,7 +110,7 @@ output(Units, Prop) ->
 compile(_Coordinade, Definition) ->
     Units   = maps:get(units, Definition),
     Neurons = [neuron:new(Definition) || _ <- lists:seq(1, Units)],
-    edb:write(Neurons),
+    [ok = mnesia:write(N) || N <- Neurons],
     [neuron:id(N) || N <- Neurons].
 
 

@@ -44,7 +44,23 @@ attributes_table() ->
 -spec compile(Model :: model()) -> 
     Network_id :: id().
 compile(Model) ->
-    model:compile(Model).
+    {atomic, Id} = mnesia:transaction(
+        fun() -> model:compile(Model) end
+    ),
+    Id.
+
+%%--------------------------------------------------------------------
+%% @doc Clones a network. Each element of the newtork is cloned inside
+%% the mnesia database but with a different id.
+%% @end
+%%--------------------------------------------------------------------
+-spec clone(Network_id :: id()) -> 
+    Cloned_id :: id().
+clone({_, network} = Network_id) ->
+    {atomic, Id} = mnesia:transaction(
+        fun() -> network:clone(Network_id) end
+    ),
+    Id.
 
 %%--------------------------------------------------------------------
 %% @doc Uses a ANN to create a prediction. The ANN is refered by using
@@ -107,19 +123,6 @@ outputs(Model) when is_map(Model) ->
 outputs({_, network} = Network_id) ->
     [NN] = mnesia:dirty_read(network, Network_id),
     network:out_degree(NN).
-
-%%--------------------------------------------------------------------
-%% @doc Clones a network. Each element of the newtork is cloned inside
-%% the mnesia database but with a different id.
-%% @end
-%%--------------------------------------------------------------------
--spec clone(Network_id :: id()) -> 
-    Cloned_id :: id().
-clone({_, network} = Network_id) ->
-    {atomic, Id} = mnesia:transaction(
-        fun() -> network:clone(Network_id) end
-    ),
-    Id.
 
 %%--------------------------------------------------------------------
 %% @doc Start a neural network, ready to receive inputs or training.

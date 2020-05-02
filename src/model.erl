@@ -69,6 +69,7 @@ recurrent(Layers, RLevel) when length(Layers) > 1 ->
 
 %%--------------------------------------------------------------------
 %% @doc Compiles and stores a model in the DB returning its cortex_id.
+%% Should run inside a mnesia transaction.
 %% @end
 %%--------------------------------------------------------------------
 -spec compile(Model :: definition()) -> Network when
@@ -78,7 +79,7 @@ compile(Model) ->
     CompiledLayers = maps:map(fun layer:compile/2, Layers),
     Links   = links(CompiledLayers, Connections),
     Network = network(CompiledLayers, Links, Type),
-    edb:write([Network]),
+    ok = mnesia:write(Network),
     network:id(Network).
 
 %%====================================================================

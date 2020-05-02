@@ -184,9 +184,13 @@ correct_network_clonation(Config) ->
 
 % Gets the network id neurons ---------------------------------------
 neurons(Network_id) -> 
-    NN  = edb:read(Network_id),
-    Ids = network:neurons(NN),
-    edb:read(Ids). 
+    {atomic, Neurons} = mnesia:transaction(
+        fun() -> 
+            [NN] = mnesia:read(network, Network_id),
+            [hd(mnesia:read(neuron, Id)) || Id <- network:neurons(NN)]
+        end
+    ),
+    Neurons. 
 
 % Gets the network id neuron bias -----------------------------------
 biases(Network_id) -> 
@@ -194,7 +198,7 @@ biases(Network_id) ->
 
 % Gets the network id links -----------------------------------------
 links(Network_id) -> 
-    NN  = edb:read(Network_id),
+    [NN]  = mnesia:dirty_read(network, Network_id),
     network:links(NN). 
 
 % Gets the network id link weights ----------------------------------
@@ -208,5 +212,4 @@ weights(Network_id) ->
 
 % --------------------------------------------------------------------
 % RESULTS CONSOLE PRINT ----------------------------------------------
-
 

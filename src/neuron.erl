@@ -190,7 +190,7 @@ init(Id, Supervisor) ->
     % Load specific keys in dictionary
     put(nn_pool, NNPool),
     % Load neuron related dictionary
-    Neuron = edb:read(Id),
+    [Neuron] = mnesia:dirty_read(neuron, Id),
     put(         id,          Neuron#neuron.id),
     put(       bias,        Neuron#neuron.bias),
     put( activation,  Neuron#neuron.activation),    
@@ -286,14 +286,9 @@ idle(State) ->
 terminate(Reason, _State) ->
     % TODO: When saving the new state, those links with weights ~= 0, must be deleted (both neurons)
     % TODO: If the neuron has not at least 1 input or 1 output, it must be deleted (and bias forwarded)
-    mnesia:transaction(fun() -> write_links() end),
-    edb:write(#neuron{
-        id          = get(id),
-        activation  = get(activation),
-        aggregation = get(aggregation),
-        initializer = get(initializer),
-        bias        = get(bias)
-    }),
+    {atomic, _} = mnesia:transaction( 
+        fun() -> write_links(), write_neuron() end
+    ),
     ?LOG_NEURON_TERMINATING,
     exit(Reason).
 
@@ -502,11 +497,20 @@ write_links() ->
     write_links(maps:to_list(get(inputs)), Id, NNPool).
 
 write_links([{Pid,I}|Ix], To, NNPool) -> 
-    link:write({nn_pool:id(NNPool,Pid), To}, ?W(I)),
+    ok = link:write({nn_pool:id(NNPool,Pid), To}, ?W(I)),
     write_links(Ix, To, NNPool);
 write_links([], _, _) -> 
     ok.
 
+% -------------------------------------------------------------------
+write_neuron() -> 
+    ok = mnesia:write(#neuron{
+        id          = get(id),
+        activation  = get(activation),
+        aggregation = get(aggregation),
+        initializer = get(initializer),
+        bias        = get(bias)
+    }).
 
 
 %%====================================================================

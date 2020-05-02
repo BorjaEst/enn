@@ -53,7 +53,7 @@ read({From, To}) ->
     From :: neuron:id(),
     To   :: neuron:id().
 write({From, To}, W) -> 
-    mnesia:write(#link{id=id(From,To), w=W}).
+    ok = mnesia:write(#link{id=id(From,To), w=W}).
 
 %%-------------------------------------------------------------------
 %% @doc Adds a specific value to the previous weight.
@@ -78,7 +78,7 @@ add({From, To}, V) ->
     From :: neuron:id(),
     To   :: neuron:id().
 delete({From, To}) ->
-    mnesia:delete(link, id(From,To)).
+    ok = mnesia:delete(link, id(From,To)).
 
 %%-------------------------------------------------------------------
 %% @doc Clones a link replacing the From and To ids using a map.
