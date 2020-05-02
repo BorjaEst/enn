@@ -31,7 +31,8 @@ suite() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    application:start(enn),
+    ok = application:start(mnesia),
+    ok = application:start(enn),
     Config.
 
 %%--------------------------------------------------------------------
@@ -39,7 +40,8 @@ init_per_suite(Config) ->
 %% Config0 = Config1 = [tuple()]
 %%--------------------------------------------------------------------
 end_per_suite(_Config) ->
-    application:stop(enn),
+    ok = application:stop(mnesia),
+    ok = application:stop(enn),
     ok.
 
 %%--------------------------------------------------------------------

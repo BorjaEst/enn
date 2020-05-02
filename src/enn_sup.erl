@@ -8,7 +8,7 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/1, start_nn/1, terminate_nn/1]).
+-export([start_link/0, start_nn/1, terminate_nn/1]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -32,8 +32,8 @@
 %% @end
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
-start_link(StartArgs) ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, StartArgs).
+start_link() ->
+    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
 %%--------------------------------------------------------------------
 %% @doc Starts the neural network supervisor
