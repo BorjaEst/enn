@@ -27,12 +27,13 @@
 -export_type([id/0, neuron/0, properties/0]).
 
 -type id() :: {{Coordinate :: float(), reference()}, neuron}.
+-define(NEW_ID, {make_ref(), neuron}).
 -record(neuron, {
-    id = {make_ref(), neuron} :: id(),
-    activation  :: activation:func(),
-    aggregation :: aggregation:func(),
-    initializer :: initializer:func(),
-    bias        :: link:weight()
+    id = ?NEW_ID :: id(),
+    activation   :: activation:func(),
+    aggregation  :: aggregation:func(),
+    initializer  :: initializer:func(),
+    bias         :: link:weight()
 }).  
 -type neuron()     :: #neuron{}.
 -type properties() :: #{activation  := activation:func(),
@@ -89,11 +90,20 @@ new(Properties) ->
     }.
 
 %%--------------------------------------------------------------------
-%% @doc Clones a neuron.
+%% @doc Clones a neuron from its id.
+%% Should run inside a mnesia transaction.
 %% @end
 %%--------------------------------------------------------------------
--spec clone(Neuron :: neuron()) -> neuron().
-clone(Neuron) -> Neuron#neuron{id = {make_ref(), neuron}}.
+-spec clone(Id :: id()) -> id().
+clone(Id) -> 
+    case mnesia:read(neuron, Id) of 
+        [N] -> 
+            Clone = N#neuron{id = ?NEW_ID},
+            ok = mnesia:write(Clone),
+            id(Clone);
+        []  -> 
+            error(not_found)
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc Returns the neuron id.
@@ -276,7 +286,7 @@ idle(State) ->
 terminate(Reason, _State) ->
     % TODO: When saving the new state, those links with weights ~= 0, must be deleted (both neurons)
     % TODO: If the neuron has not at least 1 input or 1 output, it must be deleted (and bias forwarded)
-    save_links(),
+    mnesia:transaction(fun() -> write_links() end),
     edb:write(#neuron{
         id          = get(id),
         activation  = get(activation),
@@ -422,7 +432,10 @@ add_inputs([{Pid,Xi}|Rx], Id2, LAcc, Ix1)   -> % Using Pid
     {Wx, Ix2#{Pid:=#input{w=Wi, x=Xi}}};
 add_inputs([], _, LAcc, Inputs) -> 
     put(inputs, Inputs), % Needed for correct winit fan_in/out
-    {[updt_weight(W,0.0,0.0) || W <- link:read(LAcc)], Inputs}.
+    {atomic, Weights} = mnesia:transaction(
+        fun() -> [link:read({From,To}) || {From,To} <- LAcc] end
+    ),
+    {[updt_weight(W,0.0,0.0) || W <- Weights], Inputs}.
 
 %%--------------------------------------------------------------------
 %% @doc Adds the Pids and their signals to the inputs.
@@ -483,18 +496,16 @@ inbox_backwards() ->
     end.
 
 % -------------------------------------------------------------------
-save_links() ->
+write_links() -> 
     Id     = get(id),
     NNPool = get(nn_pool),
-    Inputs = get(inputs),
-    {Links,Weights} = links(maps:to_list(Inputs), Id, NNPool,[],[]),
-    link:write(Links, Weights).
+    write_links(maps:to_list(get(inputs)), Id, NNPool).
 
-links([{Pid,I}|Ix], To, NNPool, LAcc, WAcc) -> 
-    From = nn_pool:id(NNPool,Pid),
-    links(Ix, To, NNPool, [{From,To}|LAcc], [I#input.w|WAcc]);
-links([], _, _, LAcc, WAcc) -> 
-    {LAcc, WAcc}.
+write_links([{Pid,I}|Ix], To, NNPool) -> 
+    link:write({nn_pool:id(NNPool,Pid), To}, ?W(I)),
+    write_links(Ix, To, NNPool);
+write_links([], _, _) -> 
+    ok.
 
 
 

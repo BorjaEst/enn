@@ -6,7 +6,7 @@
 %%%-------------------------------------------------------------------
 -module(network).
 
--export([new/0, new/1, id/1, clone/2]).
+-export([new/0, new/1, id/1, clone/1]).
 -export([record_fields/0, info/1, to_map/1]).
 -export([no_neurons/1, neurons/1, connections/2]).
 -export([sink_neurons/1, bias_neurons/1]).
@@ -22,6 +22,7 @@
 -export_type([network/0, connections/0, d_type/0, d_node/0, info/0]).
 
 -type id()      :: {reference(), network}.
+-define(NEW_ID, {make_ref(), network}).
 -type d_type()  :: 'sequential' | 'recurrent'.
 -type d_node()  :: neuron:id() | 'start' | 'end'.
 -record(cn, {
@@ -29,7 +30,7 @@
     out = #{} :: #{d_node() => link}
 }).
 -record(network, {
-    id = {make_ref(), network} :: id(),
+    id = ?NEW_ID :: id(),
     nodes :: #{d_node() => #{d_node() => #cn{}}},
     type  :: d_type()
 }).
@@ -75,16 +76,19 @@ id(NN) -> NN#network.id.
 
 %%-------------------------------------------------------------------
 %% @doc Clones a link replacing the From and To ids using a map.
+%% Should run inside a mnesia transaction.
 %% @end
 %%-------------------------------------------------------------------
--spec clone(NN :: network(), #{Old => New}) -> network() when 
-    Old :: neuron:id(),
-    New :: neuron:id().
-clone(NN, NMap) ->
-    NN#network{
-        id    = {make_ref(), network},
-        nodes = replace(NN#network.nodes, NMap)
-    }.
+-spec clone(Id :: id()) -> id().
+clone(Id) ->
+    [NN]   = mnesia:read(network, Id),
+    NClones = [neuron:clone(N) || N <- neurons(NN)],
+    NMap    = maps:from_list(lists:zip(neurons(NN), NClones)),
+    [link:clone({From,To}, NMap) || {From,To} <- network:links(NN)],
+    Nodes = replace(NN#network.nodes, NMap),
+    Clone = NN#network{id=?NEW_ID, nodes=Nodes},
+    ok = mnesia:write(Clone),
+    id(Clone).
 
 replace(Nodes, NMap) -> 
     maps:from_list([{maps:get(N,NMap,N), replace_conn(Conn,NMap)} 

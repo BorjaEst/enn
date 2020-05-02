@@ -32,6 +32,7 @@ suite() ->
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     ok = application:start(mnesia),
+    ok = application:start(datalog),
     ok = application:start(enn),
     Config.
 
@@ -41,6 +42,7 @@ init_per_suite(Config) ->
 %%--------------------------------------------------------------------
 end_per_suite(_Config) ->
     ok = application:stop(mnesia),
+    ok = application:stop(datalog),
     ok = application:stop(enn),
     ok.
 
@@ -182,7 +184,11 @@ links(Network_id) ->
 
 % Gets the network id link weights ----------------------------------
 weights(Network_id) -> 
-    link:read([L || L <- links(Network_id)]). 
+    Links = links(Network_id),
+    {atomic, Weights} = mnesia:transaction(
+        fun() -> [link:read(L) || L <- Links] end
+    ),
+    Weights.
 
 
 % --------------------------------------------------------------------

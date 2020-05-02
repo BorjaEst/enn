@@ -333,7 +333,7 @@ backward(Input_Pid, Error) ->
 
 % -------------------------------------------------------------------
 handle_start(Network_id, NN_Sup) ->
-    NN      = edb:read(Network_id),
+    [NN]    = mnesia:dirty_read(network, Network_id),
     NN_Pool = nn_pool:mount(NN_Sup, id(Network_id), NN),
     true    = enn_pool:register_nn_pool(Network_id, NN_Pool),
     put( inputs,  % System outputs are the cortex inputs

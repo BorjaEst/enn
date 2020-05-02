@@ -92,7 +92,8 @@ inputs(Model) when is_map(Model) ->
     #{layers := #{-1.0 := #{units := N_Inputs}}} = Model,
     N_Inputs;
 inputs({_, network} = Network_id) ->
-    network:in_degree(edb:read(Network_id)). 
+    [NN] = mnesia:dirty_read(network, Network_id),
+    network:in_degree(NN). 
 
 %%--------------------------------------------------------------------
 %% @doc Returns the number of outputs a network expects.
@@ -104,7 +105,8 @@ outputs(Model) when is_map(Model) ->
     #{layers := #{1.0 := #{units := N_Outputs}}} = Model,
     N_Outputs;
 outputs({_, network} = Network_id) ->
-    network:out_degree(edb:read(Network_id)).
+    [NN] = mnesia:dirty_read(network, Network_id),
+    network:out_degree(NN).
 
 %%--------------------------------------------------------------------
 %% @doc Clones a network. Each element of the newtork is cloned inside
@@ -114,12 +116,10 @@ outputs({_, network} = Network_id) ->
 -spec clone(Network_id :: id()) -> 
     Cloned_id :: id().
 clone({_, network} = Network_id) ->
-    NN    = edb:read(Network_id),
-    NMap  = clone_and_save_neurons(network:neurons(NN)),
-    ok = link:clone(network:links(NN), NMap),
-    Clone = network:clone(NN, NMap),
-    edb:write(Clone),
-    network:id(Clone).
+    {atomic, Id} = mnesia:transaction(
+        fun() -> network:clone(Network_id) end
+    ),
+    Id.
 
 %%--------------------------------------------------------------------
 %% @doc Start a neural network, ready to receive inputs or training.
@@ -150,7 +150,8 @@ stop(Network_id) ->
 -spec info(Network_id :: id()) -> Info when
       Info :: network:info().
 info(Network_id) -> 
-    network:info(edb:read(Network_id)).
+    [NN] = mnesia:dirty_read(network, Network_id),
+    network:info(NN).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the status of the specified network id.
@@ -189,9 +190,9 @@ cortex(Network_id) ->
 %%--------------------------------------------------------------------
 -spec check(Network_id :: id()) -> ok.
 check(Network_id) ->
-    NN  = edb:read(Network_id),
-    [] = network:sink_neurons(NN), 
-    [] = network:bias_neurons(NN),
+    [NN] = mnesia:dirty_read(network, Network_id),
+    []   = network:sink_neurons(NN), 
+    []   = network:bias_neurons(NN),
     ok.
 
 
@@ -199,9 +200,5 @@ check(Network_id) ->
 %%% Internal functions
 %%%===================================================================
 
-% Clones and saves the neurons ---------------------------------------
-clone_and_save_neurons(Neurons) -> 
-    Clones = [neuron:clone(N) || N <- edb:read(Neurons)],
-    edb:write(Clones),
-    maps:from_list(lists:zip(Neurons, [neuron:id(N) || N <- Clones])).
+
 
