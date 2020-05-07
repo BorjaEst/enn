@@ -12,7 +12,6 @@
 -export([start/1, stop/1, predict/2, fit/3, clone/1]).
 -export([compile/1, run/4, inputs/1, outputs/1]).
 -export([status/1, info/1, link/1, cortex/1]).
--export([attributes_table/0, check/1]).
 -export_types([id/0, model/0]).
 
 -type id()    :: network:id().
@@ -22,20 +21,6 @@
 %%====================================================================
 %% API
 %%====================================================================
-
-%%--------------------------------------------------------------------
-%% @doc Returns a list of tuples with the record name and attributes
-%% list. This is mainly used to prepare the tables in mnesia.
-%% @end
-%%--------------------------------------------------------------------
--spec attributes_table() -> 
-    [{Elem :: network | link | neuron, [Attr :: atom()]}].
-attributes_table() ->
-    [
-        {network, network:record_fields()},
-        {   link,    link:record_fields()},
-        { neuron,  neuron:record_fields()}
-    ].
 
 %%--------------------------------------------------------------------
 %% @doc Compiles and stores a model returning its network id.
