@@ -119,7 +119,7 @@ record_fields() -> record_info(fields, network).
 info(#network{} = NN) ->
     Type = NN#network.type,
     Size = no_neurons(NN),
-    #{id=>id(NN), type=>Type, size=>Size}.
+    #{type=>Type, size=>Size}.
 
 %%-------------------------------------------------------------------
 %% @doc Return a network in a map format. 
