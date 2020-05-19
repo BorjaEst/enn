@@ -100,7 +100,7 @@ reinitialise_weights(ENN, N_id, Percentage) ->
 
 %%-------------------------------------------------------------------
 %% @doc Splits a neuron into 2 sharing the inputs and outpus. The 
-%% bias is cloned. 
+%% bias, activation/aggregation functions are cloned. 
 %% Should run inside a network transaction.
 %% @end
 %%-------------------------------------------------------------------
@@ -121,7 +121,7 @@ divide_neuron(ENN, N1_id) ->
 
 %%-------------------------------------------------------------------
 %% @doc Merges all inputs and outputs from neuron 1 into neuron 2, 
-%% the result bias is the average.
+%% the bias, activation/aggregation functions from neuron 2 prevail.
 %% Should run inside a network transaction.
 %% @end
 %%-------------------------------------------------------------------
@@ -131,12 +131,9 @@ divide_neuron(ENN, N1_id) ->
     N2  :: neuron:id().
 merge_neurons(ENN, N1_id, N2_id) -> 
     [N1] = mnesia:read(neuron, N1_id),
-    [N2] = mnesia:read(neuron, N2_id),
-     N3  = neuron:bias(N2, (neuron:bias(N2) + neuron:bias(N1)) / 2.0),
     Map = #{N1_id => N2_id},
     [link:merge(Link, Map) || Link <- network:out_links(ENN, N1_id)],
     [link:merge(Link, Map) || Link <- network:in_links( ENN, N1_id)],
-    ok = mnesia:write(N3),
     ok = mnesia:delete(N1),
     network:del_neuron(ENN, N1_id).
 
