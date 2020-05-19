@@ -119,6 +119,10 @@ id(Neuron) -> Neuron#neuron.id.
 -spec activation(Neuron :: neuron()) -> activation:func().
 activation(Neuron) -> Neuron#neuron.activation.
 
+-spec activation(Neuron :: neuron(), activation:func()) -> neuron().
+activation(Neuron, Func) -> Neuron#neuron{activation = Func}.
+
+
 %%--------------------------------------------------------------------
 %% @doc Returns the neuron aggregation.
 %% @end

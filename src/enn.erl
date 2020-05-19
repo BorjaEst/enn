@@ -10,8 +10,8 @@
 
 %% API
 -export([start/1, stop/1, predict/2, fit/3, clone/1]).
--export([compile/1, run/4, inputs/1, outputs/1]).
--export([status/1, info/1, link/1, cortex/1]).
+-export([compile/1, run/4, inputs/1, outputs/1, neurons/1]).
+-export([status/1, info/1, link/1, cortex/1, check/1]).
 -export_types([id/0, model/0]).
 
 -type id()    :: network:id().
@@ -108,6 +108,15 @@ outputs(Model) when is_map(Model) ->
 outputs({_, network} = Network_id) ->
     [NN] = mnesia:dirty_read(network, Network_id),
     network:out_degree(NN).
+
+%%-------------------------------------------------------------------
+%% @doc Returns a list of all neurons of the network.  
+%% @end
+%%-------------------------------------------------------------------
+-spec neurons(Network_id :: id()) -> [neuron:id()].
+neurons(Network_id) -> 
+    [NN] = mnesia:dirty_read(network, Network_id),
+    network:neurons(NN).
 
 %%--------------------------------------------------------------------
 %% @doc Start a neural network, ready to receive inputs or training.

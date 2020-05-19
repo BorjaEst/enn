@@ -115,7 +115,7 @@ move({From, To}, Map) ->
 %% Should run inside a mnesia transaction.
 %% @end
 %%-------------------------------------------------------------------
--spec merge(Links :: [{From, To}], #{Old => New}) -> ok when 
+-spec merge(Links :: {From, To}, #{Old => New}) -> ok when 
     From :: neuron:id(),
     To   :: neuron:id(),
     Old  :: neuron:id(),
@@ -125,6 +125,24 @@ merge({From, To}, Map) ->
         W when is_float(W) -> 
             add(map({From, To}, Map), W),
             delete({From, To});
+        undefined          -> ok
+    end.
+
+%%-------------------------------------------------------------------
+%% @doc Merges the links using a map.
+%% Should run inside a mnesia transaction.
+%% @end
+%%-------------------------------------------------------------------
+-spec divide(Links :: {From, To}, #{Old => New}) -> ok when 
+    From :: neuron:id(),
+    To   :: neuron:id(),
+    Old  :: neuron:id(),
+    New  :: neuron:id().
+divide({From, To}, Map) -> 
+    case read({From, To}) of 
+        W when is_float(W) -> 
+            add(map({From, To}, Map), W/2.0),
+            write({From, To}, W)/2.0;
         undefined          -> ok
     end.
 
