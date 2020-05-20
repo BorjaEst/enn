@@ -107,6 +107,7 @@ all() ->
     [
         test_add_nodes,
         test_add_links,
+        test_move_links,
         test_connections,
         test_start_node,
         test_end_node,
@@ -160,6 +161,42 @@ test_add_links(_Config) ->
         (catch network:add_link(seq_network([n1,n2]), RccL)),
     [RccL] = network:links(
                network:add_link(rcc_network([n1,n2]), RccL)),
+    ?END(ok).
+
+% -------------------------------------------------------------------
+test_move_links() ->
+    [].
+test_move_links(_Config) -> 
+    ?HEAD("Correct move of links in a network ...................."),
+    Link = {n1,n2},
+    % Sequential tests
+    SeqNet = network:add_link(seq_network([n1,n2,n3]), Link),
+    [{n1,n3}] = network:links(
+        network:move_link(SeqNet, Link, #{n2=>n3})),
+    [{n3,n2}] = network:links(
+        network:move_link(SeqNet, Link, #{n1=>n3})),
+    [{n2,n1}] = network:links( 
+        network:move_link(SeqNet, Link, #{n1=>n2,n2=>n1})), 
+    {'EXIT',{{bad_link,[n1]}, _}} = 
+        (catch network:move_link(SeqNet, Link, #{n2=>n1})), 
+    {'EXIT',{{bad_link,[n2]}, _}} = 
+        (catch network:move_link(SeqNet, Link, #{n1=>n2})), 
+    {'EXIT',{{bad_link,[n3]}, _}} = 
+        (catch network:move_link(SeqNet, Link, #{n1=>n3,n2=>n3})), 
+    % Recurrent tests
+    RccNet = network:add_link(rcc_network([n1,n2,n3]), Link),
+    [{n1,n3}] = network:links(
+        network:move_link(RccNet, Link, #{n2=>n3})),
+    [{n3,n2}] = network:links(
+        network:move_link(RccNet, Link, #{n1=>n3})),
+    [{n1,n1}] = network:links(
+        network:move_link(RccNet, Link, #{n2=>n1})),
+    [{n2,n2}] = network:links(
+        network:move_link(RccNet, Link, #{n1=>n2})),
+    [{n2,n1}] = network:links(
+        network:move_link(RccNet, Link, #{n1=>n2,n2=>n1})),
+    [{n3,n3}] = network:links(
+        network:move_link(RccNet, Link, #{n1=>n3,n2=>n3})), 
     ?END(ok).
 
 % -------------------------------------------------------------------

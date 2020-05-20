@@ -16,6 +16,7 @@
 -export([in_degree/2, in_nodes/2, out_degree/2, out_nodes/2]).
 
 -export([add_link/2, add_links/2, del_link/2, del_links/2]).
+-export([move_link/3, move_links/3]).
 -export([in_links/1, out_links/1, links/1, no_links/1]).
 -export([in_links/2, out_links/2, links/2, no_links/2]).
 
@@ -79,16 +80,19 @@ id(NN) -> NN#network.id.
 %% Should run inside a mnesia transaction.
 %% @end
 %%-------------------------------------------------------------------
--spec clone(Id :: id()) -> id().
-clone(Id) ->
-    [NN]   = mnesia:read(network, Id),
-    NClones = [neuron:clone(N) || N <- neurons(NN)],
-    NMap    = maps:from_list(lists:zip(neurons(NN), NClones)),
-    [link:clone({From,To}, NMap) || {From,To} <- network:links(NN)],
+-spec clone(Network :: network()) -> network().
+clone(NN) ->
+    NMap  = clone_neurons(neurons(NN), #{}),
     Nodes = replace(NN#network.nodes, NMap),
-    Clone = NN#network{id=?NEW_ID, nodes=Nodes},
-    ok = mnesia:write(Clone),
-    id(Clone).
+    [link:clone({From,To}, NMap) || {From,To} <- network:links(NN)],
+    NN#network{id=?NEW_ID, nodes=Nodes}.
+
+clone_neurons([N1_id | Ns], NMap) -> 
+    [N1] = mnesia:read(neuron, N1_id),
+     N2  = neuron:clone(N1),
+     ok  = mnesia:write(N2),
+    clone_neurons(Ns, NMap#{N1_id => neuron:id(N2)});
+clone_neurons([], NMap) -> NMap. 
 
 replace(Nodes, NMap) -> 
     maps:from_list([{maps:get(N,NMap,N), replace_conn(Conn,NMap)} 
@@ -383,6 +387,34 @@ del_links(NN, [L|Lx]) -> del_links(del_link(NN, L), Lx);
 del_links(NN,     []) -> NN.
 
 %%-------------------------------------------------------------------
+%% @doc Deletes the link between N1 and N2. 
+%% @end
+%%-------------------------------------------------------------------
+-spec move_link(NN0, Link, NMap) -> NN1 when
+      NN0   :: network(),
+      Link  :: link:link(),
+      NMap  :: #{d_node() => d_node()},
+      NN1   :: network().
+move_link(NN, {N1, N2}, NMap) -> 
+    N3 = maps:get(N1, NMap, N1),
+    N4 = maps:get(N2, NMap, N2),
+    add_link(del_link(NN, {N1,N2}), {N3, N4}).
+
+%%-------------------------------------------------------------------
+%% @doc Deletes the links using lists of neurons. 
+%% @end
+%%-------------------------------------------------------------------
+-spec move_links(NN0, Links, NMap) -> NN1 when
+      NN0   :: network(),
+      Links :: [link:link()],
+      NMap  :: #{d_node() => d_node()},
+      NN1   :: network().
+move_links(NN, [L|Lx],  NMap) -> 
+    move_links(move_link(NN, L, NMap), Lx, NMap);
+move_links(NN,     [], _NMap) -> 
+    NN.
+
+%%-------------------------------------------------------------------
 %% @doc Returns all links emanating from the start of the network. 
 %% @end
 %%-------------------------------------------------------------------
@@ -512,7 +544,7 @@ add_out(#cn{out=Out} = ConnN1, N2, What) ->
 add_in(#cn{in=In} = ConnN2, N1, What) -> 
     ConnN2#cn{in = In#{N1 => What}}.
 
-% Removes all link from the nodes -----------------------------------
+% Removes a link from the nodes -------------------------------------
 remove_link(#network{nodes=Nodes} = NN,  N,  N) ->
     #{N:= Conn} = Nodes,
     NN#network{nodes = Nodes#{
