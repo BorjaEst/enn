@@ -42,9 +42,14 @@ compile(Model) ->
 -spec clone(Network_id :: id()) -> 
     Cloned_id :: id().
 clone({_, network} = Network_id) ->
-    {atomic, Id} = mnesia:transaction(
-        fun() -> network:clone(Network_id) end
-    ),
+    CloneFun = 
+        fun() -> 
+            [NN]  = mnesia:read(network, Network_id),
+            Clone = network:clone(NN),
+            ok    = mnesia:write(Clone),
+            network:id(Clone)
+        end,
+    {atomic, Id} = mnesia:transaction(CloneFun),
     Id.
 
 %%--------------------------------------------------------------------

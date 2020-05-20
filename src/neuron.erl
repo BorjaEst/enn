@@ -91,19 +91,10 @@ new(Properties) ->
 
 %%--------------------------------------------------------------------
 %% @doc Clones a neuron from its id.
-%% Should run inside a mnesia transaction.
 %% @end
 %%--------------------------------------------------------------------
--spec clone(Id :: id()) -> id().
-clone(Id) -> 
-    case mnesia:read(neuron, Id) of 
-        [N] -> 
-            Clone = N#neuron{id = ?NEW_ID},
-            ok = mnesia:write(Clone),
-            id(Clone);
-        []  -> 
-            error(not_found)
-    end.
+-spec clone(Neuron :: neuron()) -> neuron().
+clone(Neuron) -> Neuron#neuron{id = ?NEW_ID}.
 
 %%--------------------------------------------------------------------
 %% @doc Returns the neuron id.
@@ -121,7 +112,6 @@ activation(Neuron) -> Neuron#neuron.activation.
 
 -spec activation(Neuron :: neuron(), activation:func()) -> neuron().
 activation(Neuron, Func) -> Neuron#neuron{activation = Func}.
-
 
 %%--------------------------------------------------------------------
 %% @doc Returns the neuron aggregation.
