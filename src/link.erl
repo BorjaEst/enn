@@ -78,7 +78,7 @@ add({From, To}, V) ->
     From :: neuron:id(),
     To   :: neuron:id().
 delete({From, To}) ->
-    ok = mnesia:delete(link, id(From,To)).
+    ok = mnesia:delete(link, id(From,To), write).
 
 %%-------------------------------------------------------------------
 %% @doc Clones a link replacing the From and To ids using a map.
