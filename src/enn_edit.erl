@@ -108,16 +108,17 @@ reinitialise_weights(ENN, N_id, Percentage) ->
     ENN :: network:network(),
     N   :: neuron:id().
 divide_neuron(ENN, N1_id) -> 
-    [ N1] = mnesia:read(neuron, N1_id),
-      N2  = neuron:clone(N1),    
-    N2_id = neuron:id(N2),
-    Map = #{N1_id => N2_id},
-    ok = mnesia:write(N2),
+    [N1] = mnesia:read(neuron, N1_id),
+     N2  = neuron:clone(N1),
+     ok  = mnesia:write(N2),
+    Map = #{N1_id => neuron:id(N2)},
     OutMove = ltools:rand(network:out_links(ENN, N1_id), 0.5),
-    [link:move(Link, Map) || Link <- OutMove],
+    [ok = link:move(Link, Map) || Link <- OutMove],
     InMove  = ltools:rand(network:in_links( ENN, N1_id), 0.5),
-    [link:move(Link, Map) || Link <- InMove ],
-    network:add_neuron(ENN, N2_id).
+    [ok = link:move(Link, Map) || Link <- InMove ],
+    network:move_links(
+        network:add_neuron(ENN, neuron:id(N2)),
+        lists:append(InMove, OutMove), Map).
 
 %%-------------------------------------------------------------------
 %% @doc Merges all inputs and outputs from neuron 1 into neuron 2, 
@@ -130,12 +131,13 @@ divide_neuron(ENN, N1_id) ->
     N1  :: neuron:id(),
     N2  :: neuron:id().
 merge_neurons(ENN, N1_id, N2_id) -> 
-    [N1] = mnesia:read(neuron, N1_id),
     Map = #{N1_id => N2_id},
     [link:merge(Link, Map) || Link <- network:out_links(ENN, N1_id)],
     [link:merge(Link, Map) || Link <- network:in_links( ENN, N1_id)],
-    ok = mnesia:delete(N1),
-    network:del_neuron(ENN, N1_id).
+    ok = mnesia:delete(neuron, N1_id, write),
+    network:del_neuron( 
+        network:move_links(ENN, network:links(ENN, N1_id), Map),
+        N1_id).
 
 
 %%%===================================================================
@@ -148,8 +150,31 @@ merge_neurons(ENN, N1_id, N2_id) ->
 %% Should run inside a network transaction.
 %% @end
 %%-------------------------------------------------------------------
+-spec connect_all(ENN, From, To) -> ok when 
+    ENN  :: network:network(),
+    From :: [neuron:id()],
+    To   :: [neuron:id()].
 connect_all(ENN, From, To) -> 
     network:add_links(ENN, [{N1,N2} || N1 <- From, N2 <- To]).
+
+%%-------------------------------------------------------------------
+%% @doc Creates only the allowed links from neurons in From to To.
+%% Should run inside a network transaction.
+%% @end
+%%-------------------------------------------------------------------
+-spec connect_allowed(ENN, From, To) -> ok when 
+    ENN  :: network:network(),
+    From :: [neuron:id()],
+    To   :: [neuron:id()].
+connect_allowed(ENN, From, To) -> 
+    connect_allowed(ENN, [{N1,N2} || N1 <- From, N2 <- To]).
+
+connect_allowed(ENN_0, [L|Lx]) -> 
+    try network:add_link(ENN_0, L) of 
+          ENN_1               -> connect_allowed(ENN_1, Lx)
+    catch error:{bad_link, _} -> connect_allowed(ENN_0, Lx)
+    end;
+connect_allowed(ENN, []) -> ENN.
 
 %%-------------------------------------------------------------------
 %% @doc Deletes links from all neurons in From to all neurons in To.
@@ -157,6 +182,10 @@ connect_all(ENN, From, To) ->
 %% Should run inside a network transaction.
 %% @end
 %%-------------------------------------------------------------------
+-spec disconnect_all(ENN, From, To) -> ok when 
+    ENN  :: network:network(),
+    From :: [neuron:id()],
+    To   :: [neuron:id()].
 disconnect_all(ENN, From, To) -> 
     network:del_links(ENN, [{N1,N2} || N1 <- From, N2 <- To]).
 
@@ -175,8 +204,7 @@ increase_connections(ENN) ->
     Size_factor   = math:sqrt(Size),
     From = ltools:rand(network:neurons(ENN), 1/Size_factor),
     To   = ltools:rand(network:neurons(ENN), 1/Size_factor),
-    connect_all(ENN, From, To).
-    
+    connect_allowed(ENN, From, To).
 
 %%-------------------------------------------------------------------
 %% @doc Decreasses the connections sqrt/proportionally to the size.
