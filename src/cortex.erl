@@ -338,10 +338,10 @@ handle_start(Network_id, NN_Sup) ->
     true    = enn_pool:register_nn_pool(Network_id, NN_Pool),
     put( inputs,  % System outputs are the cortex inputs
         [{nn_pool:pid(NN_Pool,Id),#input{ }} 
-            || Id <- network:out_nodes(NN)]), 
+            || Id <- nnet:out_nodes(NN)]), 
     put(outputs,  % System inputs are the cortex outputs
         [{nn_pool:pid(NN_Pool,Id),#output{}}
-            || Id <-  network:in_nodes(NN)]),
+            || Id <-  nnet:in_nodes(NN)]),
     discard_rcc_signals().
 
 discard_rcc_signals() -> 

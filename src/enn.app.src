@@ -13,9 +13,7 @@
          initializer,
          layer,
          model,
-         network,
          neuron,
-         nn_node,
          nn_pool,
          nn_sup,
          training

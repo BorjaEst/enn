@@ -13,18 +13,11 @@
 -export([dense/2, input/2, output/2, compile/2]).
 -export_type([definition/0, compiled/0]).
 
--type definition() :: #{
-    units       := integer(),
-    activation  := activation:func(),
-    aggregation := aggregation:func(),
-    initializer := initializer:func()
-}.
--type properties() :: #{
-    activation  => activation:func(),
-    aggregation => aggregation:func(),
-    initializer => initializer:func()
-}.
--type compiled() :: [Neuron_id :: neuron:id()].
+-type definition() :: #{units       := integer(),
+                        activation  := activation:func(),
+                        aggregation := aggregation:func(),
+                        initializer := initializer:func()}.
+-type compiled() :: [Neuron::enn:neuron()].
 
 
 %%%===================================================================
@@ -43,7 +36,9 @@ dense(Units) ->
 
 -spec dense(Units, Properties) -> DenseLayer when 
     Units      :: integer(),
-    Properties :: properties(),
+    Properties :: #{activation  => activation:func(),
+                    aggregation => aggregation:func(),
+                    initializer => initializer:func()},
     DenseLayer :: definition().
 dense(Units, Prop) ->
     #{
@@ -65,14 +60,14 @@ input(Units) ->
 
 -spec input(Units, Properties) -> InputsLayer when 
     Units       :: integer(),
-    Properties  :: properties(),
+    Properties :: #{activation  => activation:func()},
     InputsLayer :: definition().
 input(Units, Prop) ->
     #{
         units       => Units,
-        activation  => maps:get(activation,  Prop, direct),
-        aggregation => maps:get(aggregation, Prop, direct),
-        initializer => maps:get(initializer, Prop, ones  )
+        activation  => maps:get(activation, Prop, direct),
+        aggregation => direct,
+        initializer => ones
     }.
 
 %%--------------------------------------------------------------------
@@ -87,7 +82,9 @@ output(Units) ->
 
 -spec output(Units, Properties) -> OutputsLayer when 
     Units        :: integer(),
-    Properties   :: properties(),
+    Properties :: #{activation  => activation:func(),
+                    aggregation => aggregation:func(),
+                    initializer => initializer:func()},
     OutputsLayer :: definition().
 output(Units, Prop) ->
     #{
@@ -103,15 +100,13 @@ output(Units, Prop) ->
 %% Should run inside a mnesia transaction.
 %% @end
 %%--------------------------------------------------------------------
--spec compile(Coordinade, Definition) -> CompiledLayer when 
-    Coordinade    :: float(),
+-spec compile(Key, Definition) -> CompiledLayer when 
+    Key           :: term(),
     Definition    :: definition(), 
     CompiledLayer :: compiled().
-compile(_Coordinade, Definition) ->
-    Units   = maps:get(units, Definition),
-    Neurons = [neuron:new(Definition) || _ <- lists:seq(1, Units)],
-    [ok = mnesia:write(N) || N <- Neurons],
-    [neuron:id(N) || N <- Neurons].
+compile(_Key, Definition) ->
+    Units = maps:get(units, Definition),
+    [nnode:new(Definition) || _ <- lists:seq(1, Units)].
 
 
 %%====================================================================

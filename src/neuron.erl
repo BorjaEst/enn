@@ -24,24 +24,9 @@
 
 %% API
 %%-export([]).
--export_type([id/0, neuron/0, properties/0]).
+-export_type([id/0]).
 
--type id() :: {{Coordinate :: float(), reference()}, neuron}.
--define(NEW_ID, {make_ref(), neuron}).
--record(neuron, {
-    id = ?NEW_ID :: id(),
-    activation   :: activation:func(),
-    aggregation  :: aggregation:func(),
-    initializer  :: initializer:func(),
-    bias         :: link:weight()
-}).  
--type neuron()     :: #neuron{}.
--type properties() :: #{activation  := activation:func(),
-                        aggregation := aggregation:func(),
-                        initializer := initializer:func(),
-                        bias        := link:weight()
-}.
-
+-type id() :: nn_node:neuron().
 -record(input,  {
     w = 0.0 :: link:weight(), % Input weight 
     x = 0.0 :: float()        % Signal value (Xi)
@@ -61,6 +46,7 @@
     forward_wait   :: [id()],
     backward_wait  :: [id()]
 }).
+-define(DATA, element(#state.data, State)).
 
 % Learning parameters (to be moved to a module optimizer in a future)
 -define(LEARNING_FACTOR, 0.01).  
@@ -73,77 +59,6 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
-
-%%--------------------------------------------------------------------
-%% @doc Creates a new neuron. Some properties can be defined.
-%% @end
-%%--------------------------------------------------------------------
--spec new() -> neuron().
-new() -> new(#{}).
-
--spec new(Properties :: properties()) -> neuron().
-new(Properties) ->  
-    #neuron{
-        activation  = maps:get( activation, Properties,   direct),
-        aggregation = maps:get(aggregation, Properties, dot_prod),
-        initializer = maps:get(initializer, Properties,   glorot)
-    }.
-
-%%--------------------------------------------------------------------
-%% @doc Clones a neuron from its id.
-%% @end
-%%--------------------------------------------------------------------
--spec clone(Neuron :: neuron()) -> neuron().
-clone(Neuron) -> Neuron#neuron{id = ?NEW_ID}.
-
-%%--------------------------------------------------------------------
-%% @doc Returns the neuron id.
-%% @end
-%%-------------------------------------------------------------------
--spec id(Neuron :: neuron()) -> id().
-id(Neuron) -> Neuron#neuron.id.
-
-%%--------------------------------------------------------------------
-%% @doc Returns the neuron activation.
-%% @end
-%%-------------------------------------------------------------------
--spec activation(Neuron :: neuron()) -> activation:func().
-activation(Neuron) -> Neuron#neuron.activation.
-
--spec activation(Neuron :: neuron(), activation:func()) -> neuron().
-activation(Neuron, Func) -> Neuron#neuron{activation = Func}.
-
-%%--------------------------------------------------------------------
-%% @doc Returns the neuron aggregation.
-%% @end
-%%-------------------------------------------------------------------
--spec aggregation(Neuron :: neuron()) -> aggregation:func().
-aggregation(Neuron) -> Neuron#neuron.aggregation.
-
-%%--------------------------------------------------------------------
-%% @doc Returns the neuron initializer.
-%% @end
-%%-------------------------------------------------------------------
--spec initializer(Neuron :: neuron()) -> initializer:func().
-initializer(Neuron) -> Neuron#neuron.initializer.
-
-%%--------------------------------------------------------------------
-%% @doc Returns the neuron bias. If a second parameter is included, it
-%% will return a neuron witht the modified bias value.
-%% @end
-%%-------------------------------------------------------------------
--spec bias(Neuron :: neuron()) -> link:weight().
-bias(Neuron) -> Neuron#neuron.bias.
-
--spec bias(Neuron :: neuron(), Bias :: float()) -> neuron().
-bias(Neuron, Bias) -> Neuron#neuron{bias = Bias}.
-
-%%-------------------------------------------------------------------
-%% @doc Record fields from neuron.  
-%% @end
-%%-------------------------------------------------------------------
--spec record_fields() -> ListOfFields :: [atom()].
-record_fields() -> record_info(fields, neuron).
 
 %%--------------------------------------------------------------------
 %% @doc Neuron id start function for supervisor. 
@@ -161,13 +76,19 @@ start_link(Id) ->
 %% TODO: Improve info passing by having all on the NN_Pool ets.
 %% @end
 %%--------------------------------------------------------------------
--spec go(Pid, Connections, NN_Pool) -> NonRelevant :: term() when 
-    Pid :: pid(),
-    Connections :: network:connections(),
-    NN_Pool :: nn_pool:pool().
+-spec go(Pid, Connections, NN_Pool) -> NonRelevant when 
+    Pid         :: pid(),
+    Connections :: #{in:=#{id():=seq|rcc}, out:=#{id():=seq|rcc}},
+    NN_Pool     :: nn_pool:pool(),
+    NonRelevant :: term().
 go(Pid, Connections, NN_Pool) ->
     Pid ! {continue_init, Connections, NN_Pool}.
 
+cortex_synch() -> 
+    receive 
+        {continue_init, #{in:=InConn, out:=OutConn}, NN_Pool} -> 
+            {InConn, OutConn, NN_Pool}
+    end.
 
 %%%===================================================================
 %%% Initialization functions
@@ -179,7 +100,7 @@ go(Pid, Connections, NN_Pool) ->
 %%--------------------------------------------------------------------
 init(Id, Supervisor) ->
     proc_lib:init_ack(Supervisor, {ok, self()}), % Supervisor synch
-    {InConn, OutConn, NNPool} = wait_for_go(),   % Cortex synch
+    {InConn, OutConn, NNPool} = cortex_synch(),
     process_flag(trap_exit, true), % Catch supervisor exits
     % Load specific keys in dictionary
     put(nn_pool, NNPool),
@@ -206,11 +127,7 @@ init(Id, Supervisor) ->
         backward_wait = maps:keys(get(outputs))
     }).
 
-wait_for_go() -> 
-    receive 
-        {continue_init, #{in:=InConn, out:=OutConn}, NN_Pool} -> 
-            {InConn, OutConn, NN_Pool}
-    end.
+
 
 
 %%%===================================================================
