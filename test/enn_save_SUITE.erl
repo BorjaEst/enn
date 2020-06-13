@@ -155,15 +155,15 @@ training_saved_after_stop(Config) ->
     ?HEAD("Correct neural network saving after stop .............."),
     Id = ?config(network, Config),
     Id = enn:start(Id),
-    {atomic, Ns1} = mnesia:transaction(fun() -> neurons(Id) end),
+    {atomic, Bs1} = mnesia:transaction(fun() -> biases(Id) end),
     {atomic, Ws1} = mnesia:transaction(fun() -> weights(Id) end),
     {In,Opt} = test_data_generators:random_sum_of_inputs(
                                   enn:inputs(Id),enn:outputs(Id),10),
     _  = enn:fit(Id, In, Opt),
     ok = enn:stop(Id),
-    {atomic, Ns2} = mnesia:transaction(fun() -> neurons(Id) end),
+    {atomic, Bs2} = mnesia:transaction(fun() -> biases(Id) end),
     {atomic, Ws2} = mnesia:transaction(fun() -> weights(Id) end),
-    true = Ns1 /= Ns2,
+    true = Bs1 /= Bs2,
     true = Ws1 /= Ws2,
     ?END(ok).
 
@@ -173,13 +173,13 @@ correct_network_clonation() ->
 correct_network_clonation(Config) -> 
     ?HEAD("Network can be cloned ................................."),
     Id1 = ?config(network, Config),
-    Id2 = enn:clone(Id1),
+    {atomic, Id2} = enn:clone(Id1),
     {atomic, true} = mnesia:transaction(
         fun() -> 
-            true = neurons(Id1) /= neurons(Id2),
-            true =  biases(Id1) ==  biases(Id2),
-            true =   links(Id1) /=   links(Id2),
-            true = weights(Id1) == weights(Id2)
+            true =            neurons(Id1) /=            neurons(Id2),
+            true = lists:sort(biases(Id1)) == lists:sort(biases(Id2)),
+            true =              links(Id1) /=              links(Id2),
+            true =            weights(Id1) ==            weights(Id2)
         end
     ), ?END(ok).
 
@@ -189,28 +189,27 @@ correct_network_clonation(Config) ->
 
 % Gets the network id neurons ---------------------------------------
 neurons(Network) -> 
-    [NN] = mnesia:read(network, Network),
-    Neurons = [hd(mnesia:read(neuron, Id)) || Id <- network:neurons(NN)],
+    Neurons = enn:neurons(Network),
     ?INFO("Neurons: ", {Network, Neurons}),
     Neurons. 
 
 % Gets the network id neuron bias -----------------------------------
 biases(Network) -> 
-    Biases = [neuron:bias(N) || N <- neurons(Network)],
+    Biases = [map_get(bias,nnet:rnode(N)) || N <- neurons(Network)],
     ?INFO("Biases: ", {Network, Biases}),
     Biases.
 
 % Gets the network id links -----------------------------------------
 links(Network) -> 
-    [NN]  = mnesia:read(network, Network),
-    Links = network:links(NN),
+    Neurons = neurons(Network),
+    Links = lists:usort(lists:append([nnet:lx(N) || N <- Neurons])),
     ?INFO("Links: ", {Network, Links}),
     Links.
 
 % Gets the network id link weights ----------------------------------
 weights(Network) -> 
     Links = links(Network),
-    Weights = [link:read(L) || L <- Links],
+    Weights = [nnet:rlink(L) || L <- Links], 
     ?INFO("Weights: ", {Network, Weights}),
     Weights.
 
