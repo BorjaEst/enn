@@ -27,9 +27,7 @@
 %% @doc Compiles and stores a model returning its network id.
 %% @end
 %%--------------------------------------------------------------------
--spec compile(Model) -> Network when 
-    Model   :: model(),
-    Network :: network().
+-spec compile(Model::model()) -> {atomic, Network::network()}.
 compile(Model) ->
     nnet:from_model(Model).
 
@@ -38,8 +36,7 @@ compile(Model) ->
 %% the mnesia database but with a different id.
 %% @end
 %%--------------------------------------------------------------------
--spec clone(Network :: network()) -> 
-    Cloned :: network().
+-spec clone(Network::network()) -> {atomic, Cloned::network()}.
 clone(Network) ->
     nnet:clone(Network).
 
@@ -48,8 +45,10 @@ clone(Network) ->
 %% the cortex pid.
 %% @end
 %%--------------------------------------------------------------------
--spec predict(Network :: network(), InputsList :: [[float()]]) ->
-    [Prediction :: [float()]].
+-spec predict(Network, Inputs) -> Predictions when
+    Network     :: network(), 
+    Inputs      :: [[float()]],
+    Predictions :: [[float()]].
 predict(Network, InputsList) ->
     Options = [{return, [prediction]}],
     [Prediction] = run(Network, InputsList, [], Options),
@@ -60,9 +59,11 @@ predict(Network, InputsList) ->
 %% OptimalOutputs. Returns the errors between prediction and optima.
 %% @end
 %%--------------------------------------------------------------------
--spec fit(Network :: network(), InputsList :: [float()], 
-          OptimaList :: [float()]) ->
-    Errors :: [float()].
+-spec fit(Network, Inputs, Optima) -> Errors when
+    Network :: network(), 
+    Inputs  :: [[float()]],
+    Optima  :: [[float()]],
+    Errors  :: [[float()]].
 fit(Network, InputsList, OptimaList) ->
     Options = [{return, [loss]}, {print, 10}],
     [Loss] = run(Network, InputsList, OptimaList, Options),
@@ -72,9 +73,12 @@ fit(Network, InputsList, OptimaList) ->
 %% @doc Runs an ANN with the criteria defined at the options.
 %% @end
 %%--------------------------------------------------------------------
--spec run(Network :: network(), InputsList :: [float()], 
-          OptimaList :: [float()], Options :: [training:option()]) ->
-    Errors :: [float()].
+-spec run(Network, Inputs, Optima, Options) -> Results when
+    Network :: network(), 
+    Inputs  :: [[float()]],
+    Optima  :: [[float()]],
+    Options :: [training:option()],
+    Results :: [term()].
 run(Network, InputsList, OptimaList, Options) ->
     Cortex_Pid = cortex(Network),
     training:start_link(Cortex_Pid, InputsList, OptimaList, Options).
@@ -83,8 +87,8 @@ run(Network, InputsList, OptimaList, Options) ->
 %% @doc Returns the number of inputs a network expects.
 %% @end
 %%--------------------------------------------------------------------
--spec inputs(Network :: model() | network()) ->
-    NumberOfInputs :: integer().
+-spec inputs(Model::model() | Network::network()) -> 
+    NumberOfInputs::integer().
 inputs(Model) when is_map(Model) ->
     #{layers := #{-1.0 := #{units := N_Inputs}}} = Model,
     N_Inputs;
@@ -95,8 +99,8 @@ inputs(Network) ->
 %% @doc Returns the number of outputs a network expects.
 %% @end
 %%--------------------------------------------------------------------
--spec outputs(Network :: model() | network()) ->
-    NumberOfOtputs :: integer().
+-spec outputs(Model::model() | Network::network()) ->  
+    NumberOfOtputs::integer().
 outputs(Model) when is_map(Model) ->
     #{layers := #{1.0 := #{units := N_Outputs}}} = Model,
     N_Outputs;
@@ -107,7 +111,7 @@ outputs(Network) ->
 %% @doc Returns a list of all neurons of the network.  
 %% @end
 %%-------------------------------------------------------------------
--spec neurons(Network :: network()) -> [neuron()].
+-spec neurons(Network::network()) -> Neurons::[neuron()].
 neurons(Network) -> 
     nnet:neurons(Network).
 
@@ -115,8 +119,8 @@ neurons(Network) ->
 %% @doc Start a neural network, ready to receive inputs or training.
 %% @end
 %%--------------------------------------------------------------------
--spec start(Network :: model() | network()) ->
-    Network :: network().
+-spec start(Model::model() | Network::network()) -> 
+    Network::network().
 start(Model) when is_map(Model) ->
     start(compile(Model));
 start(Network) ->
@@ -127,9 +131,9 @@ start(Network) ->
 %% @doc Stops a neural network.
 %% @end
 %%--------------------------------------------------------------------
--spec stop(Network :: network()) -> Result when
+-spec stop(Network::network()) -> Result when
       Result :: 'ok' | {'error', Error},
-      Error :: 'not_found' | 'simple_one_for_one'.
+      Error :: 'not_found'.
 stop(Network) ->
     enn_sup:terminate_nn(Network).
 
@@ -137,8 +141,7 @@ stop(Network) ->
 %% @doc Returns the network information of the specified network id.
 %% @end
 %%--------------------------------------------------------------------
--spec info(Network :: network()) -> Info when
-      Info :: nnet:info().
+-spec info(Network::network()) -> Info::nnet:info().
 info(Network) -> 
     nnet:info(Network).
 
@@ -146,7 +149,7 @@ info(Network) ->
 %% @doc Returns the status of the specified network id.
 %% @end
 %%--------------------------------------------------------------------
--spec status(Network :: network()) -> Status when
+-spec status(Network::network()) -> Status when
       Status :: enn_pool:info() | not_running.
 status(Network) -> 
     try enn_pool:info(Network) of 
@@ -159,7 +162,7 @@ status(Network) ->
 %% dies because of an exception, the newtwork die shutdown as well.
 %% @end
 %%--------------------------------------------------------------------
--spec link(Network :: network()) -> true.
+-spec link(Network::network()) -> true.
 link(Network) -> 
     #{supervisor:=Pid} = enn_pool:info(Network),
     erlang:link(Pid).
@@ -168,7 +171,7 @@ link(Network) ->
 %% @doc Returns the pid of the cortex.
 %% @end
 %%--------------------------------------------------------------------
--spec cortex(Network :: network()) -> pid().
+-spec cortex(Network::network()) -> pid().
 cortex(Network) -> 
     #{cortex:=Pid} = enn_pool:info(Network),
     Pid.
@@ -177,6 +180,4 @@ cortex(Network) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-
-
 
