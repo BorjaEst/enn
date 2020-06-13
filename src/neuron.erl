@@ -107,9 +107,6 @@ init(Id, Supervisor) ->
     % Load neuron related dictionary
     [Neuron] = mnesia:dirty_read(neuron, Id),
     put(         id,          Neuron#neuron.id),
-    put(       bias,        Neuron#neuron.bias),
-    put( activation,  Neuron#neuron.activation),    
-    put(aggregation, Neuron#neuron.aggregation),    
     put(initializer, Neuron#neuron.initializer), 
     % Load inputs and outputs in dictionary
     put(outputs, #{}),
@@ -255,25 +252,25 @@ backward(Pid, Input, Beta) ->
 %%--------------------------------------------------------------------
 calculate_tensor(Inputs) ->
     Tensors = [{Pid,?W(I),?X(I)} || {Pid,I} <- maps:to_list(Inputs)],
-    put(prev_signals, Tensors), % Save for weights calculation
+    put(prev_tensor, Tensors), % Save for weights calculation
     Tensors.
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the value of soma.
 %% @end
 %%--------------------------------------------------------------------
-calculate_soma(Tensors) -> 
+calculate_soma(Aggregation, Tensors, Bias) -> 
     WiXi = [{Wi,Xi} || {_,Wi,Xi} <- Tensors],
-    Soma = aggregation:func(get(aggregation), WiXi, get(bias)),
-    put(soma, Soma),  % Save for the beta calculation
+    Soma = aggregation:func(Aggregation, WiXi, Bias),
+    put(prev_soma, Soma),  % Save for the beta calculation
     Soma.
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the value of soma.
 %% @end
 %%--------------------------------------------------------------------
-calculate_signal(Soma) -> 
-    activation:func(get(activation), Soma).
+calculate_signal(Activation, Soma) -> 
+    activation:func(Activation, Soma).
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the error from propagation.
@@ -286,22 +283,20 @@ calculate_error(Outputs) ->
 %% @doc Calculates the value of beta for back propagation).
 %% @end
 %%--------------------------------------------------------------------
-calculate_beta(Error) -> 
-    activation:beta(get(activation), Error, get(soma)).
+calculate_beta(Activation, Error) -> 
+    activation:beta(Activation, Error, get(prev_soma)).
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the new weights from back propagation of the error.
 %% @end
 %%--------------------------------------------------------------------
-calculate_weights(Beta) -> 
-    Inputs = calculate_weights(get(prev_signals), get(inputs), Beta),
-    put(inputs, Inputs).
+adapt_weights(Inputs, Beta) -> 
+    AdaptW = fun(X,Ix) -> adapt_weights(X, Ix, Beta) end,
+    lists:foldl(AdaptW, Inputs, get(prev_tensor)).
 
-calculate_weights([{Pid,_,Xi}|Tx], Inputs, B) -> 
+adapt_weights({Pid,_,Xi}, Inputs, Beta) -> 
     I = maps:get(Pid, Inputs),
-    calculate_weights(Tx, Inputs#{Pid:=updt_input(I,Xi,B)}, B);
-calculate_weights([], Inputs, _) -> 
-    Inputs.
+    Inputs#{Pid:=updt_input(I,Xi,Beta)}.
 
 updt_input(I, Xi, Beta) -> 
     I#input{w=updt_weight(?W(I),Xi,Beta)}.
@@ -310,8 +305,8 @@ updt_input(I, Xi, Beta) ->
 %% @doc Calculates the new bias from back propagation of the error.
 %% @end
 %%--------------------------------------------------------------------
-calculate_bias(Beta) -> 
-    put(bias, updt_weight(get(bias), 1.0, Beta)).
+adapt_bias(Bias, Beta) -> 
+    updt_weight(Bias, 1.0, Beta).
 
 %%%===================================================================
 %%% Internal functions
