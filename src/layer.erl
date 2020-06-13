@@ -29,7 +29,7 @@
 -define(DEFAULT_PROPERTIES, #{activation  => direct,
                               aggregation => dot_prod,
                               initializer => glorot,
-                              bias        => undefined}).
+                              bias        => not_init}).
 create_type(Properties) -> 
     fun(Units, Connections) -> 
         #{connections => Connections,
@@ -79,7 +79,7 @@ output(Units, Connections) ->
 -define(DENSE_PROPERTIES,   #{activation  => direct,
                               aggregation => dot_prod,
                               initializer => glorot,
-                              bias        => undefined}).
+                              bias        => not_init}).
 dense(Units, Connections) ->
         #{connections => Connections,
           units       => Units,
@@ -95,7 +95,7 @@ dense(Units, Connections) ->
 -define(ELU_PROPERTIES,     #{activation  => elu,
                               aggregation => dot_prod,
                               initializer => glorot,
-                              bias        => undefined}).
+                              bias        => not_init}).
 elu(Units, Connections) ->
         #{connections => Connections,
           units       => Units,
@@ -111,7 +111,7 @@ elu(Units, Connections) ->
 -define(TANH_PROPERTIES,     #{activation  => tanh,
                                aggregation => dot_prod,
                                initializer => glorot,
-                               bias        => undefined}).
+                               bias        => not_init}).
 tanh(Units, Connections) ->
         #{connections => Connections,
           units       => Units,
