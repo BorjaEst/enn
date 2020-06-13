@@ -90,22 +90,24 @@ run(Network, InputsList, OptimaList, Options) ->
 -spec inputs(Model::model() | Network::network()) -> 
     NumberOfInputs::integer().
 inputs(Model) when is_map(Model) ->
-    #{layers := #{-1.0 := #{units := N_Inputs}}} = Model,
+    #{inputs := #{units := N_Inputs}} = Model,
     N_Inputs;
 inputs(Network) ->
-    nnet:in_degree(Network). 
+    #{inputs:=Inputs} = nnet:info(Network),
+    length(Inputs). 
 
 %%--------------------------------------------------------------------
 %% @doc Returns the number of outputs a network expects.
 %% @end
 %%--------------------------------------------------------------------
--spec outputs(Model::model() | Network::network()) ->  
+-spec outputs(Model::model() | Network::network()) -> 
     NumberOfOtputs::integer().
 outputs(Model) when is_map(Model) ->
-    #{layers := #{1.0 := #{units := N_Outputs}}} = Model,
+    #{outputs := #{units := N_Outputs}} = Model,
     N_Outputs;
 outputs(Network) ->
-    nnet:out_degree(Network).
+    #{outputs:=Outputs} = nnet:info(Network),
+    length(Outputs).
 
 %%-------------------------------------------------------------------
 %% @doc Returns a list of all neurons of the network.  
