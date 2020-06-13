@@ -6,11 +6,8 @@
 %%%-------------------------------------------------------------------
 -module(layer).
 
--include_lib("eunit/include/eunit.hrl").
-
 %% API
--export([dense/1, input/1, output/1]).
--export([dense/2, input/2, output/2, compile/2]).
+-export([create_type/1, input/2, output/2, dense/2, elu/2, tanh/2]).
 -export_type([definition/0, compiled/0]).
 
 -type definition() :: #{units       := integer(),
@@ -25,88 +22,101 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @doc Returns the complilation definition for a dense layer.
+%% @doc Creates a function that would return a layer with the desired
+%% properties. 
 %% @end
 %%--------------------------------------------------------------------
--spec dense(Units) -> DenseLayer when 
-    Units      :: integer(),
-    DenseLayer :: definition().
-dense(Units) ->
-    dense(Units, #{}).
-
--spec dense(Units, Properties) -> DenseLayer when 
-    Units      :: integer(),
-    Properties :: #{activation  => activation:func(),
-                    aggregation => aggregation:func(),
-                    initializer => initializer:func()},
-    DenseLayer :: definition().
-dense(Units, Prop) ->
-    #{
-        units       => Units,
-        activation  => maps:get(activation,  Prop, direct),
-        aggregation => maps:get(aggregation, Prop, dot_prod),
-        initializer => maps:get(initializer, Prop, glorot)
-    }.
+-spec create_type(Properties::definition()) -> function().
+-define(DEFAULT_PROPERTIES, #{activation  => direct,
+                              aggregation => dot_prod,
+                              initializer => glorot,
+                              bias        => undefined}).
+create_type(Properties) -> 
+    fun(Units, Connections) -> 
+        #{connections => Connections,
+          units       => Units,
+          data        => maps:merge(?DEFAULT_PROPERTIES, Properties)}
+    end.
 
 %%--------------------------------------------------------------------
-%% @doc Returns the compilation definition for an input layer.
+%% @doc Returns the definition for an input layer.
 %% @end
 %%--------------------------------------------------------------------
--spec input(Units) -> InputsLayer when 
+-spec input(Units, Connections) -> model:layer() when 
     Units       :: integer(),
-    InputsLayer :: definition().
-input(Units) -> 
-    input(Units, #{}).
+    Connections :: definition().
+-define(INPUT_PROPERTIES,   #{activation  => direct,
+                              aggregation => direct,
+                              initializer => ones,
+                              bias        => 0.0}).
+input(Units, Connections) ->
+        #{connections => Connections,
+          units       => Units,
+          data        => ?INPUT_PROPERTIES}.
 
--spec input(Units, Properties) -> InputsLayer when 
+%%--------------------------------------------------------------------
+%% @doc Returns the definition for an output layer.
+%% @end
+%%--------------------------------------------------------------------
+-spec output(Units, Connections) -> model:layer() when 
     Units       :: integer(),
-    Properties :: #{activation  => activation:func()},
-    InputsLayer :: definition().
-input(Units, Prop) ->
-    #{
-        units       => Units,
-        activation  => maps:get(activation, Prop, direct),
-        aggregation => direct,
-        initializer => ones
-    }.
+    Connections :: definition().
+-define(OUTPUT_PROPERTIES,  #{activation  => direct,
+                              aggregation => dot_prod,
+                              initializer => glorot,
+                              bias        => 0.0}).
+output(Units, Connections) ->
+        #{connections => Connections,
+          units       => Units,
+          data        => ?OUTPUT_PROPERTIES}.
 
 %%--------------------------------------------------------------------
-%% @doc Returns the compilation definition for an output layer.
+%% @doc Returns the definition for a dense layer.
 %% @end
 %%--------------------------------------------------------------------
--spec output(Units) -> OutputsLayer when 
-    Units        :: integer(),
-    OutputsLayer :: definition().
-output(Units) -> 
-    output(Units, #{}).
-
--spec output(Units, Properties) -> OutputsLayer when 
-    Units        :: integer(),
-    Properties :: #{activation  => activation:func(),
-                    aggregation => aggregation:func(),
-                    initializer => initializer:func()},
-    OutputsLayer :: definition().
-output(Units, Prop) ->
-    #{
-        units       => Units,
-        activation  => maps:get(activation,  Prop, direct),
-        aggregation => maps:get(aggregation, Prop, dot_prod),
-        initializer => maps:get(initializer, Prop, glorot)
-    }.
+-spec dense(Units, Connections) -> model:layer() when 
+    Units       :: integer(),
+    Connections :: definition().
+-define(DENSE_PROPERTIES,   #{activation  => direct,
+                              aggregation => dot_prod,
+                              initializer => glorot,
+                              bias        => undefined}).
+dense(Units, Connections) ->
+        #{connections => Connections,
+          units       => Units,
+          data        => ?DENSE_PROPERTIES}.
 
 %%--------------------------------------------------------------------
-%% @doc Compiles a layer. Returns a tuple indicating the layer type 
-%% together with the ids of all the neuron definition.
-%% Should run inside a mnesia transaction.
+%% @doc Returns the definition for a elu layer.
 %% @end
 %%--------------------------------------------------------------------
--spec compile(Key, Definition) -> CompiledLayer when 
-    Key           :: term(),
-    Definition    :: definition(), 
-    CompiledLayer :: compiled().
-compile(_Key, Definition) ->
-    Units = maps:get(units, Definition),
-    [nnode:new(Definition) || _ <- lists:seq(1, Units)].
+-spec elu(Units, Connections) -> model:layer() when 
+    Units       :: integer(),
+    Connections :: definition().
+-define(ELU_PROPERTIES,     #{activation  => elu,
+                              aggregation => dot_prod,
+                              initializer => glorot,
+                              bias        => undefined}).
+elu(Units, Connections) ->
+        #{connections => Connections,
+          units       => Units,
+          data        => ?ELU_PROPERTIES}.
+
+%%--------------------------------------------------------------------
+%% @doc Returns the definition for a tanh layer.
+%% @end
+%%--------------------------------------------------------------------
+-spec tanh(Units, Connections) -> model:layer() when 
+    Units       :: integer(),
+    Connections :: definition().
+-define(TANH_PROPERTIES,     #{activation  => tanh,
+                              aggregation => dot_prod,
+                              initializer => glorot,
+                              bias        => undefined}).
+tanh(Units, Connections) ->
+        #{connections => Connections,
+          units       => Units,
+          data        => ?TANH_PROPERTIES}.
 
 
 %%====================================================================
@@ -117,7 +127,6 @@ compile(_Key, Definition) ->
 %%====================================================================
 %% Eunit white box tests
 %%====================================================================
-%% TODO: To implement some eunit tests
 
 % --------------------------------------------------------------------
 % TESTS DESCRIPTIONS -------------------------------------------------

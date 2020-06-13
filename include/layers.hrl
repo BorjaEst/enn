@@ -1,18 +1,11 @@
 %%%-------------------------------------------------------------------
-%%% @author borja
-%%% @doc
-%%%
+%%% @doc Macro for easy layer definition.
 %%% @end
 %%%-------------------------------------------------------------------
 
--define(dense(Units, Properties), layer:dense(Units, Properties)).
--define(dense(Units), layer:dense(Units, #{})).
-
--define(input(Units, Properties), layer:input(Units, Properties)).
--define(input(Units), layer:input(Units, #{})).
-
--define(output(Units, Properties), layer:output(Units, Properties)).
--define(output(Units), layer:output(Units, #{})).
-
-
+-define( input(Units, Connections),  layer:input(Units, Connections)).
+-define(output(Units, Connections), layer:output(Units, Connections)).
+-define( dense(Units, Connections),  layer:dense(Units, Connections)).
+-define(   elu(Units, Connections),    layer:elu(Units, Connections)).
+-define(  tanh(Units, Connections),   layer:tanh(Units, Connections)).
 
