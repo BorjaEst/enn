@@ -14,13 +14,9 @@
 %% Defined agent species
 -export([]).
 
--ifdef(debug_mode).
--define(LOG(X), io:format("{~p,~p,~p}: ~p~n", [self(), ?MODULE, ?LINE, X])).
--define(STDCALL_TIMEOUT, infinity).
--else.
--define(LOG(X), true).
--define(STDCALL_TIMEOUT, 5000).
--endif.
+-define(RAND(Max_Units), rand:uniform(Max_Units)).
+-define(HIDDEN(N), list_to_atom("hidden" ++ integer_to_list(N))).
+
 
 %%%===================================================================
 %%% Defined Neural Architectures
@@ -28,70 +24,57 @@
 
 % -------------------------------------------------------------------
 % TODO: Define specs and comments
-random_dense(Max_Units, Max_Layers) ->
-    _Model = model:sequential(
-        [?input(rand:uniform(Max_Units))] ++
-        [?dense(rand:uniform(Max_Units)) || _ <- lists:seq(1, rand:uniform(Max_Layers - 1))] ++
-        [?output(rand:uniform(Max_Units))]
-    ).
+random_dense(Max_Units, Max_Layers) -> 
+    M0 = #{outputs => ?output(?RAND(Max_Units), #{})},
+    random_dense(?RAND(Max_Layers), Max_Units, M0, outputs).
+
+random_dense(N, Max_Units, M0, To) when N > 0 -> 
+    M1 = M0#{?HIDDEN(N) => ?dense(?RAND(Max_Units), #{To => sequential})},
+    random_dense(N-1, Max_Units, M1, ?HIDDEN(N));
+random_dense(0, Max_Units, Mx, To) -> 
+    Mx#{inputs => ?input(?RAND(Max_Units), #{To => sequential})}.
 
 % -------------------------------------------------------------------
 % TODO: Define specs and comments
 example() ->
-    _Model = model:sequential([
-                                ?input(10),
-                                ?dense(10, #{activation => sigmoid}),
-                                ?output(1)
-                            ]).
+    #{inputs  =>  ?input(2, #{hidden1 => sequential}),
+      hidden1 =>  ?dense(4, #{hidden2 => sequential}),
+      hidden2 =>  ?dense(3, #{outputs => sequential}),
+      outputs => ?output(1, #{})}.
 
 % -------------------------------------------------------------------
 % TODO: Define specs and comments
 xor_gate() ->
-    _Model = model:sequential([
-                                ?input( 2),
-                                ?dense( 2, #{activation => elu}),
-                                ?output(1, #{activation => elu})
-                            ]).
+    #{inputs  =>  ?input(2, #{hidden1 => sequential}),
+      hidden1 =>    ?elu(2, #{outputs => sequential}),
+      outputs => ?output(1, #{})}.
 
 % -------------------------------------------------------------------
 % TODO: Define specs and comments
 addition() ->
-    _Model = model:sequential([
-                                ?input(2),
-                                ?output(1, #{activation => direct})
-                            ]).
+    #{inputs  =>  ?input(2, #{outputs => sequential}),
+      outputs => ?output(1, #{})}.
 
 % -------------------------------------------------------------------
 % TODO: Define specs and comments
 multiplication() ->
-    _Model = model:sequential([
-                                ?input(2),
-                                ?output(1, #{
-                                    aggregation => product,
-                                    activation  => direct})
-                            ]).
-
-% -------------------------------------------------------------------
-% TODO: Define specs and comments
-network_0_weights() ->
-    _Model = model:sequential([
-                                ?input(1),
-                                ?dense(2, #{activation => tanh}),
-                                ?output(1)
-                            ]).
+    CustomOutput = layer:create_type(#{aggregation => product,
+                                       activation  => direct}), 
+    #{inputs  => ?input(2, #{outputs => sequential}),
+      outputs => CustomOutput(1, #{})}.
 
 % -------------------------------------------------------------------
 % TODO: Define specs and comments
 recurrent() ->
-    _Model = model:recurrent([
-                               ?input(1, #{activation => sigmoid}),
-                               ?dense(2, #{activation => sigmoid}),
-                               ?output(1, #{activation => tanh})
-                           ], 2).
+    #{inputs  =>  ?input(1, #{hidden1 => sequential}),
+      hidden1 =>  ?dense(4, #{outputs => sequential,
+                              inputs  => {recurrent, 0.5}}),
+      outputs => ?output(1, #{hidden1 => recurrent,
+                              inputs  => recurrent})}. 
 
 % -------------------------------------------------------------------
 % TODO: Define specs and comments
 classification() ->
-    _Model = ok.
+    _Model = tbd.
 
 
