@@ -27,7 +27,7 @@
 
 -type id() :: nn_node:neuron().
 -record(input,  {
-    w = 0.0 :: link:weight(), % Input weight 
+    w       :: link:weight(), % Input weight 
     x = 0.0 :: float()        % Signal value (Xi)
 }).
 -define(X(Input), element(#input.x, Input)).
@@ -75,19 +75,15 @@ start_link(Id) ->
 %% TODO: Improve info passing by having all on the NN_Pool ets.
 %% @end
 %%--------------------------------------------------------------------
--spec go(Pid, Connections, NN_Pool) -> NonRelevant when 
+-spec cortex_synch(Pid, NN_Pool) -> NonRelevant when 
     Pid         :: pid(),
-    Connections :: #{in:=#{id():=seq|rcc}, out:=#{id():=seq|rcc}},
     NN_Pool     :: nn_pool:pool(),
     NonRelevant :: term().
-go(Pid, Connections, NN_Pool) ->
-    Pid ! {continue_init, Connections, NN_Pool}.
+cortex_synch(Pid, NN_Pool) ->
+    Pid ! {continue_init, NN_Pool}.
 
 cortex_synch() -> 
-    receive 
-        {continue_init, #{in:=InConn, out:=OutConn}, NN_Pool} -> 
-            {InConn, OutConn, NN_Pool}
-    end.
+    receive {continue_init, NN_Pool} -> NN_Pool end.
 
 %%%===================================================================
 %%% Initialization functions
@@ -99,31 +95,27 @@ cortex_synch() ->
 %%--------------------------------------------------------------------
 init(Id, Supervisor) ->
     proc_lib:init_ack(Supervisor, {ok, self()}), % Supervisor synch
-    {InConn, OutConn, NNPool} = cortex_synch(),
     process_flag(trap_exit, true), % Catch supervisor exits
-    % Load specific keys in dictionary
-    put(nn_pool, NNPool),
-    % Load neuron related dictionary
-    [Neuron] = mnesia:dirty_read(neuron, Id),
-    put(         id,          Neuron#neuron.id),
-    put(initializer, Neuron#neuron.initializer), 
-    % Load inputs and outputs in dictionary
-    put(outputs, #{}),
-    add_outputs(maps:to_list(OutConn)),
-    put( inputs, #{}),
-    add_inputs( maps:to_list( InConn)),
-    % First propagation for rcc links
-    calculate_bias(0.0),
-    forward_prop(),   
-    backward_prop(),  
-    % Neuron start log and initialization of waits
-    ?LOG_NEURON_STARTED,
+    NNPool = cortex_synch(),
+    {atomic, #{in:=InW, seq:=Seq, rcc:=Rcc, data:=Data}} = 
+    nnet:edit(fun() -> #{in => [{L,nnet:rlink(L)} || L<-nnet:in(Id)],
+                         seq  => nnet:out_seq(Id),
+                         rcc  => nnet:out_rcc(Id),
+                         data => nnet:rnode(Id)}
+              end),
+    put(    id,      Id), % Used for logs and final write update
+    put(   data,   Data), % Used to calculate activation signals
+    put(nn_pool, NNPool), % Used to convert Pid<->Id 
+    put( inputs,    #{}), % Used for forward/bakward propagation
+    put(outputs,    #{}), % Used for forward/bakward propagation
+    ?LOG_NEURON_STARTED, % Start log and initialization of waits
+    set_outputs(Rcc), 
+    Sent = [forward(P,O,0.0) || {P,O}<-maps:to_list(get(outputs))],
+    ?LOG_FORWARD_PROPAGATION(Sent), % Rcc propagation
     loop(#state{ 
-        forward_wait  = maps:keys(get( inputs)), 
-        backward_wait = maps:keys(get(outputs))
+        backward_wait = set_outputs(Seq),
+        forward_wait  = set_inputs(InW)
     }).
-
-
 
 
 %%%===================================================================
@@ -138,7 +130,6 @@ init(Id, Supervisor) ->
 % If all forward signals have been received, state change to forward
 loop(#state{forward_wait  = []} = State) -> 
     ?LOG_WAITING_NEURONS(State),
-    add_inputs(inbox_forwards()),
     forward_prop(),
     loop(State#state{forward_wait = maps:keys(get(inputs))});
 % If all backward signals have been received, state change to backward
@@ -193,7 +184,7 @@ idle(State) ->
 terminate(Reason, _State) ->
     % TODO: When saving the new state, those links with weights ~= 0, must be deleted (both neurons)
     % TODO: If the neuron has not at least 1 input or 1 output, it must be deleted (and bias forwarded)
-    {atomic, _} = mnesia:transaction( 
+    {atomic, _} = nnet:edit( 
         fun() -> write_links(), write_neuron() end
     ),
     ?LOG_NEURON_TERMINATING,
@@ -213,9 +204,10 @@ terminate(Reason, _State) ->
 %%
 %%--------------------------------------------------------------------
 forward_prop() -> 
+    #{aggregation:=Aggr, activation:=Actv, bias:=Bias} = get(data),
     Tensor = calculate_tensor(get(inputs)),
-    Soma   = calculate_soma(Tensor),
-    Signal = calculate_signal(Soma),
+    Soma   = calculate_soma(Aggr, Tensor, Bias),
+    Signal = calculate_signal(Actv, Soma),
     Sent = [forward(P,O,Signal) || {P,O}<-maps:to_list(get(outputs))],
     ?LOG_FORWARD_PROPAGATION(Sent).
 
@@ -228,12 +220,13 @@ forward(Pid, _Output, Signal) ->
 %% 
 %%--------------------------------------------------------------------
 backward_prop() ->
+    #{initializer:=Init, activation:=Actv, bias:=Bias} = Data = get(data),
     Error = calculate_error(get(outputs)),
-    Beta  = calculate_beta(Error),
+    Beta  = calculate_beta(Actv, Error),
     Sent = [backward(P,I,Beta) || {P,I}<-maps:to_list(get(inputs))],
     ?LOG_BACKWARD_PROPAGATION(Sent),
-    calculate_bias(Beta),
-    calculate_weights(Beta).
+    put(data, Data#{bias:=recalculate_bias(Bias, Beta, Init)}),
+    put(inputs, recalculate_weights(get(inputs), Beta, Init)).
 
 backward(Pid, Input, Beta) ->
     BP_Error = ?W(Input) * Beta,
@@ -286,26 +279,27 @@ calculate_beta(Activation, Error) ->
     activation:beta(Activation, Error, get(prev_soma)).
 
 %%--------------------------------------------------------------------
-%% @doc Calculates the new weights from back propagation of the error.
-%% @end
-%%--------------------------------------------------------------------
-adapt_weights(Inputs, Beta) -> 
-    AdaptW = fun(X,Ix) -> adapt_weights(X, Ix, Beta) end,
-    lists:foldl(AdaptW, Inputs, get(prev_tensor)).
-
-adapt_weights({Pid,_,Xi}, Inputs, Beta) -> 
-    I = maps:get(Pid, Inputs),
-    Inputs#{Pid:=updt_input(I,Xi,Beta)}.
-
-updt_input(I, Xi, Beta) -> 
-    I#input{w=updt_weight(?W(I),Xi,Beta)}.
-
-%%--------------------------------------------------------------------
 %% @doc Calculates the new bias from back propagation of the error.
 %% @end
 %%--------------------------------------------------------------------
-adapt_bias(Bias, Beta) -> 
-    updt_weight(Bias, 1.0, Beta).
+recalculate_bias(Bias, Beta, Init) ->
+    updt_weight(Bias, 1.0, Beta, Init).
+
+%%--------------------------------------------------------------------
+%% @doc Calculates the new weights from back propagation of the error.
+%% @end
+%%--------------------------------------------------------------------
+recalculate_weights(Inputs, Beta, Init) -> 
+    AdaptW = fun(X,Ix) -> adapt_weights(X, Ix, Beta, Init) end,
+    lists:foldl(AdaptW, Inputs, get(prev_tensor)).
+
+adapt_weights({Pid,_,Xi}, Inputs, Beta, Init) -> 
+    I = maps:get(Pid, Inputs),
+    Inputs#{Pid:=updt_input(I,Xi,Beta,Init)}.
+
+updt_input(I, Xi, Beta, Init) -> 
+    I#input{w=updt_weight(?W(I),Xi,Beta,Init)}.
+
 
 %%%===================================================================
 %%% Internal functions
@@ -315,57 +309,44 @@ adapt_bias(Bias, Beta) ->
 %% @doc Adds the Pids and their signals to the inputs.
 %% @end
 %%--------------------------------------------------------------------
-add_inputs(      []) -> ok;
-add_inputs(Requests) -> 
-    {[], Inputs} = add_inputs(Requests, get(id), [], get(inputs)),
-    put(inputs, Inputs).
+set_inputs(LinkWs) ->
+    set_inputs(LinkWs, get(inputs), []).
 
-add_inputs([{Id1,link}|Rx], Id2, LAcc, Ix1) -> % Using Id
-    Pid = ?PID(Id1),
-    {[Wi|Wx], Ix2} = add_inputs(Rx, Id2, [{Id1,Id2}|LAcc], 
-                                Ix1#{Pid=>#input{}}),
-    {Wx, Ix2#{Pid:=#input{w=Wi}}};
-add_inputs([{Pid,Xi}|Rx], Id2, LAcc, Ix1)   -> % Using Pid
-    Id1 = ?ID(Pid), % Note: Id is a tuple {Ref,neuron}
-    {[Wi|Wx], Ix2} = add_inputs(Rx, Id2, [{Id1,Id2}|LAcc], 
-                                Ix1#{Pid=>#input{}}),
-    {Wx, Ix2#{Pid:=#input{w=Wi, x=Xi}}};
-add_inputs([], _, LAcc, Inputs) -> 
-    put(inputs, Inputs), % Needed for correct winit fan_in/out
-    {atomic, Weights} = mnesia:transaction(
-        fun() -> [link:read({From,To}) || {From,To} <- LAcc] end
-    ),
-    {[updt_weight(W,0.0,0.0) || W <- Weights], Inputs}.
+set_inputs([{{From,_},W}|LinkWs], Ix, Pids) ->
+    Pid = ?PID(From),
+    set_inputs(LinkWs, Ix#{Pid=>#input{w=W}}, [Pid|Pids]);
+set_inputs([], Inputs, Pids) ->
+    put(inputs, Inputs),
+    Pids.
 
 %%--------------------------------------------------------------------
 %% @doc Adds the Pids and their signals to the inputs.
 %% @end
 %%--------------------------------------------------------------------
-add_outputs(      []) -> ok;
-add_outputs(Requests) -> 
-    Outputs = add_outputs(Requests, get(outputs)),
-    put(outputs, Outputs).
+set_outputs(Links) ->
+    set_outputs(Links, get(outputs), []).
 
-add_outputs([{Id,link}|Rx], Outputs) ->
-    Pid = ?PID(Id),
-    add_outputs(Rx, Outputs#{Pid => #output{}});
-add_outputs([], Outputs) -> 
-    Outputs.
+set_outputs([{_,To}|Links], Ox, Pids) ->
+    Pid = ?PID(To),
+    set_outputs(Links, Ox#{Pid=>#output{}}, [Pid|Pids]);
+set_outputs([], Outputs, Pids) ->
+    put(outputs, Outputs),
+    Pids.
 
 %%--------------------------------------------------------------------
 %% @doc Updates the weight value. If it is uninitialized, a new value
 %% is generated.
 %% @end
 %%--------------------------------------------------------------------
-updt_weight(Wi,Xi,B) when is_number(Wi) -> Wi+dw(Xi,B);
-updt_weight(undefined, _, _)            -> winit().
+updt_weight(Wi,Xi,B,_) when is_number(Wi) -> Wi+dw(Xi,B);
+updt_weight(not_init,_,_,Init)            -> winit(Init).
 
 %%--------------------------------------------------------------------
 %% @doc Initialises a weight.
 %% @end
 %%--------------------------------------------------------------------
-winit() -> 
-    initializer:value(get(initializer), #{
+winit(Init) -> 
+    initializer:value(Init, #{
         fan_in  => maps:size(get( inputs)),
         fan_out => maps:size(get(outputs))
     }).
@@ -384,38 +365,17 @@ winit() ->
 dw(Xi, Beta) -> ?LEARNING_FACTOR * Beta * Xi.
 
 % -------------------------------------------------------------------
-inbox_forwards() -> 
-    receive {Pid,forward,Xi} -> [{Pid,Xi}|inbox_forwards()]
-    after 0                  -> []
-    end.
-
-% -------------------------------------------------------------------
-inbox_backwards() -> 
-    receive {Pid,backward,Xi} -> [{Pid,Xi}|inbox_backwards()]
-    after 0                   -> []
-    end.
-
-% -------------------------------------------------------------------
 write_links() -> 
-    Id     = get(id),
-    NNPool = get(nn_pool),
-    write_links(maps:to_list(get(inputs)), Id, NNPool).
+    maps:fold(fun write_link/3, {get(id),get(nn_pool)}, get(inputs)).
 
-write_links([{Pid,I}|Ix], To, NNPool) -> 
-    ok = link:write({nn_pool:id(NNPool,Pid), To}, ?W(I)),
-    write_links(Ix, To, NNPool);
-write_links([], _, _) -> 
-    ok.
+write_link(Pid, Input, {Id,NNPool}) -> 
+    Link = {nn_pool:id(NNPool, Pid), Id},
+    ok = nnet:wlink(Link, Input#input.w),
+    {Id, NNPool}.
 
 % -------------------------------------------------------------------
 write_neuron() -> 
-    ok = mnesia:write(#neuron{
-        id          = get(id),
-        activation  = get(activation),
-        aggregation = get(aggregation),
-        initializer = get(initializer),
-        bias        = get(bias)
-    }).
+    ok = nnet:wnode(get(id), get(data)).
 
 
 %%====================================================================

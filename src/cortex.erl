@@ -99,7 +99,7 @@ fit(Pid, Errors) ->
 init([Network, NN_Sup]) -> 
     true = enn_pool:register_as_cortex(Network),
     process_flag(trap_exit, true), % To catch supervisor 'EXIT'
-    put(id, id(Network)),
+    put(id, cortex:id(Network)),
     ?LOG_STATE_CHANGE(undefined),
     {ok, inactive, #state{wait = []},
         {next_event, internal, {start_nn, Network, NN_Sup}}}.
@@ -323,33 +323,14 @@ backward(Input_Pid, Error) ->
 
 % -------------------------------------------------------------------
 handle_start(Network, NN_Sup) ->
-
-    NN_Pool = nn_pool:mount(NN_Sup, Network),
-
-
-    
+    {atomic, Info} = nnet:info(Network),
+    #{nnodes:=NNodes, inputs:=In, outputs:=Out} = Info,
+    NN_Pool = nn_pool:mount(NN_Sup, get(id), NNodes),
     true    = enn_pool:register_nn_pool(Network, NN_Pool),
-
-
-
-
-    put( inputs,  % System outputs are the cortex inputs
-        [{nn_pool:pid(NN_Pool,Id),#input{ }} 
-            || Id <- nnet:out_nodes(NN)]), 
     put(outputs,  % System inputs are the cortex outputs
-        [{nn_pool:pid(NN_Pool,Id),#output{}}
-            || Id <-  nnet:in_nodes(NN)]),
-
-
-
-
-    discard_rcc_signals().
-
-discard_rcc_signals() -> 
-    receive {_, backward, _} -> discard_rcc_signals();
-            {_,  forward, _} -> discard_rcc_signals()
-    after 20                 -> ok
-    end.
+        [{nn_pool:pid(NN_Pool,Id),#output{}} || {_,Id} <-  In]), 
+    put(inputs,   % System outputs are the cortex inputs
+        [{nn_pool:pid(NN_Pool,Id),#input{ }} || {Id,_} <- Out]).
 
 
 %%====================================================================

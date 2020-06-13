@@ -109,9 +109,9 @@ elu(Units, Connections) ->
     Units       :: integer(),
     Connections :: definition().
 -define(TANH_PROPERTIES,     #{activation  => tanh,
-                              aggregation => dot_prod,
-                              initializer => glorot,
-                              bias        => undefined}).
+                               aggregation => dot_prod,
+                               initializer => glorot,
+                               bias        => undefined}).
 tanh(Units, Connections) ->
         #{connections => Connections,
           units       => Units,
