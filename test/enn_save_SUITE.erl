@@ -54,7 +54,7 @@ end_per_suite(_Config) ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 init_per_group(_GroupName, Config) ->
-    Id = enn:compile(test_architectures:example()),
+    {atomic,Id} = enn:compile(test_architectures:example()),
     [{network, Id} | Config].
 
 %%--------------------------------------------------------------------

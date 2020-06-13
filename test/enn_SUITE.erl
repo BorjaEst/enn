@@ -267,7 +267,7 @@ test_model(FileName, Model, Training) ->
 % -------------------------------------------------------------------
 correct_model_compilation(Model) ->
     ?HEAD("Correct model compilation .............................."),
-    Id      = enn:compile(Model), ?INFO(  "Model",   Model),
+    {atomic,Id} = enn:compile(Model), ?INFO(  "Model",   Model),
     NN_Info = enn:info(Id),       ?INFO("Network", NN_Info),
     ?END({ok, Id}).
 
