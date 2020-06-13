@@ -124,7 +124,8 @@ neurons(Network) ->
 -spec start(Model::model() | Network::network()) -> 
     Network::network().
 start(Model) when is_map(Model) ->
-    start(compile(Model));
+    {atomic, Network} = compile(Model),
+    start(Network);
 start(Network) ->
     ok = enn_sup:start_nn(Network),
     Network.
