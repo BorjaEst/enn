@@ -33,14 +33,14 @@
 %% @doc Mounts the pool using a list of {id, pid}.
 %% @end
 %%--------------------------------------------------------------------
--spec mount(Supervisor, Cortex_id, NNodes) -> pool() when 
+-spec mount(Supervisor, Network, NNodes) -> pool() when 
     Supervisor :: pid(),
-    Cortex_id  :: cortex:id(),
+    Network    :: cortex:id(),
     NNodes     :: #{enn:nnode() => nnode}.
-mount(Supervisor, Cortex, NNodes) -> 
+mount(Supervisor, Network, NNodes) -> 
     PT   = ets:new(processes, ?TABS_CONFIGURATION),
     Regs = [start_neuron(Supervisor,Id) || Id <- maps:keys(NNodes)],
-    true = ets:insert(PT, cortex_registers(Cortex)),
+    true = ets:insert(PT, cortex_registers(Network)),
     true = ets:insert(PT, [{Id,Pid} || {Id,Pid} <- Regs]),
     true = ets:insert(PT, [{Pid,Id} || {Id,Pid} <- Regs]),
     NN_Pool = #nn_pool{ptab = PT},
@@ -76,9 +76,9 @@ start_neuron(Supervisor,Id) ->
     {Id, Pid}.
 
 % Cortex registers in the ptab --------------------------------------
-cortex_registers(Id) ->
+cortex_registers(Network) ->
     Pid = self(),
-    [{Id,Pid}, {Pid,Id}].
+    [{Network,Pid}, {Pid,Network}].
 
 
 %%====================================================================
