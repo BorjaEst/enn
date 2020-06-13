@@ -1,5 +1,4 @@
 %%%-------------------------------------------------------------------
-%%% @author borja
 %%% @doc The neuron is a signal processing element. It accepts
 %%% signals, accumulates them into an ordered vector, then processes
 %%% this input vector to produce an output, and finally passes the

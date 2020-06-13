@@ -1,5 +1,4 @@
 %%%-------------------------------------------------------------------
-%%% @author borja
 %%% @doc Module containing all the initialisation methods for the new
 %%% inputs weights.
 %%%

@@ -1,5 +1,4 @@
 %%%-------------------------------------------------------------------
-%%% @author borja
 %%% @doc The cortex is a NN synchronizing element. It needs to know 
 %%% the Pid of every neural network element, so that it will know when
 %%% all the outputs have received their control inputs, and that it’s
