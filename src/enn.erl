@@ -87,8 +87,7 @@ run(Network, InputsList, OptimaList, Options) ->
 %% @doc Returns the number of inputs a network expects.
 %% @end
 %%--------------------------------------------------------------------
--spec inputs(Model::model() | Network::network()) -> 
-    NumberOfInputs::integer().
+-spec inputs(model() | network()) -> NumberOfInputs::integer().
 inputs(Model) when is_map(Model) ->
     #{inputs := #{units := N_Inputs}} = Model,
     N_Inputs;
@@ -100,8 +99,7 @@ inputs(Network) ->
 %% @doc Returns the number of outputs a network expects.
 %% @end
 %%--------------------------------------------------------------------
--spec outputs(Model::model() | Network::network()) -> 
-    NumberOfOtputs::integer().
+-spec outputs(model() | network()) -> NumberOfOtputs::integer().
 outputs(Model) when is_map(Model) ->
     #{outputs := #{units := N_Outputs}} = Model,
     N_Outputs;
@@ -121,8 +119,7 @@ neurons(Network) ->
 %% @doc Start a neural network, ready to receive inputs or training.
 %% @end
 %%--------------------------------------------------------------------
--spec start(Model::model() | Network::network()) -> 
-    Network::network().
+-spec start(model() | network()) -> Network::network().
 start(Model) when is_map(Model) ->
     {atomic, Network} = compile(Model),
     start(Network);
