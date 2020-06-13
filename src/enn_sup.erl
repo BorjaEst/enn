@@ -15,9 +15,9 @@
 
 -define(SERVER, ?MODULE).
 
--define(SPECS_NN_SUP(Network_id), #{
-    id       => nn_sup:id(Network_id),
-    start    => {nn_sup, start_link, [Network_id]},
+-define(SPECS_NN_SUP(Network), #{
+    id       => nn_sup:id(Network),
+    start    => {nn_sup, start_link, [Network]},
     restart  => temporary,
     type     => supervisor,
     modules  => [supervisor]
@@ -40,11 +40,11 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
-start_nn(Network_id) ->
-    true = enn_pool:register(Network_id),
-    Specs = ?SPECS_NN_SUP(Network_id),
+start_nn(Network) ->
+    true = enn_pool:register(Network),
+    Specs = ?SPECS_NN_SUP(Network),
     {ok, P} = supervisor:start_child(?SERVER, Specs),
-    {ok, _} = nn_sup:start_cortex(P, Network_id),
+    {ok, _} = nn_sup:start_cortex(P, Network),
     ok. 
 
 %%--------------------------------------------------------------------
@@ -52,9 +52,9 @@ start_nn(Network_id) ->
 %% @end
 %%--------------------------------------------------------------------
 % TODO: To make description and specs
-terminate_nn(Network_id) ->
-    true = enn_pool:unregister(Network_id),
-    supervisor:terminate_child(?SERVER, nn_sup:id(Network_id)).
+terminate_nn(Network) ->
+    true = enn_pool:unregister(Network),
+    supervisor:terminate_child(?SERVER, nn_sup:id(Network)).
 
 
 %%====================================================================

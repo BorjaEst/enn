@@ -54,26 +54,26 @@ ok
 ### Define and start your erlang neural network
 You can create a neural network simply with enn:start/1:
 ```erl
-2> Network_id = enn:start(
+2> Network = enn:start(
 2>     model:sequential([
 2>         layer:input( 2                       ),
 2>         layer:dense( 3, #{activation => tanh}),
 2>         layer:output(2                       )
 2>     ])).
-{#Ref<0.367976965.4190896130.201756>,cortex}
+{network, #Ref<0.367976965.4190896130.201756>}
 ```
 > It is important to save the "Network id", you will need it to stop the network.
 
 Another option is to first compile the model and run it after in 2 steps:
 ```erl
-2> Network_id = enn:compile(
+2> Network = enn:compile(
 2>     model:sequential([
 2>         layer:input( 2                       ),
 2>         layer:dense( 3, #{activation => tanh}),
 2>         layer:output(2                       )
 2>     ])),
-2> enn:start(Network_id).
-{#Ref<0.367976965.4190896130.204258>,cortex}
+2> enn:start(Network).
+{network, #Ref<0.367976965.4190896130.204258>}
 ```
 
 ### Generate/load your training data
@@ -89,7 +89,7 @@ ok
 ### Train your neural network
 This operation is done by enn:fit/3:
 ```erl
-4> enn:fit(Network_id, Inputs, Optima),
+4> enn:fit(Network, Inputs, Optima),
 4> ok.
 200     [==>.................]  loss:   0.7023357850785679      
 400     [====>...............]  loss:   0.4756651445573089      
@@ -107,7 +107,7 @@ ok
 ### Do some predictions
 This operation is done by enn:predict/2:
 ```erl
-5> enn:predict(Network_id, [
+5> enn:predict(Network, [
 5>     [0.1, 0.6],
 5>     [0.3, 0.2],
 5>     [0.1, 0.1]
@@ -123,7 +123,7 @@ This operation is done by enn:predict/2:
 ### Stop your neural network
 You can easily do it with enn:stop/1:
 ```erl
-6> enn:stop(Network_id).
+6> enn:stop(Network).
 ok
 ```
 You will see in the observer window the network is gone.
@@ -133,7 +133,7 @@ You will see in the observer window the network is gone.
 ### Clone your work into a different network
 Just call enn:clone/1
 ```erl
-7> Clone_id = enn:clone(Network_id).
+7> Clone_id = enn:clone(Network).
 {#Ref<0.367976965.4190896130.204297>,cortex}
 ```
 
@@ -141,8 +141,8 @@ Just call enn:clone/1
 ### Resume your neural network
 
 ```erl
-8> enn:start(Network_id),
-8> enn:predict(Network_id, [
+8> enn:start(Network),
+8> enn:predict(Network, [
 8>     [0.1, 0.6],
 8>     [0.3, 0.2],
 8>     [0.1, 0.1]

@@ -55,7 +55,7 @@ end_per_suite(_Config) ->
 %%--------------------------------------------------------------------
 init_per_group(_GroupName, Config) ->
     Id = enn:compile(test_architectures:example()),
-    [{network_id, Id} | Config].
+    [{network, Id} | Config].
 
 %%--------------------------------------------------------------------
 %% Function: end_per_group(GroupName, Config0) ->
@@ -153,7 +153,7 @@ training_saved_after_stop() ->
     [].
 training_saved_after_stop(Config) ->
     ?HEAD("Correct neural network saving after stop .............."),
-    Id = ?config(network_id, Config),
+    Id = ?config(network, Config),
     Id = enn:start(Id),
     {atomic, Ns1} = mnesia:transaction(fun() -> neurons(Id) end),
     {atomic, Ws1} = mnesia:transaction(fun() -> weights(Id) end),
@@ -172,7 +172,7 @@ correct_network_clonation() ->
     [].
 correct_network_clonation(Config) -> 
     ?HEAD("Network can be cloned ................................."),
-    Id1 = ?config(network_id, Config),
+    Id1 = ?config(network, Config),
     Id2 = enn:clone(Id1),
     {atomic, true} = mnesia:transaction(
         fun() -> 
@@ -188,30 +188,30 @@ correct_network_clonation(Config) ->
 % SPECIFIC HELPER FUNCTIONS ------------------------------------------
 
 % Gets the network id neurons ---------------------------------------
-neurons(Network_id) -> 
-    [NN] = mnesia:read(network, Network_id),
+neurons(Network) -> 
+    [NN] = mnesia:read(network, Network),
     Neurons = [hd(mnesia:read(neuron, Id)) || Id <- network:neurons(NN)],
-    ?INFO("Neurons: ", {Network_id, Neurons}),
+    ?INFO("Neurons: ", {Network, Neurons}),
     Neurons. 
 
 % Gets the network id neuron bias -----------------------------------
-biases(Network_id) -> 
-    Biases = [neuron:bias(N) || N <- neurons(Network_id)],
-    ?INFO("Biases: ", {Network_id, Biases}),
+biases(Network) -> 
+    Biases = [neuron:bias(N) || N <- neurons(Network)],
+    ?INFO("Biases: ", {Network, Biases}),
     Biases.
 
 % Gets the network id links -----------------------------------------
-links(Network_id) -> 
-    [NN]  = mnesia:read(network, Network_id),
+links(Network) -> 
+    [NN]  = mnesia:read(network, Network),
     Links = network:links(NN),
-    ?INFO("Links: ", {Network_id, Links}),
+    ?INFO("Links: ", {Network, Links}),
     Links.
 
 % Gets the network id link weights ----------------------------------
-weights(Network_id) -> 
-    Links = links(Network_id),
+weights(Network) -> 
+    Links = links(Network),
     Weights = [link:read(L) || L <- Links],
-    ?INFO("Weights: ", {Network_id, Weights}),
+    ?INFO("Weights: ", {Network, Weights}),
     Weights.
 
 
