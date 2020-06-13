@@ -92,7 +92,7 @@ inputs(Model) when is_map(Model) ->
     #{inputs := #{units := N_Inputs}} = Model,
     N_Inputs;
 inputs(Network) ->
-    #{inputs:=Inputs} = nnet:info(Network),
+    {atomic, #{inputs:=Inputs}} = nnet:info(Network),
     length(Inputs). 
 
 %%--------------------------------------------------------------------
@@ -104,7 +104,7 @@ outputs(Model) when is_map(Model) ->
     #{outputs := #{units := N_Outputs}} = Model,
     N_Outputs;
 outputs(Network) ->
-    #{outputs:=Outputs} = nnet:info(Network),
+    {atomic, #{outputs:=Outputs}} = nnet:info(Network),
     length(Outputs).
 
 %%-------------------------------------------------------------------
