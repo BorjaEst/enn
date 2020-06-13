@@ -10,13 +10,13 @@
 
 %% API
 -export([start/1, stop/1, predict/2, fit/3, clone/1]).
--export([compile/2, run/4, inputs/1, outputs/1, neurons/1]).
+-export([compile/1, run/4, inputs/1, outputs/1, neurons/1]).
 -export([status/1, info/1, link/1, cortex/1]).
--export_types([id/0, model/0]).
+-export_types([network/0, neuron/0, model/0]).
 
 -type network() :: nnet:id().
 -type neuron()  :: nnet:neuron().
--type model()   :: model:definition().
+-type model()   :: nnet:model().
 
 
 %%====================================================================
@@ -27,14 +27,11 @@
 %% @doc Compiles and stores a model returning its network id.
 %% @end
 %%--------------------------------------------------------------------
--spec compile(Model, Layers) -> Network when 
-    Model  :: #{Name::atom() => model:connections()},
-    Layers :: #{Name::atom() => layer:definition() },
+-spec compile(Model) -> Network when 
+    Model   :: model(),
     Network :: network().
-compile(Model, Layers) ->
-    % TODO: Check keys in Model and Layers are the same
-    CompiledLayers = maps:map(fun layer:compile/2, Layers),
-    model:compile(Model, CompiledLayers).
+compile(Model) ->
+    nnet:from_model(Model).
 
 %%--------------------------------------------------------------------
 %% @doc Clones a network. Each element of the newtork is cloned inside
