@@ -220,18 +220,23 @@ forward(Pid, _Output, Signal) ->
 %% 
 %%--------------------------------------------------------------------
 backward_prop() ->
-    #{initializer:=Init, activation:=Actv, bias:=Bias} = Data = get(data),
+    #{activation:=Actv} = get(data),
     Error = calculate_error(get(outputs)),
     Beta  = calculate_beta(Actv, Error),
     Sent = [backward(P,I,Beta) || {P,I}<-maps:to_list(get(inputs))],
     ?LOG_BACKWARD_PROPAGATION(Sent),
-    put(data, Data#{bias:=recalculate_bias(Bias, Beta, Init)}),
-    put(inputs, recalculate_weights(get(inputs), Beta, Init)).
+    recalculate_weights(Beta).
 
 backward(Pid, Input, Beta) ->
     BP_Error = ?W(Input) * Beta,
     Pid ! {self(), backward, BP_Error},
     {Pid, BP_Error}.
+
+recalculate_weights(Beta) -> 
+    #{initializer:=Init, bias:=Bias} = Data = get(data),
+    AdaptW = fun(X,Ix) -> adapt_weights(X, Ix, Beta, Init) end,
+    put(data, Data#{bias:=adapt_Bias(Bias, Beta, Init)}),
+    put(inputs, lists:foldl(AdaptW, get(inputs), get(prev_tensor))).
 
 
 %%%===================================================================
@@ -279,26 +284,18 @@ calculate_beta(Activation, Error) ->
     activation:beta(Activation, Error, get(prev_soma)).
 
 %%--------------------------------------------------------------------
-%% @doc Calculates the new bias from back propagation of the error.
-%% @end
-%%--------------------------------------------------------------------
-recalculate_bias(Bias, Beta, Init) ->
-    updt_weight(Bias, 1.0, Beta, Init).
-
-%%--------------------------------------------------------------------
 %% @doc Calculates the new weights from back propagation of the error.
 %% @end
 %%--------------------------------------------------------------------
-recalculate_weights(Inputs, Beta, Init) -> 
-    AdaptW = fun(X,Ix) -> adapt_weights(X, Ix, Beta, Init) end,
-    lists:foldl(AdaptW, Inputs, get(prev_tensor)).
-
 adapt_weights({Pid,_,Xi}, Inputs, Beta, Init) -> 
     I = maps:get(Pid, Inputs),
     Inputs#{Pid:=updt_input(I,Xi,Beta,Init)}.
 
 updt_input(I, Xi, Beta, Init) -> 
     I#input{w=updt_weight(?W(I),Xi,Beta,Init)}.
+
+adapt_Bias(Bias, Beta, Init) ->
+    updt_weight(Bias, 1.0, Beta, Init).
 
 
 %%%===================================================================
@@ -317,6 +314,8 @@ set_inputs([{{From,_},W}|LinkWs], Ix, Pids) ->
     set_inputs(LinkWs, Ix#{Pid=>#input{w=W}}, [Pid|Pids]);
 set_inputs([], Inputs, Pids) ->
     put(inputs, Inputs),
+    calculate_tensor(Inputs),
+    recalculate_weights(0.0),
     Pids.
 
 %%--------------------------------------------------------------------
