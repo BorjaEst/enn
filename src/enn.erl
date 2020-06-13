@@ -113,7 +113,8 @@ outputs(Network) ->
 %%-------------------------------------------------------------------
 -spec neurons(Network::network()) -> Neurons::[neuron()].
 neurons(Network) -> 
-    nnet:neurons(Network).
+    {atomic, #{nnodes:=NNodes}} = nnet:info(Network),
+    maps:keys(NNodes).
 
 %%--------------------------------------------------------------------
 %% @doc Start a neural network, ready to receive inputs or training.
