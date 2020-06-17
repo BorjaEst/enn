@@ -1,8 +1,5 @@
 %%%-------------------------------------------------------------------
-%%% @author borja
 %%% @doc
-%%%
-%%%
 %%%
 %%% TODO: Remove get and put (find a better solution).
 %%% @end

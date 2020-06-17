@@ -1,12 +1,9 @@
 %%%-------------------------------------------------------------------
-%%% @author borja
 %%% @doc
-%%%
 %%%
 %%% TODO: Implement crelu
 %%% TODO: Implement relu_x
 %%% TODO: Implement dropout (Probably this is not an activation)
-%%%
 %%% @end
 %%%-------------------------------------------------------------------
 -module(activation).

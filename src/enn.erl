@@ -11,11 +11,12 @@
 %% API
 -export([start/1, stop/1, predict/2, fit/3, clone/1]).
 -export([compile/1, run/4, inputs/1, outputs/1, neurons/1]).
--export([status/1, info/1, link/1, cortex/1, check/1]).
--export_types([id/0, model/0]).
+-export([status/1, info/1, link/1, cortex/1]).
+-export_types([network/0, neuron/0, model/0]).
 
--type id()    :: network:id().
--type model() :: model:definition().
+-type network() :: nnet:id().
+-type neuron()  :: nnet:neuron().
+-type model()   :: nnet:model().
 
 
 %%====================================================================
@@ -26,42 +27,31 @@
 %% @doc Compiles and stores a model returning its network id.
 %% @end
 %%--------------------------------------------------------------------
--spec compile(Model :: model()) -> 
-    Network_id :: id().
+-spec compile(Model::model()) -> {atomic, Network::network()}.
 compile(Model) ->
-    {atomic, Id} = mnesia:transaction(
-        fun() -> model:compile(Model) end
-    ),
-    Id.
+    nnet:from_model(Model).
 
 %%--------------------------------------------------------------------
 %% @doc Clones a network. Each element of the newtork is cloned inside
 %% the mnesia database but with a different id.
 %% @end
 %%--------------------------------------------------------------------
--spec clone(Network_id :: id()) -> 
-    Cloned_id :: id().
-clone({_, network} = Network_id) ->
-    CloneFun = 
-        fun() -> 
-            [NN]  = mnesia:read(network, Network_id),
-            Clone = network:clone(NN),
-            ok    = mnesia:write(Clone),
-            network:id(Clone)
-        end,
-    {atomic, Id} = mnesia:transaction(CloneFun),
-    Id.
+-spec clone(Network::network()) -> {atomic, Cloned::network()}.
+clone(Network) ->
+    nnet:clone(Network).
 
 %%--------------------------------------------------------------------
 %% @doc Uses a ANN to create a prediction. The ANN is refered by using
 %% the cortex pid.
 %% @end
 %%--------------------------------------------------------------------
--spec predict(Network_id :: id(), InputsList :: [[float()]]) ->
-    [Prediction :: [float()]].
-predict(Network_id, InputsList) ->
+-spec predict(Network, Inputs) -> Predictions when
+    Network     :: network(), 
+    Inputs      :: [[float()]],
+    Predictions :: [[float()]].
+predict(Network, InputsList) ->
     Options = [{return, [prediction]}],
-    [Prediction] = run(Network_id, InputsList, [], Options),
+    [Prediction] = run(Network, InputsList, [], Options),
     Prediction.
 
 %%--------------------------------------------------------------------
@@ -69,100 +59,101 @@ predict(Network_id, InputsList) ->
 %% OptimalOutputs. Returns the errors between prediction and optima.
 %% @end
 %%--------------------------------------------------------------------
--spec fit(Network_id :: id(), InputsList :: [float()], 
-          OptimaList :: [float()]) ->
-    Errors :: [float()].
-fit(Network_id, InputsList, OptimaList) ->
+-spec fit(Network, Inputs, Optima) -> Errors when
+    Network :: network(), 
+    Inputs  :: [[float()]],
+    Optima  :: [[float()]],
+    Errors  :: [[float()]].
+fit(Network, InputsList, OptimaList) ->
     Options = [{return, [loss]}, {print, 10}],
-    [Loss] = run(Network_id, InputsList, OptimaList, Options),
+    [Loss] = run(Network, InputsList, OptimaList, Options),
     Loss.
 
 %%--------------------------------------------------------------------
 %% @doc Runs an ANN with the criteria defined at the options.
 %% @end
 %%--------------------------------------------------------------------
--spec run(Network_id :: id(), InputsList :: [float()], 
-          OptimaList :: [float()], Options :: [training:option()]) ->
-    Errors :: [float()].
-run(Network_id, InputsList, OptimaList, Options) ->
-    Cortex_Pid = cortex(Network_id),
+-spec run(Network, Inputs, Optima, Options) -> Results when
+    Network :: network(), 
+    Inputs  :: [[float()]],
+    Optima  :: [[float()]],
+    Options :: [training:option()],
+    Results :: [term()].
+run(Network, InputsList, OptimaList, Options) ->
+    Cortex_Pid = cortex(Network),
     training:start_link(Cortex_Pid, InputsList, OptimaList, Options).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the number of inputs a network expects.
 %% @end
 %%--------------------------------------------------------------------
--spec inputs(Network :: model() | id()) ->
-    NumberOfInputs :: integer().
+-spec inputs(model() | network()) -> NumberOfInputs::integer().
 inputs(Model) when is_map(Model) ->
-    #{layers := #{-1.0 := #{units := N_Inputs}}} = Model,
+    #{inputs := #{units := N_Inputs}} = Model,
     N_Inputs;
-inputs({_, network} = Network_id) ->
-    [NN] = mnesia:dirty_read(network, Network_id),
-    network:in_degree(NN). 
+inputs(Network) ->
+    {atomic, #{inputs:=Inputs}} = nnet:info(Network),
+    length(Inputs). 
 
 %%--------------------------------------------------------------------
 %% @doc Returns the number of outputs a network expects.
 %% @end
 %%--------------------------------------------------------------------
--spec outputs(Network :: model() | id()) ->
-    NumberOfOtputs :: integer().
+-spec outputs(model() | network()) -> NumberOfOtputs::integer().
 outputs(Model) when is_map(Model) ->
-    #{layers := #{1.0 := #{units := N_Outputs}}} = Model,
+    #{outputs := #{units := N_Outputs}} = Model,
     N_Outputs;
-outputs({_, network} = Network_id) ->
-    [NN] = mnesia:dirty_read(network, Network_id),
-    network:out_degree(NN).
+outputs(Network) ->
+    {atomic, #{outputs:=Outputs}} = nnet:info(Network),
+    length(Outputs).
 
 %%-------------------------------------------------------------------
 %% @doc Returns a list of all neurons of the network.  
 %% @end
 %%-------------------------------------------------------------------
--spec neurons(Network_id :: id()) -> [neuron:id()].
-neurons(Network_id) -> 
-    [NN] = mnesia:dirty_read(network, Network_id),
-    network:neurons(NN).
+-spec neurons(Network::network()) -> Neurons::[neuron()].
+neurons(Network) -> 
+    {atomic, #{nnodes:=NNodes}} = nnet:info(Network),
+    maps:keys(NNodes).
 
 %%--------------------------------------------------------------------
 %% @doc Start a neural network, ready to receive inputs or training.
 %% @end
 %%--------------------------------------------------------------------
--spec start(Network :: model() | id()) ->
-    Network_id :: id().
+-spec start(model() | network()) -> Network::network().
 start(Model) when is_map(Model) ->
-    start(compile(Model));
-start(Network_id) ->
-    ok = enn_sup:start_nn(Network_id),
-    Network_id.
+    {atomic, Network} = compile(Model),
+    start(Network);
+start(Network) ->
+    ok = enn_sup:start_nn(Network),
+    Network.
 
 %%--------------------------------------------------------------------
 %% @doc Stops a neural network.
 %% @end
 %%--------------------------------------------------------------------
--spec stop(Network_id :: id()) -> Result when
+-spec stop(Network::network()) -> Result when
       Result :: 'ok' | {'error', Error},
-      Error :: 'not_found' | 'simple_one_for_one'.
-stop(Network_id) ->
-    enn_sup:terminate_nn(Network_id).
+      Error :: 'not_found'.
+stop(Network) ->
+    enn_sup:terminate_nn(Network).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the network information of the specified network id.
 %% @end
 %%--------------------------------------------------------------------
--spec info(Network_id :: id()) -> Info when
-      Info :: network:info().
-info(Network_id) -> 
-    [NN] = mnesia:dirty_read(network, Network_id),
-    network:info(NN).
+-spec info(Network::network()) -> Info::nnet:info().
+info(Network) -> 
+    nnet:info(Network).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the status of the specified network id.
 %% @end
 %%--------------------------------------------------------------------
--spec status(Network_id :: id()) -> Status when
+-spec status(Network::network()) -> Status when
       Status :: enn_pool:info() | not_running.
-status(Network_id) -> 
-    try enn_pool:info(Network_id) of 
+status(Network) -> 
+    try enn_pool:info(Network) of 
           Info          -> Info
     catch error:badarg  -> not_running 
     end.
@@ -172,35 +163,22 @@ status(Network_id) ->
 %% dies because of an exception, the newtwork die shutdown as well.
 %% @end
 %%--------------------------------------------------------------------
--spec link(Network_id :: id()) -> true.
-link(Network_id) -> 
-    #{supervisor:=Pid} = enn_pool:info(Network_id),
+-spec link(Network::network()) -> true.
+link(Network) -> 
+    #{supervisor:=Pid} = enn_pool:info(Network),
     erlang:link(Pid).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the pid of the cortex.
 %% @end
 %%--------------------------------------------------------------------
--spec cortex(Network_id :: id()) -> pid().
-cortex(Network_id) -> 
-    #{cortex:=Pid} = enn_pool:info(Network_id),
+-spec cortex(Network::network()) -> pid().
+cortex(Network) -> 
+    #{cortex:=Pid} = enn_pool:info(Network),
     Pid.
-
-%%--------------------------------------------------------------------
-%% @doc Check the network is in optimal status.
-%% @end
-%%--------------------------------------------------------------------
--spec check(Network_id :: id()) -> ok.
-check(Network_id) ->
-    [NN] = mnesia:dirty_read(network, Network_id),
-    []   = network:sink_neurons(NN), 
-    []   = network:bias_neurons(NN),
-    ok.
 
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-
-
 

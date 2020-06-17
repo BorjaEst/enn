@@ -1,5 +1,4 @@
 %%%-------------------------------------------------------------------
-%%% @author borja
 %%% @doc
 %%%
 %%% @end
@@ -34,19 +33,18 @@
 %% @doc Mounts the pool using a list of {id, pid}.
 %% @end
 %%--------------------------------------------------------------------
--spec mount(Supervisor, Cortex_id, NN) -> pool() when 
+-spec mount(Supervisor, Network, NNodes) -> pool() when 
     Supervisor :: pid(),
-    Cortex_id  :: cortex:id(), 
-    NN         :: network:network().
-mount(Supervisor, Cortex_id, NN) -> 
+    Network    :: cortex:id(),
+    NNodes     :: #{enn:nnode() => nnode}.
+mount(Supervisor, Network, NNodes) -> 
     PT   = ets:new(processes, ?TABS_CONFIGURATION),
-    Regs = [start_neuron(Supervisor,Id) || Id<-network:neurons(NN)],
-    true = ets:insert(PT, cortex_registers(Cortex_id)),
+    Regs = [start_neuron(Supervisor,Id) || Id <- maps:keys(NNodes)],
+    true = ets:insert(PT, cortex_registers(Network)),
     true = ets:insert(PT, [{Id,Pid} || {Id,Pid} <- Regs]),
     true = ets:insert(PT, [{Pid,Id} || {Id,Pid} <- Regs]),
     NN_Pool = #nn_pool{ptab = PT},
-    [neuron:go(Pid,network:connections(NN,Id),NN_Pool) 
-        || {Id,Pid} <- Regs],
+    [neuron:cortex_synch(Pid, NN_Pool) || {Id,Pid} <- Regs],
     NN_Pool.
 
 %%--------------------------------------------------------------------
@@ -78,8 +76,9 @@ start_neuron(Supervisor,Id) ->
     {Id, Pid}.
 
 % Cortex registers in the ptab --------------------------------------
-cortex_registers(Id) ->
-    [{Id,self()}, {self(),Id}, {'end',self()}, {'start',self()}].
+cortex_registers(Network) ->
+    Pid = self(),
+    [{Network,Pid}, {Pid,Network}].
 
 
 %%====================================================================

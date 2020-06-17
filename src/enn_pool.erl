@@ -13,9 +13,9 @@
 
 -type enn_pool() :: ets:tid().
 -record(enn, {
-    id         :: network:id(), % Network identifier
-    supervisor :: pid(),        % Pid of the supervisor
-    cortex     :: pid(),        % Pid of the cortex 
+    id         :: enn:network(), % Network identifier
+    supervisor :: pid(),         % Pid of the supervisor
+    cortex     :: pid(),         % Pid of the cortex 
     nn_pool    :: nn_pool:pool() % Pool with neurons pid<->id
     % graph      :: graph(),      % Mounted graph with network
     % neurons     :: integer(),
@@ -55,8 +55,8 @@ start() ->
 %% @doc Registers a new enn in the enn pool.
 %% @end
 %%--------------------------------------------------------------------
--spec register(Network_id) -> boolean() when 
-    Network_id :: network:id().
+-spec register(Network) -> boolean() when 
+    Network :: enn:network().
 register(Id) -> 
     ets:insert(?ENN_POOL, #enn{id = Id}).
 
@@ -64,8 +64,8 @@ register(Id) ->
 %% @doc Deletes a enn from the enn pool.
 %% @end
 %%--------------------------------------------------------------------
--spec unregister(Network_id) -> true when 
-    Network_id :: network:id().
+-spec unregister(Network) -> true when 
+    Network :: enn:network().
 unregister(Id) -> 
     ets:delete(?ENN_POOL, Id).
 
@@ -73,8 +73,8 @@ unregister(Id) ->
 %% @doc Returns true if registered as suppervisor, otherwise false.
 %% @end
 %%--------------------------------------------------------------------
--spec register_as_supervisor(Network_id) -> boolean() when 
-    Network_id :: network:id().
+-spec register_as_supervisor(Network) -> boolean() when 
+    Network :: enn:network().
 register_as_supervisor(Id) -> 
     ets:update_element(?ENN_POOL, Id, {#enn.supervisor, self()}).
 
@@ -82,8 +82,8 @@ register_as_supervisor(Id) ->
 %% @doc Returns true if registered as cortex, otherwise false.
 %% @end
 %%--------------------------------------------------------------------
--spec register_as_cortex(Network_id) -> boolean() when 
-    Network_id :: network:id().
+-spec register_as_cortex(Network) -> boolean() when 
+    Network :: enn:network().
 register_as_cortex(Id) -> 
     ets:update_element(?ENN_POOL, Id, {#enn.cortex, self()}).
 
@@ -91,8 +91,8 @@ register_as_cortex(Id) ->
 %% @doc Returns true if NN_Pool registered, otherwise false.
 %% @end
 %%--------------------------------------------------------------------
--spec register_nn_pool(Network_id, NN_Pool) -> boolean() when 
-    Network_id :: network:id(),
+-spec register_nn_pool(Network, NN_Pool) -> boolean() when 
+    Network :: enn:network(),
     NN_Pool    :: nn_pool:tid().
 register_nn_pool(Id, NN_Pool) -> 
     ets:update_element(?ENN_POOL, Id, {#enn.nn_pool, NN_Pool}).
@@ -101,8 +101,8 @@ register_nn_pool(Id, NN_Pool) ->
 %% @doc Returns the neural network information.
 %% @end
 %%--------------------------------------------------------------------
--spec info(Network_id)  -> InfoMap when
-      Network_id :: network:id(),
+-spec info(Network)  -> InfoMap when
+      Network :: enn:network(),
       InfoMap    :: info().
 info(Id) -> 
     case ets:lookup(?ENN_POOL, Id) of 

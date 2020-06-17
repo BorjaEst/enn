@@ -120,8 +120,7 @@ groups() ->
         {test_complex_architectures, [sequence],
          [
             mult_random_inputs,
-            recurrent_1_input,
-            weights_0_network
+            recurrent_1_input
          ]
         },
         {test_error_networks, [parallel],
@@ -232,16 +231,6 @@ recurrent_1_input(_Config) ->
     console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
-weights_0_network() ->
-    [].
-weights_0_network(_Config) ->
-    {ok, Loss10} = ?TEST_MODEL(
-        _Model = test_architectures:network_0_weights(),
-        _Data  = fun test_data_generators:inputs_always_0/3
-    ),
-    console_print_loss(?FUNCTION_NAME, Loss10).
-
-% -------------------------------------------------------------------
 random_dense_random_inputs() ->
     [].
 random_dense_random_inputs(_Config) ->
@@ -267,8 +256,8 @@ test_model(FileName, Model, Training) ->
 % -------------------------------------------------------------------
 correct_model_compilation(Model) ->
     ?HEAD("Correct model compilation .............................."),
-    Id      = enn:compile(Model), ?INFO(  "Model",   Model),
-    NN_Info = enn:info(Id),       ?INFO("Network", NN_Info),
+    {atomic,Id} = enn:compile(Model), ?INFO(  "Model",   Model),
+    {atomic,NN_Info} = enn:info(Id),  ?INFO("Network", NN_Info),
     ?END({ok, Id}).
 
 % -------------------------------------------------------------------

@@ -1,5 +1,4 @@
 %%%-------------------------------------------------------------------
-%%% @author borja
 %%% @doc The cortex is a NN synchronizing element. It needs to know 
 %%% the Pid of every neural network element, so that it will know when
 %%% all the outputs have received their control inputs, and that it’s
@@ -49,26 +48,17 @@
 %% @doc Returns the cortex id of from a network id.  
 %% @end
 %%--------------------------------------------------------------------
--spec id(Network_id :: netwrok:id()) -> Cortex_id :: id().
-id(Network_id) -> {element(1, Network_id), cortex}.
+-spec id(Network :: netwrok:id()) -> Cortex_id :: id().
+id(Network) -> {element(1, Network), cortex}.
 
 %%--------------------------------------------------------------------
 %% @doc Cortex id start function for supervisor. 
 %% @end
 %%--------------------------------------------------------------------
--spec pid(Network_id :: netwrok:id()) -> Cortex_Pid :: pid().
-pid(Network_id) -> 
-    ENN = enn_pool:info(Network_id),
-    maps:get(cortex, ENN).
-
-%%--------------------------------------------------------------------
-%% @doc Cortex id start function for supervisor. 
-%% @end
-%%--------------------------------------------------------------------
--spec start_link(Network_id :: netwrok:id()) -> 
+-spec start_link(Network :: netwrok:id()) -> 
     gen_statem:start_ret().
-start_link(Network_id) -> 
-    gen_statem:start_link(?MODULE, [Network_id, self()], []).
+start_link(Network) -> 
+    gen_statem:start_link(?MODULE, [Network, self()], []).
 
 %%--------------------------------------------------------------------
 %% @doc Makes a prediction using the external inputs.
@@ -106,13 +96,13 @@ fit(Pid, Errors) ->
 %%                     {stop, StopReason}
 %% @end
 %%--------------------------------------------------------------------
-init([Network_id, NN_Sup]) -> 
-    true = enn_pool:register_as_cortex(Network_id),
+init([Network, NN_Sup]) -> 
+    true = enn_pool:register_as_cortex(Network),
     process_flag(trap_exit, true), % To catch supervisor 'EXIT'
-    put(id, id(Network_id)),
+    put(id, cortex:id(Network)),
     ?LOG_STATE_CHANGE(undefined),
     {ok, inactive, #state{wait = []},
-        {next_event, internal, {start_nn, Network_id, NN_Sup}}}.
+        {next_event, internal, {start_nn, Network, NN_Sup}}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -189,9 +179,9 @@ inactive({call, From}, {backprop, Errors}, State) ->
     {next_state, on_backpropagation, State#state{
         wait = [Pid || {Pid, _}  <- get(outputs)]
     }};
-inactive(internal, {start_nn, Network_id, NN_Sup}, State) ->
+inactive(internal, {start_nn, Network, NN_Sup}, State) ->
     ?LOG_EVENT_START_NEURONS_NETWORK,
-    handle_start(Network_id, NN_Sup),
+    handle_start(Network, NN_Sup),
     {keep_state, State};
 inactive(EventType, EventContent, State) ->
     handle_common(EventType, EventContent, State).
@@ -332,23 +322,15 @@ backward(Input_Pid, Error) ->
     {Input_Pid, Error}.
 
 % -------------------------------------------------------------------
-handle_start(Network_id, NN_Sup) ->
-    [NN]    = mnesia:dirty_read(network, Network_id),
-    NN_Pool = nn_pool:mount(NN_Sup, id(Network_id), NN),
-    true    = enn_pool:register_nn_pool(Network_id, NN_Pool),
-    put( inputs,  % System outputs are the cortex inputs
-        [{nn_pool:pid(NN_Pool,Id),#input{ }} 
-            || Id <- network:out_nodes(NN)]), 
+handle_start(Network, NN_Sup) ->
+    {atomic, Info} = nnet:info(Network),
+    #{nnodes:=NNodes, inputs:=In, outputs:=Out} = Info,
+    NN_Pool = nn_pool:mount(NN_Sup, Network, NNodes),
+    true    = enn_pool:register_nn_pool(Network, NN_Pool),
     put(outputs,  % System inputs are the cortex outputs
-        [{nn_pool:pid(NN_Pool,Id),#output{}}
-            || Id <-  network:in_nodes(NN)]),
-    discard_rcc_signals().
-
-discard_rcc_signals() -> 
-    receive {_, backward, _} -> discard_rcc_signals();
-            {_,  forward, _} -> discard_rcc_signals()
-    after 20                 -> ok
-    end.
+        [{nn_pool:pid(NN_Pool,Id),#output{}} || {_,Id} <-  In]), 
+    put(inputs,   % System outputs are the cortex inputs
+        [{nn_pool:pid(NN_Pool,Id),#input{ }} || {Id,_} <- Out]).
 
 
 %%====================================================================
