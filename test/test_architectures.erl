@@ -37,10 +37,10 @@ random_dense(0, Max_Units, Mx, To) ->
 % -------------------------------------------------------------------
 % TODO: Define specs and comments
 example() ->
-    #{inputs  =>  ?input(2, #{hidden1 => sequential}),
-      hidden1 =>  ?dense(4, #{hidden2 => sequential}),
-      hidden2 =>  ?dense(3, #{outputs => sequential}),
-      outputs => ?output(1, #{})}.
+    #{inputs  =>   ?input(2, #{hidden1 => sequential}),
+      hidden1 => ?sigmoid(4, #{hidden2 => sequential}),
+      hidden2 =>   ?dense(3, #{outputs => sequential}),
+      outputs =>  ?output(1, #{})}.
 
 % -------------------------------------------------------------------
 % TODO: Define specs and comments

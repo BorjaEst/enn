@@ -6,7 +6,8 @@
 -module(layer).
 
 %% API
--export([create_type/1, input/2, output/2, dense/2, elu/2, tanh/2]).
+-export([create_type/1]).
+-export([input/2, output/2, dense/2, sigmoid/2, elu/2, tanh/2]).
 -export_type([definition/0, compiled/0]).
 
 -type definition() :: #{units       := integer(),
@@ -62,7 +63,7 @@ input(Units, Connections) ->
     Connections :: definition().
 -define(OUTPUT_PROPERTIES,  #{activation  => direct,
                               aggregation => dot_prod,
-                              initializer => glorot,
+                              initializer => zeros,
                               bias        => 0.0}).
 output(Units, Connections) ->
         #{connections => Connections,
@@ -84,6 +85,22 @@ dense(Units, Connections) ->
         #{connections => Connections,
           units       => Units,
           data        => ?DENSE_PROPERTIES}.
+
+%%--------------------------------------------------------------------
+%% @doc Returns the definition for a sigmoid layer.
+%% @end
+%%--------------------------------------------------------------------
+-spec sigmoid(Units, Connections) -> model:layer() when 
+    Units       :: integer(),
+    Connections :: definition().
+-define(SIGMOID_PROPERTIES,   #{activation  => sigmoid,
+                                aggregation => dot_prod,
+                                initializer => glorot,
+                                bias        => not_init}).
+sigmoid(Units, Connections) ->
+        #{connections => Connections,
+          units       => Units,
+          data        => ?SIGMOID_PROPERTIES}.
 
 %%--------------------------------------------------------------------
 %% @doc Returns the definition for a elu layer.
