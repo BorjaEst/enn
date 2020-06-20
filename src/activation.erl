@@ -83,7 +83,8 @@ beta(Function, Error, Soma) ->
     Result.
 
 apply_beta(Function, Error, Soma)->
-    Error * dfun(Function, Soma).
+    PureBeta = Error * dfun(Function, Soma),
+    math:tanh(PureBeta). % Limit beta protects to infinite W and Err
 
 % apply_beta( Function, Error, Soma) when Error >= 0, Soma >= 0 -> 
 %     Error * dfun(Function, Soma);
