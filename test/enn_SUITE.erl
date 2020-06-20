@@ -109,7 +109,7 @@ end_per_testcase(_TestCase, _Config) ->
 %%--------------------------------------------------------------------
 groups() ->
     [
-        {test_simple_architectures, [sequence],
+        {test_simple_architectures, [parallel],
          [
             xor_gate_static_inputs,
             xor_gate_random_inputs,
@@ -117,16 +117,10 @@ groups() ->
             addition_random_inputs
          ]
         },
-        {test_complex_architectures, [sequence],
+        {test_complex_architectures, [parallel],
          [
             mult_random_inputs,
             recurrent_1_input
-         ]
-        },
-        {test_error_networks, [parallel],
-         [
-            test_for_empty_nn,
-            test_for_broken_nn
          ]
         },
         {test_parallel_networks, [parallel, {repeat,?PARALLEL_NN}],
@@ -145,7 +139,6 @@ all() ->
     [ % NOTE THAT GROUPS CANNOT BE DEBUGGED WITH {step, ?STEP_OPTS}
         {group, test_simple_architectures},
         {group, test_complex_architectures},
-        % {group, test_error_networks}
         {group, test_parallel_networks}
     ].
 
