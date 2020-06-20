@@ -165,7 +165,7 @@ status(Network) ->
 %%--------------------------------------------------------------------
 -spec link(Network::network()) -> true.
 link(Network) -> 
-    #{supervisor:=Pid} = enn_pool:info(Network),
+    #{cortex:=Pid} = enn_pool:info(Network),
     erlang:link(Pid).
 
 %%--------------------------------------------------------------------

@@ -42,7 +42,7 @@
 %% @end
 %%--------------------------------------------------------------------
 -spec id(Network :: netwrok:id()) -> Supervisor :: id().
-id(Network) -> {element(1, Network), nn_sup}.
+id(Network) -> {nn_sup, element(2, Network)}.
 
 %%--------------------------------------------------------------------
 %% @doc Starts the supervisor

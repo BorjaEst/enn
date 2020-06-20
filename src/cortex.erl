@@ -49,7 +49,7 @@
 %% @end
 %%--------------------------------------------------------------------
 -spec id(Network :: netwrok:id()) -> Cortex_id :: id().
-id(Network) -> {element(1, Network), cortex}.
+id(Network) -> {cortex, element(2, Network)}.
 
 %%--------------------------------------------------------------------
 %% @doc Cortex id start function for supervisor. 
