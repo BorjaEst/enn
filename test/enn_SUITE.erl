@@ -249,8 +249,10 @@ test_model(FileName, Model, Training) ->
 % -------------------------------------------------------------------
 correct_model_compilation(Model) ->
     ?HEAD("Correct model compilation .............................."),
-    {atomic,Id} = enn:compile(Model), ?INFO(  "Model",   Model),
-    {atomic,NN_Info} = enn:info(Id),  ?INFO("Network", NN_Info),
+    {atomic,Id} = mnesia:transaction(fun() -> enn:compile(Model) end), 
+    ?INFO("Model", Model),
+    {atomic,NN_Info} = mnesia:transaction(fun() -> enn:info(Id) end),
+    ?INFO("Network", NN_Info),
     ?END({ok, Id}).
 
 % -------------------------------------------------------------------
@@ -263,9 +265,10 @@ correct_model_start(Id) ->
 correct_model_training(Id, Training, FileName) ->
     ?HEAD("Correct fit of model using backpropagation ............."),
     Options = [{print, 3}, {log, FileName}, {return, [loss]}],
-    {Inputs, Optimas} = Training(enn:inputs(Id), 
-                                 enn:outputs(Id), 
-                                 ?TRAINING_LINES),
+    {atomic, {N_in, N_out}} = mnesia:transaction(
+        fun() -> {enn:inputs(Id), enn:outputs(Id)} end
+    ),
+    {Inputs, Optimas} = Training(N_in, N_out, ?TRAINING_LINES),
     [Loss] = enn:run(Id, Inputs, Optimas, Options),
     ?END({ok, average(Loss, 10)}).
 

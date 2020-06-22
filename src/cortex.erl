@@ -323,7 +323,9 @@ backward(Input_Pid, Error) ->
 
 % -------------------------------------------------------------------
 handle_start(Network, NN_Sup) ->
-    {atomic, Info} = nnet:info(Network),
+    {atomic, Info} = mnesia:transaction(
+        fun() -> nnet:info(Network) end
+    ),
     #{nnodes:=NNodes, inputs:=In, outputs:=Out} = Info,
     NN_Pool = nn_pool:mount(NN_Sup, Network, NNodes),
     true    = enn_pool:register_nn_pool(Network, NN_Pool),

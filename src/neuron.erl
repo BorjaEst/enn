@@ -98,11 +98,12 @@ init(Id, Supervisor) ->
     process_flag(trap_exit, true), % Catch supervisor exits
     NNPool = cortex_synch(),
     {atomic, #{in:=InW, seq:=Seq, rcc:=Rcc, data:=Data}} = 
-    nnet:edit(fun() -> #{in => [{L,nnet:rlink(L)} || L<-nnet:in(Id)],
-                         seq  => nnet:out_seq(Id),
-                         rcc  => nnet:out_rcc(Id),
-                         data => nnet:rnode(Id)}
-              end),
+    mnesia:transaction(
+        fun() -> #{in => [{L,nnet:rlink(L)} || L<-nnet:in(Id)],
+                   seq  => nnet:out_seq(Id),
+                   rcc  => nnet:out_rcc(Id),
+                   data => nnet:rnode(Id)}
+        end),
     put(    id,      Id), % Used for logs and final write update
     put(   data,   Data), % Used to calculate activation signals
     put(nn_pool, NNPool), % Used to convert Pid<->Id 
@@ -184,7 +185,7 @@ idle(State) ->
 terminate(Reason, _State) ->
     % TODO: When saving the new state, those links with weights ~= 0, must be deleted (both neurons)
     % TODO: If the neuron has not at least 1 input or 1 output, it must be deleted (and bias forwarded)
-    {atomic, _} = nnet:edit( 
+    {atomic, _} = mnesia:transaction( 
         fun() -> write_links(), write_neuron() end
     ),
     ?LOG_NEURON_TERMINATING,

@@ -54,7 +54,9 @@ end_per_suite(_Config) ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 init_per_group(_GroupName, Config) ->
-    {atomic,Id} = enn:compile(test_architectures:example()),
+    {atomic,Id} = mnesia:transaction(
+        fun() -> enn:compile(test_architectures:example()) end
+    ),
     [{network, Id} | Config].
 
 %%--------------------------------------------------------------------
@@ -157,8 +159,10 @@ training_saved_after_stop(Config) ->
     Id = enn:start(Id),
     {atomic, Bs1} = mnesia:transaction(fun() -> biases(Id) end),
     {atomic, Ws1} = mnesia:transaction(fun() -> weights(Id) end),
-    {In,Opt} = test_data_generators:random_sum_of_inputs(
-                                  enn:inputs(Id),enn:outputs(Id),10),
+    {atomic, {N_in, N_out}} = mnesia:transaction(
+        fun() -> {enn:inputs(Id), enn:outputs(Id)} end
+    ),
+    {In,Opt} = test_data_generators:random_sum_of_inputs( N_in, N_out, 10),
     _  = enn:fit(Id, In, Opt),
     ok = enn:stop(Id),
     {atomic, Bs2} = mnesia:transaction(fun() -> biases(Id) end),
@@ -173,7 +177,7 @@ correct_network_clonation() ->
 correct_network_clonation(Config) -> 
     ?HEAD("Network can be cloned ................................."),
     Id1 = ?config(network, Config),
-    {atomic, Id2} = enn:clone(Id1),
+    {atomic,  Id2} = mnesia:transaction(fun() -> enn:clone(Id1) end),
     {atomic, true} = mnesia:transaction(
         fun() -> 
             true =            neurons(Id1) /=            neurons(Id2),
