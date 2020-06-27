@@ -112,7 +112,8 @@ groups() ->
 all() ->
     [ 
         broken_connections,
-        infinite_loop
+        infinite_loop,
+        dummy_neurons
     ].
 
 %%--------------------------------------------------------------------
@@ -163,6 +164,26 @@ infinite_loop(_Config) ->
     #{nn_pool := NNpool} = enn:status(Id),
     Alive = [Pid || Pid <- nn_pool:pids(NNpool), is_process_alive(Pid)],
     true = length(Alive) == N_in + N_out + 1, %Cortex=>+1 
+    correct_model_stop(Id),
+    ?END({ok, Id}).
+
+% -------------------------------------------------------------------
+dummy_neurons(_Config) ->
+    {ok, Id}  = correct_model_compilation(
+        test_architectures:dummy_neurons()
+    ),
+    {atomic, {N_in, N_out}} = mnesia:transaction(
+        fun() -> {enn:inputs(Id), enn:outputs(Id)} end
+    ),
+    Id = enn:start(Id),
+    timer:sleep(200), % Neurons need some time to exit
+    #{nn_pool := NNpool} = enn:status(Id),
+    Alive = [Pid || Pid <- nn_pool:pids(NNpool), is_process_alive(Pid)],
+    true = length(Alive) == N_in + N_out + 1, %Cortex=>+1 
+    correct_model_training(
+        Id, fun test_data_generators:random_sum_of_inputs/3
+    ),
+    correct_model_stop(Id),
     ?END({ok, Id}).
 
 
@@ -178,18 +199,25 @@ correct_model_compilation(Model) ->
     ?INFO("Network", NN_Info),
     ?END({ok, Id}).
 
+% -------------------------------------------------------------------
+correct_model_training(Id, Training) ->
+    ?HEAD("Correct fit of model using backpropagation ............."),
+    {atomic, {N_in, N_out}} = mnesia:transaction(
+        fun() -> {enn:inputs(Id), enn:outputs(Id)} end
+    ),
+    {Inputs, Optimas} = Training(N_in, N_out, ?TRAINING_LINES),
+    _Loss = enn:fit(Id, Inputs, Optimas),
+    ?END(ok).
 
-
-
-
-
-
-
-
-
-
-
-
+% -------------------------------------------------------------------
+correct_model_stop(Id) ->
+    ?HEAD("Correct neural network stop form a network id ........."),
+    Cortex = enn:cortex(Id),
+    true   = is_process_alive(Cortex), 
+    ok     = enn:stop(Id),
+    false  = is_process_alive(Cortex), 
+    not_running = enn:status(Id),
+    ?END(ok).
 
 
 % --------------------------------------------------------------------

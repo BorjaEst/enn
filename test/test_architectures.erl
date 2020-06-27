@@ -93,3 +93,12 @@ infinite_loop() ->
       hidden2 =>  ?dense(2, #{hidden1 => sequential}),                  
       outputs => ?output(2, #{})}.
 
+% -------------------------------------------------------------------
+% TODO: Define specs and comments
+dummy_neurons() ->
+    #{inputs  =>  ?input(2, #{outputs => sequential,
+                              hidden1 => sequential}),
+      hidden1 =>  ?dense(2, #{}),
+      hidden2 =>  ?dense(2, #{outputs => sequential}),                  
+      outputs => ?output(2, #{})}.
+
