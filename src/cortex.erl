@@ -127,19 +127,22 @@ spawn_neurons(Network) ->
 %%
 %%--------------------------------------------------------------------
 forward_synch() -> 
-    [Pid ! {forward_synch, self()} || {Pid,_} <- get(outputs)],
-    wait_for(forward_synch, [Pid || {Pid,_} <- get(inputs)]).
+    [Pid ! {self(), forward, synch} || {Pid,_} <- get(outputs)],
+    synchronise(forward, [Pid || {Pid,_} <- get(inputs)]).
 
 backward_synch() -> 
-    [Pid ! {backward_synch, self()} || {Pid,_} <- get(inputs)],
-    wait_for(backward_synch, [Pid || {Pid,_} <- get(outputs)]).
+    [Pid ! {self(), backward, synch} || {Pid,_} <- get(inputs)],
+    synchronise(backward, [Pid || {Pid,_} <- get(outputs)]).
 
-wait_for(Term, [From|Fx]) ->
-    receive {Term, From}      -> wait_for(Term, Fx) 
-    after ?INIT_SYNCH_TIMEOUT -> error(broken_nn)
-    end; 
-wait_for(_Term, []) ->
+synchronise(Session, [From|Fx]) ->
+    receive {From, Session, synch} -> nothing
+    after ?INIT_SYNCH_TIMEOUT      -> error(broken_nn)
+    end,
+    synchronise(Session, Fx);
+synchronise(_Session, []) ->
     ok.
+
+
 %%--------------------------------------------------------------------
 %% @end
 %%--------------------------------------------------------------------
