@@ -53,7 +53,8 @@
 -define(INITIAL_ERROR,   0.00).
 
 % Configuration parameters
--define(STDIDLE_TIMEOUT, 1000).
+-define(INIT_SYNCH_TIMEOUT,  100).
+-define(STDIDLE_TIMEOUT,    1000).
 
 %%%===================================================================
 %%% API
@@ -71,8 +72,6 @@ start_link(Id) ->
 
 %%--------------------------------------------------------------------
 %% @doc Gives the go to the neuron run after the network is mounted. 
-%%
-%% TODO: Improve info passing by having all on the NN_Pool ets.
 %% @end
 %%--------------------------------------------------------------------
 -spec cortex_synch(Pid, NN_Pool) -> NonRelevant when 
@@ -85,39 +84,88 @@ cortex_synch(Pid, NN_Pool) ->
 cortex_synch() -> 
     receive {continue_init, NN_Pool} -> NN_Pool end.
 
+
 %%%===================================================================
 %%% Initialization functions
 %%%===================================================================
 
 %%--------------------------------------------------------------------
 %% @doc The neuron initialization.  
-%% @end
+%% 
 %%--------------------------------------------------------------------
 init(Id, Supervisor) ->
     proc_lib:init_ack(Supervisor, {ok, self()}), % Supervisor synch
     process_flag(trap_exit, true), % Catch supervisor exits
-    NNPool = cortex_synch(),
-    {atomic, #{in:=InW, seq:=Seq, rcc:=Rcc, data:=Data}} = 
-    mnesia:transaction(
-        fun() -> #{in => [{L,nnet:rlink(L)} || L<-nnet:in(Id)],
+    {atomic, Info} = mnesia:transaction(
+        fun() -> #{in   => [{L,nnet:rlink(L)} || L <- nnet:in(Id)],
                    seq  => nnet:out_seq(Id),
                    rcc  => nnet:out_rcc(Id),
                    data => nnet:rnode(Id)}
         end),
+    NNPool = cortex_synch(),
+    ?LOG_NEURON_STARTED, % Start log and initialization of waits
+    ok = init_dictionary(Id, NNPool, Info),
+    State = init_state(Info),
+    ok = forward_synch(),
+    ok = backward_synch(),
+    ok = init_weights(),
+    loop(State).
+%%--------------------------------------------------------------------
+%% @doc Initialisation of neuron internal dictionary.  
+%%
+%%--------------------------------------------------------------------
+init_dictionary(Id, NNPool, #{data:=Data}) -> 
     put(    id,      Id), % Used for logs and final write update
     put(   data,   Data), % Used to calculate activation signals
     put(nn_pool, NNPool), % Used to convert Pid<->Id 
     put( inputs,    #{}), % Used for forward/bakward propagation
     put(outputs,    #{}), % Used for forward/bakward propagation
-    ?LOG_NEURON_STARTED, % Start log and initialization of waits
+    ok.
+%%--------------------------------------------------------------------
+%% @doc Initialisation of neuron state.  
+%%
+%%--------------------------------------------------------------------
+init_state(#{in:=InW, seq:=Seq, rcc:=Rcc}) -> 
     set_outputs(Rcc), 
     Sent = [forward(P,O,0.0) || {P,O}<-maps:to_list(get(outputs))],
     ?LOG_FORWARD_PROPAGATION(Sent), % Rcc propagation
-    loop(#state{ 
+    #state{ 
         backward_wait = set_outputs(Seq),
         forward_wait  = set_inputs(InW)
-    }).
+    }.
+%%--------------------------------------------------------------------
+%% @doc Synchronisation functions at init.  
+%%
+%%--------------------------------------------------------------------
+forward_synch() -> 
+    receive {forward_synch, F} -> self() ! {forward_synch, F}
+    after ?INIT_SYNCH_TIMEOUT  -> exit("Neuron forward disconnected")
+    end,
+    [Pid ! {forward_synch, self()} || Pid <- maps:keys(get(outputs))],
+    wait_for(forward_synch, maps:keys(get(inputs))).
 
+backward_synch() -> 
+    receive {backward_synch, F} -> self() ! {backward_synch, F}
+    after ?INIT_SYNCH_TIMEOUT   -> exit("Neuron backward disconnected")
+    end,
+    [Pid ! {backward_synch, self()} || Pid <- maps:keys(get(inputs))],
+    wait_for(backward_synch, maps:keys(get(outputs))).
+
+wait_for(Term, [From|Fx]) ->
+    receive {Term, From} -> wait_for(Term, Fx) end; 
+wait_for(_Term, []) ->
+    ok.
+%%--------------------------------------------------------------------
+%% @doc Initial weights calculation.  
+%%
+%%--------------------------------------------------------------------
+init_weights() -> 
+    calculate_tensor(get(inputs)),
+    recalculate_weights(0.0),
+    ok.
+%%--------------------------------------------------------------------
+%% @end
+%%--------------------------------------------------------------------
 
 %%%===================================================================
 %%% neuron callbacks
@@ -142,7 +190,6 @@ loop(#state{backward_wait = []} = State) ->
 loop(State) -> 
     ?LOG_WAITING_NEURONS(State),
     receive_next(State).
-
 %%--------------------------------------------------------------------
 %% @doc The neuron loop. Receives the next messages and triggers the
 %% specific action. 
@@ -177,7 +224,6 @@ backward_in(Pid, Ei, State)  ->
 idle(State) -> 
     ?LOG_NEURON_IDLE(State),
     receive_next(State).
-
 %%--------------------------------------------------------------------
 %% @doc Terminates the neuron and saves in edb the new weights.
 %%
@@ -190,11 +236,9 @@ terminate(Reason, _State) ->
     ),
     ?LOG_NEURON_TERMINATING,
     exit(Reason).
-
 %%--------------------------------------------------------------------
 %% @end  
 %%--------------------------------------------------------------------
-
 
 %%%===================================================================
 %%% Message functions
@@ -315,8 +359,6 @@ set_inputs([{{From,_},W}|LinkWs], Ix, Pids) ->
     set_inputs(LinkWs, Ix#{Pid=>#input{w=W}}, [Pid|Pids]);
 set_inputs([], Inputs, Pids) ->
     put(inputs, Inputs),
-    calculate_tensor(Inputs),
-    recalculate_weights(0.0),
     Pids.
 
 %%--------------------------------------------------------------------
