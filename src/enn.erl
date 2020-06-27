@@ -91,13 +91,17 @@ info(Network) ->
 %% @doc Start a neural network, ready to receive inputs or training.
 %% @end
 %%--------------------------------------------------------------------
--spec start(model() | network()) -> Network::network().
+-spec start(Model | Network) -> Network when 
+    Model   :: model(),
+    Network :: network().
 start(Model) when is_map(Model) ->
     {atomic, Network} = compile(Model),
     start(Network);
 start(Network) ->
-    ok = enn_sup:start_nn(Network),
-    Network.
+    case enn_sup:start_nn(Network) of 
+        {ok, _Pid}                       -> Network;
+        {error,{{_,{_,_, broken_nn}},_}} -> error(broken_nn)
+    end. 
 
 %%--------------------------------------------------------------------
 %% @doc Stops a neural network.
@@ -182,13 +186,6 @@ fit(Network, InputsList, OptimaList) ->
 run(Network, InputsList, OptimaList, Options) ->
     Cortex_Pid = cortex(Network),
     training:start_link(Cortex_Pid, InputsList, OptimaList, Options).
-
-
-
-
-
-
-
 
 
 %%%===================================================================

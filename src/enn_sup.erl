@@ -15,9 +15,9 @@
 
 -define(SERVER, ?MODULE).
 
--define(SPECS_NN_SUP(Network), #{
-    id       => nn_sup:id(Network),
-    start    => {nn_sup, start_link, [Network]},
+-define(SPECS_CX_SUP(Network), #{
+    id       => cx_sup:id(Network),
+    start    => {cx_sup, start_link, [Network]},
     restart  => temporary,
     type     => supervisor,
     modules  => [supervisor]
@@ -42,10 +42,7 @@ start_link() ->
 % TODO: To make description and specs
 start_nn(Network) ->
     true = enn_pool:register(Network),
-    Specs = ?SPECS_NN_SUP(Network),
-    {ok, P} = supervisor:start_child(?SERVER, Specs),
-    {ok, _} = nn_sup:start_cortex(P, Network),
-    ok. 
+    supervisor:start_child(?SERVER, ?SPECS_CX_SUP(Network)).
 
 %%--------------------------------------------------------------------
 %% @doc Stops the neural network supervisor
@@ -54,7 +51,7 @@ start_nn(Network) ->
 % TODO: To make description and specs
 terminate_nn(Network) ->
     true = enn_pool:unregister(Network),
-    supervisor:terminate_child(?SERVER, nn_sup:id(Network)).
+    supervisor:terminate_child(?SERVER, cx_sup:id(Network)).
 
 
 %%====================================================================

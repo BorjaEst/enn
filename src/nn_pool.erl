@@ -14,7 +14,7 @@
 
 -define(TABS_CONFIGURATION, [
     {read_concurrency, true}, % Prepared for concurrent reading
-    protected                 % Any can query the table
+    public                    % The cortes muxt be able to write
 ]).
 
 -type id()   :: neuron:id() | cortex:id().
@@ -30,21 +30,31 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
+%% @doc Returns a NN_Pool.
+%% @end
+%%--------------------------------------------------------------------
+-spec new(Network::enn:network()) -> NN_Pool::pool().
+new(Network) -> 
+    NN_Pool = #nn_pool{
+        ptab = ets:new(processes, ?TABS_CONFIGURATION)
+    },
+    true = enn_pool:register_nn_pool(Network, NN_Pool).
+    
+%%--------------------------------------------------------------------
 %% @doc Mounts the pool using a list of {id, pid}.
 %% @end
 %%--------------------------------------------------------------------
--spec mount(Supervisor, Network, NNodes) -> pool() when 
-    Supervisor :: pid(),
-    Network    :: cortex:id(),
-    NNodes     :: #{enn:nnode() => nnode}.
-mount(Supervisor, Network, NNodes) -> 
-    PT   = ets:new(processes, ?TABS_CONFIGURATION),
+-spec mount(Network, NNodes) -> ok when 
+    Network :: enn:network(),
+    NNodes  :: #{enn:nnode() => nnode}.
+mount(Network, NNodes) -> 
+    #{nn_sup:=Supervisor, nn_pool:=NN_Pool} = enn_pool:info(Network),
+    #nn_pool{ptab=PT} = NN_Pool,
     Regs = [start_neuron(Supervisor,Id) || Id <- maps:keys(NNodes)],
     true = ets:insert(PT, cortex_registers(Network)),
     true = ets:insert(PT, [{Id,Pid} || {Id,Pid} <- Regs]),
     true = ets:insert(PT, [{Pid,Id} || {Id,Pid} <- Regs]),
-    NN_Pool = #nn_pool{ptab = PT},
-    [neuron:cortex_synch(Pid, NN_Pool) || {Id,Pid} <- Regs],
+    [neuron:cortex_synch(Pid, NN_Pool) || {_,Pid} <- Regs],
     NN_Pool.
 
 %%--------------------------------------------------------------------
@@ -64,6 +74,14 @@ pid(#nn_pool{ptab = PT}, Id) ->
 id(#nn_pool{ptab = PT}, Pid) ->
     [{Pid, Id}] = ets:lookup(PT, Pid),
     Id.
+
+%%--------------------------------------------------------------------
+%% @doc Returns a list with all the table pids (including cortex).
+%% @end
+%%--------------------------------------------------------------------
+-spec pids(Pool :: pool()) -> [PId::pid()].
+pids(#nn_pool{ptab = PT}) ->
+    [Pid || {Pid,_} <- ets:tab2list(PT), is_pid(Pid)].
 
 
 %%====================================================================
