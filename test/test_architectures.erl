@@ -66,15 +66,30 @@ multiplication() ->
 % -------------------------------------------------------------------
 % TODO: Define specs and comments
 recurrent() ->
-    #{inputs  =>  ?input(1, #{hidden1 => sequential}),
-      hidden1 =>  ?dense(4, #{outputs => sequential,
-                              inputs  => {recurrent, 0.5}}),
-      outputs => ?output(1, #{hidden1 => recurrent,
-                              inputs  => recurrent})}. 
+    #{inputs  =>   ?input(1, #{hidden1 => sequential}),
+      hidden1 => ?sigmoid(4, #{outputs => sequential,
+                               inputs  => {recurrent, 0.5}}),
+      outputs =>  ?output(1, #{hidden1 => recurrent,
+                               inputs  => recurrent})}. 
 
 % -------------------------------------------------------------------
 % TODO: Define specs and comments
 classification() ->
     _Model = tbd.
 
+% -------------------------------------------------------------------
+% TODO: Define specs and comments
+broken_connections() ->
+    #{inputs  =>  ?input(2, #{hidden1 => sequential}),
+      hidden1 =>  ?dense(2, #{}),
+      hidden2 =>  ?dense(2, #{outputs => sequential}),                  
+      outputs => ?output(2, #{})}. 
+
+% -------------------------------------------------------------------
+% TODO: Define specs and comments
+infinite_loop() ->
+    #{inputs  =>  ?input(2, #{outputs => sequential}),
+      hidden1 =>  ?dense(2, #{hidden2 => sequential}),
+      hidden2 =>  ?dense(2, #{hidden1 => sequential}),                  
+      outputs => ?output(2, #{})}.
 

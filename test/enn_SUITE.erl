@@ -32,7 +32,7 @@
 %% Info = [tuple()]
 %%--------------------------------------------------------------------
 suite() ->
-    [{timetrap, {seconds, 8}}].
+    [{timetrap, {seconds, 20}}].
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config0) ->
@@ -123,6 +123,12 @@ groups() ->
             recurrent_1_input
          ]
         },
+        {test_broken_architectures, [parallel],
+         [
+            broken_connections,
+            infinite_loop
+         ]
+        },
         {test_parallel_networks, [parallel, {repeat,?PARALLEL_NN}],
             [random_dense_random_inputs]
         }
@@ -139,6 +145,7 @@ all() ->
     [ % NOTE THAT GROUPS CANNOT BE DEBUGGED WITH {step, ?STEP_OPTS}
         {group, test_simple_architectures},
         {group, test_complex_architectures},
+        {group, test_broken_architectures},
         {group, test_parallel_networks}
     ].
 
@@ -164,8 +171,6 @@ my_test_case_example(_Config) ->
 % TESTS --------------------------------------------------------------
 
 % -------------------------------------------------------------------
-xor_gate_static_inputs() ->
-    [].
 xor_gate_static_inputs(_Config) ->
     {ok, Loss10} = ?TEST_MODEL(
         _Model = test_architectures:xor_gate(),
@@ -174,8 +179,6 @@ xor_gate_static_inputs(_Config) ->
     console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
-xor_gate_random_inputs() ->
-    [].
 xor_gate_random_inputs(_Config) ->
     {ok, Loss10} = ?TEST_MODEL(
         _Model = test_architectures:xor_gate(),
@@ -184,8 +187,6 @@ xor_gate_random_inputs(_Config) ->
     console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
-addition_static_inputs() ->
-    [].
 addition_static_inputs(_Config) ->
     {ok, Loss10} = ?TEST_MODEL(
         _Model = test_architectures:addition(),
@@ -194,8 +195,6 @@ addition_static_inputs(_Config) ->
     console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
-addition_random_inputs() ->
-    [].
 addition_random_inputs(_Config) ->
     {ok, Loss10} = ?TEST_MODEL(
         _Model = test_architectures:addition(),
@@ -204,8 +203,6 @@ addition_random_inputs(_Config) ->
     console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
-mult_random_inputs() ->
-    [].
 mult_random_inputs(_Config) ->
     {ok, Loss10} = ?TEST_MODEL(
         _Model = test_architectures:multiplication(),
@@ -214,8 +211,6 @@ mult_random_inputs(_Config) ->
     console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
-recurrent_1_input() ->
-    [].
 recurrent_1_input(_Config) ->
     {ok, Loss10} = ?TEST_MODEL(
         _Model = test_architectures:recurrent(),
@@ -224,8 +219,6 @@ recurrent_1_input(_Config) ->
     console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
-random_dense_random_inputs() ->
-    [].
 random_dense_random_inputs(_Config) ->
     N     = erlang:unique_integer([positive, monotonic]),
     NameJ = "random_dense" ++ integer_to_list(N) ++ ".json",
@@ -233,6 +226,35 @@ random_dense_random_inputs(_Config) ->
     Model = test_architectures:random_dense(?MAX_UNITS_PER_LAYER,
                                             ?MAX_NUMBER_LAYERS),
     test_model(NameJ, Model, DataF).
+
+% -------------------------------------------------------------------
+broken_connections(_Config) ->
+    {ok, Id}  = correct_model_compilation(
+        test_architectures:broken_connections()
+    ),
+    try enn:start(Id) of 
+        Result ->
+            ?INFO("Error not raised, result:", Result),
+            error("error not raised")
+    catch
+        error:broken_nn -> ?INFO("Error raised", broken_nn)
+    end,
+    ?END({ok, Id}).
+
+% -------------------------------------------------------------------
+infinite_loop(_Config) ->
+    {ok, Id}  = correct_model_compilation(
+        test_architectures:infinite_loop()
+    ),
+    {atomic, {N_in, N_out}} = mnesia:transaction(
+        fun() -> {enn:inputs(Id), enn:outputs(Id)} end
+    ),
+    Id = enn:start(Id),
+    timer:sleep(200), % Neurons need some time to exit
+    #{nn_pool := NNpool} = enn:status(Id),
+    Alive = [Pid || Pid <- nn_pool:pids(NNpool), is_process_alive(Pid)],
+    true = length(Alive) == N_in + N_out + 1, %Cortex=>+1 
+    ?END({ok, Id}).
 
 
 % --------------------------------------------------------------------
