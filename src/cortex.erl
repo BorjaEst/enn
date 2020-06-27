@@ -120,7 +120,6 @@ spawn_neurons(Network) ->
         [{nn_pool:pid(NN_Pool,Id),#output{}} || {_,Id} <-  In]), 
     put(inputs,   % System outputs are the cortex inputs
         [{nn_pool:pid(NN_Pool,Id),#input{ }} || {Id,_} <- Out]),
-    % put(nn_pool, NN_Pool),
     ok.
 %%--------------------------------------------------------------------
 %% @doc Synchronisation functions at init.  
