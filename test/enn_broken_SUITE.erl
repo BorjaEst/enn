@@ -3,7 +3,7 @@
 %%% Description :
 %%% Created :
 %%%-------------------------------------------------------------------
--module(enn_SUITE).
+-module(enn_broken_SUITE).
 -compile([export_all, nowarn_export_all]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -15,15 +15,8 @@
 
 -define(INFO(A,B),    ct:log(?LOW_IMPORTANCE,    "~p: ~p",   [A,B])).
 -define(ERROR(Error), ct:pal( ?HI_IMPORTANCE, "Error: ~p", [Error])).
--define(PROGRESS_BAR, #{size => 20}).
 
--define(TEST_MODEL(Model, Training), 
-    test_model(atom_to_list(?FUNCTION_NAME) ++ ".json", Model, Training)).
-
--define(MAX_UNITS_PER_LAYER, 20).
--define(MAX_NUMBER_LAYERS,    4).
--define(TRAINING_LINES,    8000).
--define(PARALLEL_NN,          8).
+-define(TRAINING_LINES, 8000).
 
 
 %%--------------------------------------------------------------------
@@ -31,7 +24,7 @@
 %% Info = [tuple()]
 %%--------------------------------------------------------------------
 suite() ->
-    [{timetrap, {seconds, 20}}].
+    [{timetrap, {seconds, 8}}].
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config0) ->
@@ -106,26 +99,8 @@ end_per_testcase(_TestCase, _Config) ->
 %%              repeat_until_any_ok | repeat_until_any_fail
 %% N = integer() | forever
 %%--------------------------------------------------------------------
-groups() ->
-    [
-        {test_simple_architectures, [parallel],
-         [
-            xor_gate_static_inputs,
-            xor_gate_random_inputs,
-            addition_static_inputs,
-            addition_random_inputs
-         ]
-        },
-        {test_complex_architectures, [parallel],
-         [
-            mult_random_inputs,
-            recurrent_1_input
-         ]
-        },
-        {test_parallel_networks, [parallel, {repeat,?PARALLEL_NN}],
-            [random_dense_random_inputs]
-        }
-    ].
+groups() -> 
+    [].
 
 %%--------------------------------------------------------------------
 %% Function: all() -> GroupsAndTestCases | {skip,Reason}
@@ -135,10 +110,10 @@ groups() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 all() ->
-    [ % NOTE THAT GROUPS CANNOT BE DEBUGGED WITH {step, ?STEP_OPTS}
-        {group, test_simple_architectures},
-        {group, test_complex_architectures},
-        {group, test_parallel_networks}
+    [ 
+        broken_connections,
+        infinite_loop,
+        dummy_neurons
     ].
 
 %%--------------------------------------------------------------------
@@ -163,72 +138,57 @@ my_test_case_example(_Config) ->
 % TESTS --------------------------------------------------------------
 
 % -------------------------------------------------------------------
-xor_gate_static_inputs(_Config) ->
-    {ok, Loss10} = ?TEST_MODEL(
-        _Model = test_architectures:xor_gate(),
-        _Data  = fun test_data_generators:static_xor_of_inputs/3
+broken_connections(_Config) ->
+    {ok, Id}  = correct_model_compilation(
+        test_architectures:broken_connections()
     ),
-    console_print_loss(?FUNCTION_NAME, Loss10).
+    try enn:start(Id) of 
+        Result ->
+            ?INFO("Error not raised, result:", Result),
+            error("error not raised")
+    catch
+        error:broken_nn -> ?INFO("Error raised", broken_nn)
+    end,
+    ?END({ok, Id}).
 
 % -------------------------------------------------------------------
-xor_gate_random_inputs(_Config) ->
-    {ok, Loss10} = ?TEST_MODEL(
-        _Model = test_architectures:xor_gate(),
-        _Data  = fun test_data_generators:random_xor_of_inputs/3
+infinite_loop(_Config) ->
+    {ok, Id}  = correct_model_compilation(
+        test_architectures:infinite_loop()
     ),
-    console_print_loss(?FUNCTION_NAME, Loss10).
+    {atomic, {N_in, N_out}} = mnesia:transaction(
+        fun() -> {enn:inputs(Id), enn:outputs(Id)} end
+    ),
+    Id = enn:start(Id),
+    timer:sleep(200), % Neurons need some time to exit
+    #{nn_pool := NNpool} = enn:status(Id),
+    Alive = [Pid || Pid <- nn_pool:pids(NNpool), is_process_alive(Pid)],
+    true = length(Alive) == N_in + N_out + 1, %Cortex=>+1 
+    correct_model_stop(Id),
+    ?END({ok, Id}).
 
 % -------------------------------------------------------------------
-addition_static_inputs(_Config) ->
-    {ok, Loss10} = ?TEST_MODEL(
-        _Model = test_architectures:addition(),
-        _Data  = fun test_data_generators:static_sum_of_inputs/3
+dummy_neurons(_Config) ->
+    {ok, Id}  = correct_model_compilation(
+        test_architectures:dummy_neurons()
     ),
-    console_print_loss(?FUNCTION_NAME, Loss10).
-
-% -------------------------------------------------------------------
-addition_random_inputs(_Config) ->
-    {ok, Loss10} = ?TEST_MODEL(
-        _Model = test_architectures:addition(),
-        _Data  = fun test_data_generators:random_sum_of_inputs/3
+    {atomic, {N_in, N_out}} = mnesia:transaction(
+        fun() -> {enn:inputs(Id), enn:outputs(Id)} end
     ),
-    console_print_loss(?FUNCTION_NAME, Loss10).
-
-% -------------------------------------------------------------------
-mult_random_inputs(_Config) ->
-    {ok, Loss10} = ?TEST_MODEL(
-        _Model = test_architectures:multiplication(),
-        _Data  = fun test_data_generators:random_mult_of_inputs/3
+    Id = enn:start(Id),
+    timer:sleep(200), % Neurons need some time to exit
+    #{nn_pool := NNpool} = enn:status(Id),
+    Alive = [Pid || Pid <- nn_pool:pids(NNpool), is_process_alive(Pid)],
+    true = length(Alive) == N_in + N_out + 1, %Cortex=>+1 
+    correct_model_training(
+        Id, fun test_data_generators:random_sum_of_inputs/3
     ),
-    console_print_loss(?FUNCTION_NAME, Loss10).
+    correct_model_stop(Id),
+    ?END({ok, Id}).
 
-% -------------------------------------------------------------------
-recurrent_1_input(_Config) ->
-    {ok, Loss10} = ?TEST_MODEL(
-        _Model = test_architectures:recurrent(),
-        _Data  = fun test_data_generators:recurrent_of_1_input/3
-    ),
-    console_print_loss(?FUNCTION_NAME, Loss10).
-
-% -------------------------------------------------------------------
-random_dense_random_inputs(_Config) ->
-    N     = erlang:unique_integer([positive, monotonic]),
-    NameJ = "random_dense" ++ integer_to_list(N) ++ ".json",
-    DataF = fun test_data_generators:random_sum_of_inputs/3,
-    Model = test_architectures:random_dense(?MAX_UNITS_PER_LAYER,
-                                            ?MAX_NUMBER_LAYERS),
-    test_model(NameJ, Model, DataF).
 
 % --------------------------------------------------------------------
 % SPECIFIC HELPER FUNCTIONS ------------------------------------------
-
-% -------------------------------------------------------------------
-test_model(FileName, Model, Training) ->
-    {ok,    Id}  = correct_model_compilation(Model),
-    ok           = correct_model_start(Id),
-    {ok, Loss10} = correct_model_training(Id, Training, FileName),
-    ok           = correct_model_stop(Id),
-    {ok, Loss10}.
 
 % -------------------------------------------------------------------
 correct_model_compilation(Model) ->
@@ -240,21 +200,14 @@ correct_model_compilation(Model) ->
     ?END({ok, Id}).
 
 % -------------------------------------------------------------------
-correct_model_start(Id) ->
-    ?HEAD("Correct neural network start form a network id ........"),
-    Id = enn:start(Id), % Return NN_id for non_compiled start
-    ?END(ok).
-
-% -------------------------------------------------------------------
-correct_model_training(Id, Training, FileName) ->
+correct_model_training(Id, Training) ->
     ?HEAD("Correct fit of model using backpropagation ............."),
-    Options = [{print, 3}, {log, FileName}, {return, [loss]}],
     {atomic, {N_in, N_out}} = mnesia:transaction(
         fun() -> {enn:inputs(Id), enn:outputs(Id)} end
     ),
     {Inputs, Optimas} = Training(N_in, N_out, ?TRAINING_LINES),
-    [Loss] = enn:run(Id, Inputs, Optimas, Options),
-    ?END({ok, average(Loss, 10)}).
+    _Loss = enn:fit(Id, Inputs, Optimas),
+    ?END(ok).
 
 % -------------------------------------------------------------------
 correct_model_stop(Id) ->
@@ -269,31 +222,4 @@ correct_model_stop(Id) ->
 
 % --------------------------------------------------------------------
 % RESULTS CONSOLE PRINT ----------------------------------------------
-
-% -------------------------------------------------------------------
-average(List, N) when length(List) >= N ->
-    NdArray = ndarray:new([length(List)], List),
-    NdAMean = numerl:mean(ndarray:reshape(NdArray, [-1,N]), 0),
-    ndarray:data(NdAMean);
-average(List, N) when length(List) < N  -> 
-    List.
-
-% -------------------------------------------------------------------
-console_print_loss(FunName, LossList) -> 
-    Step = round(?TRAINING_LINES/length(LossList)),
-    Seq  = lists:zip(lists:seq(1, length(LossList)), 
-                     LossList),
-    Data = [{Step*N, Loss} || {N, Loss} <- Seq],
-    Format = atom_to_list(FunName) ++ "\n" ++  
-             console_print("loss:", ?TRAINING_LINES, Data),
-    ct:print(Format).
-
-console_print(Title, Size, [{N, Value} | Rest]) -> 
-    Data = [N, N/Size, Title, Value],
-    Format = reports:progress_line(2, Data, ?PROGRESS_BAR),
-    Format ++ "\n" ++ console_print(Title, Size, Rest);
-console_print(_, _, []) -> 
-    [].
-
-
 

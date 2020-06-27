@@ -154,16 +154,9 @@
                     ext_errors=>Errors,    state=>?FUNCTION_NAME}},
                #{logger_formatter=>#{title=>"CORTEX REQUEST"}})
 ).
--define(LOG_EVENT_START_NEURONS_NETWORK,
-    ?LOG_DEBUG(#{what => "Neurons network start request",
-                 pid => self(), id => get(id),
-                 details => #{state => ?FUNCTION_NAME}},
-               #{logger_formatter=>#{title=>"CORTEX REQUEST"}})
-).
 -else.
 -define(LOG_EVENT_FEEDFORWARD(ExtInputs), ExtInputs).
 -define(LOG_EVENT_BACKFORWARD(Errors), Errors).
--define(LOG_EVENT_START_NEURONS_NETWORK, ok).
 -endif.
 
 %%--------------------------------------------------------------------

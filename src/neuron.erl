@@ -34,6 +34,7 @@
 -define(W(Input), element(#input.w, Input)).
 
 -record(output, {
+    type    :: seq | rcc,
     e = 0.0 :: float() % Output error (Ei)
 }).
 -define(E(Output), Output#output.e).
@@ -53,7 +54,8 @@
 -define(INITIAL_ERROR,   0.00).
 
 % Configuration parameters
--define(STDIDLE_TIMEOUT, 1000).
+-define(INIT_SYNCH_TIMEOUT,   10).
+-define(STDIDLE_TIMEOUT,    1000).
 
 %%%===================================================================
 %%% API
@@ -71,8 +73,6 @@ start_link(Id) ->
 
 %%--------------------------------------------------------------------
 %% @doc Gives the go to the neuron run after the network is mounted. 
-%%
-%% TODO: Improve info passing by having all on the NN_Pool ets.
 %% @end
 %%--------------------------------------------------------------------
 -spec cortex_synch(Pid, NN_Pool) -> NonRelevant when 
@@ -85,39 +85,107 @@ cortex_synch(Pid, NN_Pool) ->
 cortex_synch() -> 
     receive {continue_init, NN_Pool} -> NN_Pool end.
 
+
 %%%===================================================================
 %%% Initialization functions
 %%%===================================================================
 
 %%--------------------------------------------------------------------
 %% @doc The neuron initialization.  
-%% @end
+%% 
 %%--------------------------------------------------------------------
 init(Id, Supervisor) ->
     proc_lib:init_ack(Supervisor, {ok, self()}), % Supervisor synch
     process_flag(trap_exit, true), % Catch supervisor exits
-    NNPool = cortex_synch(),
-    {atomic, #{in:=InW, seq:=Seq, rcc:=Rcc, data:=Data}} = 
-    mnesia:transaction(
-        fun() -> #{in => [{L,nnet:rlink(L)} || L<-nnet:in(Id)],
+    {atomic, Info} = mnesia:transaction(
+        fun() -> #{inw  => [{L,nnet:rlink(L)} || L <- nnet:in(Id)],
                    seq  => nnet:out_seq(Id),
                    rcc  => nnet:out_rcc(Id),
                    data => nnet:rnode(Id)}
         end),
+    NNPool = cortex_synch(),
+    ?LOG_NEURON_STARTED, % Start log and initialization of waits
+    ok = init_dictionary(Id, NNPool, Info),
+    ok = init_inputs(Info),
+    ok = init_outputs(Info),
+    ok = forward_synch(),
+    ok = backward_synch(),
+    ok = init_weights(),
+    loop(#state{ 
+        forward_wait  = maps:keys(get(inputs)),
+        backward_wait = [P || {P,O} <- maps:to_list(get(outputs)),
+                               O#output.type == seq]
+    }).
+%%--------------------------------------------------------------------
+%% @doc Initialisation of neuron internal dictionary.  
+%%
+%%--------------------------------------------------------------------
+init_dictionary(Id, NNPool, #{data:=Data}) -> 
     put(    id,      Id), % Used for logs and final write update
     put(   data,   Data), % Used to calculate activation signals
     put(nn_pool, NNPool), % Used to convert Pid<->Id 
     put( inputs,    #{}), % Used for forward/bakward propagation
     put(outputs,    #{}), % Used for forward/bakward propagation
-    ?LOG_NEURON_STARTED, % Start log and initialization of waits
-    set_outputs(Rcc), 
-    Sent = [forward(P,O,0.0) || {P,O}<-maps:to_list(get(outputs))],
-    ?LOG_FORWARD_PROPAGATION(Sent), % Rcc propagation
-    loop(#state{ 
-        backward_wait = set_outputs(Seq),
-        forward_wait  = set_inputs(InW)
-    }).
+    ok.
+%%--------------------------------------------------------------------
+%% @doc Initialisation of neuron state.  
+%%
+%%--------------------------------------------------------------------
+init_inputs(#{inw:=InW}) -> 
+    set_inputs(InW),
+    ok.
 
+init_outputs(#{seq:=Seq, rcc:=Rcc}) -> 
+    set_outputs(Rcc, rcc), 
+    set_outputs(Seq, seq),
+    ok.
+%%--------------------------------------------------------------------
+%% @doc Synchronisation functions at init.  
+%%
+%%--------------------------------------------------------------------
+forward_synch() -> 
+    receive {From, forward, synch} -> 
+        [Pid ! {self(), forward, synch} || Pid <- maps:keys(get(outputs))],
+        self() ! {From, forward, synch}
+    after ?INIT_SYNCH_TIMEOUT -> 
+        [Pid ! {self(), forward, discn} || Pid <- maps:keys(get(outputs))],
+        exit("Neuron forward disconnected")
+    end,
+    synchronise(forward, maps:keys(get(inputs))).
+
+backward_synch() -> 
+    receive {From, backward, synch} -> 
+        [Pid ! {self(), backward, synch} || Pid <- maps:keys(get(inputs))],
+        self() ! {From, backward, synch}
+    after 2*?INIT_SYNCH_TIMEOUT ->
+        [Pid ! {self(), backward, discn} || Pid <- maps:keys(get(inputs))],
+        exit("Neuron backward disconnected")
+    end,
+    synchronise(backward, maps:keys(get(outputs))).
+
+synchronise(Session, [From|Fx]) ->
+    receive 
+        {From, Session,  synch} -> do_nothing; 
+        {From, forward,  discn} -> remove_input(From); 
+        {From, backward, discn} -> remove_output(From)
+    end,
+    synchronise(Session, Fx);
+synchronise(_Session, []) ->
+    ok.
+%%--------------------------------------------------------------------
+%% @doc Initial weights calculation.  
+%%
+%%--------------------------------------------------------------------
+init_weights() -> 
+    calculate_tensor(get(inputs)),
+    recalculate_weights(0.0),
+    Sent = [forward(P,O,0.0) || {P,O} <- maps:to_list(get(outputs)),
+                                 O#output.type == rcc],
+    ?LOG_FORWARD_PROPAGATION(Sent), % Rcc propagation
+    ok.
+%%--------------------------------------------------------------------
+%% @end
+%%--------------------------------------------------------------------
 
 %%%===================================================================
 %%% neuron callbacks
@@ -142,7 +210,6 @@ loop(#state{backward_wait = []} = State) ->
 loop(State) -> 
     ?LOG_WAITING_NEURONS(State),
     receive_next(State).
-
 %%--------------------------------------------------------------------
 %% @doc The neuron loop. Receives the next messages and triggers the
 %% specific action. 
@@ -177,7 +244,6 @@ backward_in(Pid, Ei, State)  ->
 idle(State) -> 
     ?LOG_NEURON_IDLE(State),
     receive_next(State).
-
 %%--------------------------------------------------------------------
 %% @doc Terminates the neuron and saves in edb the new weights.
 %%
@@ -190,11 +256,9 @@ terminate(Reason, _State) ->
     ),
     ?LOG_NEURON_TERMINATING,
     exit(Reason).
-
 %%--------------------------------------------------------------------
 %% @end  
 %%--------------------------------------------------------------------
-
 
 %%%===================================================================
 %%% Message functions
@@ -308,30 +372,42 @@ adapt_Bias(Bias, Beta, Init) ->
 %% @end
 %%--------------------------------------------------------------------
 set_inputs(LinkWs) ->
-    set_inputs(LinkWs, get(inputs), []).
+    set_inputs(LinkWs, get(inputs)).
 
-set_inputs([{{From,_},W}|LinkWs], Ix, Pids) ->
+set_inputs([{{From,_},W}|LinkWs], Ix) ->
     Pid = ?PID(From),
-    set_inputs(LinkWs, Ix#{Pid=>#input{w=W}}, [Pid|Pids]);
-set_inputs([], Inputs, Pids) ->
-    put(inputs, Inputs),
-    calculate_tensor(Inputs),
-    recalculate_weights(0.0),
-    Pids.
+    set_inputs(LinkWs, Ix#{Pid=>#input{w=W}});
+set_inputs([], Inputs) ->
+    put(inputs, Inputs).
 
 %%--------------------------------------------------------------------
 %% @doc Adds the Pids and their signals to the inputs.
 %% @end
 %%--------------------------------------------------------------------
-set_outputs(Links) ->
-    set_outputs(Links, get(outputs), []).
+set_outputs(Links, Type) ->
+    set_outputs(Links, get(outputs), Type).
 
-set_outputs([{_,To}|Links], Ox, Pids) ->
+set_outputs([{_,To}|Links], Ox, Type) ->
     Pid = ?PID(To),
-    set_outputs(Links, Ox#{Pid=>#output{}}, [Pid|Pids]);
-set_outputs([], Outputs, Pids) ->
-    put(outputs, Outputs),
-    Pids.
+    set_outputs(Links, Ox#{Pid=>#output{type=Type}}, Type);
+set_outputs([], Outputs, _Type) ->
+    put(outputs, Outputs).
+
+%%--------------------------------------------------------------------
+%% @doc Remove the input identified by pid.
+%% @end
+%%--------------------------------------------------------------------
+remove_input(Pid) ->
+    Inputs = get(inputs),
+    put(inputs, maps:remove(Pid, Inputs)).
+
+%%--------------------------------------------------------------------
+%% @doc Remove the output identified by pid..
+%% @end
+%%--------------------------------------------------------------------
+remove_output(Pid) ->
+    Outputs = get(outputs),
+    put(outputs, maps:remove(Pid, Outputs)).
 
 %%--------------------------------------------------------------------
 %% @doc Updates the weight value. If it is uninitialized, a new value

@@ -2,25 +2,33 @@
 %%% @doc
 %%%
 %%% @end
--module(nn_sup).
+-module(cx_sup).
 -behaviour(supervisor).
 
 %% API
--export([id/1, start_link/1, start_neuron/2]).
+-export([id/1, start_link/1]).
 -export_type([id/0]).
 
 %% Supervisor callbacks
 -export([init/1]).
 
--type id() :: {nn_sup, Ref :: reference()}.
+-type id() :: {cx_sup, Ref :: reference()}.
 
--define(SPECS_NEURON(Neuron_id), #{
-    id       => Neuron_id,
-    start    => {neuron, start_link, [Neuron_id]},
-    restart  => temporary,
-    shutdown => 500,
-    modules  => [neuron]
- }).
+-define(SPECS_NN_SUP(Network), #{
+    id       => nn_sup:id(Network),
+    start    => {nn_sup, start_link, [Network]},
+    restart  => permanent,
+    type     => supervisor,
+    modules  => [supervisor]
+}).
+
+-define(SPECS_CORTEX(Network), #{
+    id       => cortex:id(Network),
+    start    => {cortex, start_link, [Network]},
+    restart  => permanent,
+    shutdown => 1000,
+    modules  => [gen_statem]
+}).
 
 
 %%%===================================================================
@@ -32,7 +40,7 @@
 %% @end
 %%--------------------------------------------------------------------
 -spec id(Network :: netwrok:id()) -> Supervisor :: id().
-id(Network) -> {nn_sup, element(2, Network)}.
+id(Network) -> {cx_sup, element(2, Network)}.
 
 %%--------------------------------------------------------------------
 %% @doc Starts the supervisor
@@ -41,14 +49,6 @@ id(Network) -> {nn_sup, element(2, Network)}.
 % TODO: To make description and specs
 start_link(Network) ->
     supervisor:start_link(?MODULE, [Network]).
-
-%%--------------------------------------------------------------------
-%% @doc Starts the neural network cortex
-%% @end
-%%--------------------------------------------------------------------
-% TODO: To make description and specs
-start_neuron(Supervisor, Neuron_id) ->
-    supervisor:start_child(Supervisor, ?SPECS_NEURON(Neuron_id)).
 
 
 %%====================================================================
@@ -63,8 +63,12 @@ init([Network]) ->
     SupFlags = #{strategy  => one_for_all, %% All down if one down
                  intensity => 0,   %% Restart is not allowed
                  period    => 10}, %% Any as intensity = 0
-    ChildSpecs = [],
-    true = enn_pool:register_as_nn_supervisor(Network),
+    ChildSpecs = [
+        ?SPECS_NN_SUP(Network),
+        ?SPECS_CORTEX(Network)
+    ],
+    true = nn_pool:new(Network),
+    true = enn_pool:register_as_cx_supervisor(Network),
     {ok, {SupFlags, ChildSpecs}}.
 
 %%%===================================================================

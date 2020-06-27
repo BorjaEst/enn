@@ -13,21 +13,17 @@
 
 -type enn_pool() :: ets:tid().
 -record(enn, {
-    id         :: enn:network(), % Network identifier
-    supervisor :: pid(),         % Pid of the supervisor
-    cortex     :: pid(),         % Pid of the cortex 
-    nn_pool    :: nn_pool:pool() % Pool with neurons pid<->id
-    % graph      :: graph(),      % Mounted graph with network
-    % neurons     :: integer(),
-    % links       :: integer(),
-    % forward_cycles  = 0 :: integer(), % Number of FP performed cycles
-    % backward_cycles = 0 :: integer(), % Number of BP performed cycles
-    % last_bperr = []  :: [float()]  % Last back propagation errors
+    id :: enn:network(), % Network identifier
+    cx_sup  :: pid(),    % Pid of the supervisor
+    nn_sup  :: pid(),    % Pid of the supervisor
+    cortex  :: pid(),    % Pid of the cortex 
+    nn_pool :: nn_pool:pool() % Pool with neurons pid<->id
 }).
 -type enn()  :: #enn{}.
--type info() :: #{'supervisor' => pid(),
-                  'cortex'     => pid(),
-                  'nn_pool'    => nn_pool:tid()}.
+-type info() :: #{'cx_sup'  => pid(),
+                  'nn_sup'  => pid(),
+                  'cortex'  => pid(),
+                  'nn_pool' => nn_pool:tid()}.
 
 -define(ENN_POOL, enn_pool).
 -define(TAB_CONFIGUTATION, [
@@ -73,10 +69,19 @@ unregister(Id) ->
 %% @doc Returns true if registered as suppervisor, otherwise false.
 %% @end
 %%--------------------------------------------------------------------
--spec register_as_supervisor(Network) -> boolean() when 
+-spec register_as_cx_supervisor(Network) -> boolean() when 
     Network :: enn:network().
-register_as_supervisor(Id) -> 
-    ets:update_element(?ENN_POOL, Id, {#enn.supervisor, self()}).
+register_as_cx_supervisor(Id) -> 
+    ets:update_element(?ENN_POOL, Id, {#enn.cx_sup, self()}).
+
+%%--------------------------------------------------------------------
+%% @doc Returns true if registered as suppervisor, otherwise false.
+%% @end
+%%--------------------------------------------------------------------
+-spec register_as_nn_supervisor(Network) -> boolean() when 
+    Network :: enn:network().
+register_as_nn_supervisor(Id) -> 
+    ets:update_element(?ENN_POOL, Id, {#enn.nn_sup, self()}).
 
 %%--------------------------------------------------------------------
 %% @doc Returns true if registered as cortex, otherwise false.
@@ -107,9 +112,10 @@ register_nn_pool(Id, NN_Pool) ->
 info(Id) -> 
     case ets:lookup(?ENN_POOL, Id) of 
         []   -> error(badarg);
-        [NN] -> #{supervisor => NN#enn.supervisor,
-                  cortex     => NN#enn.cortex,
-                  nn_pool    => NN#enn.nn_pool}
+        [NN] -> #{cx_sup  => NN#enn.cx_sup,
+                  nn_sup  => NN#enn.nn_sup,
+                  cortex  => NN#enn.cortex,
+                  nn_pool => NN#enn.nn_pool}
     end.
 
 

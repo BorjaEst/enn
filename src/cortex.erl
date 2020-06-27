@@ -39,6 +39,9 @@
     wait = [] :: [term()]
 }).
 
+% Configuration parameters
+-define(INIT_SYNCH_TIMEOUT, 1000).
+
 
 %%%===================================================================
 %%% API
@@ -58,7 +61,7 @@ id(Network) -> {cortex, element(2, Network)}.
 -spec start_link(Network :: netwrok:id()) -> 
     gen_statem:start_ret().
 start_link(Network) -> 
-    gen_statem:start_link(?MODULE, [Network, self()], []).
+    gen_statem:start_link(?MODULE, [Network], []).
 
 %%--------------------------------------------------------------------
 %% @doc Makes a prediction using the external inputs.
@@ -96,13 +99,53 @@ fit(Pid, Errors) ->
 %%                     {stop, StopReason}
 %% @end
 %%--------------------------------------------------------------------
-init([Network, NN_Sup]) -> 
+init([Network]) -> 
     true = enn_pool:register_as_cortex(Network),
     process_flag(trap_exit, true), % To catch supervisor 'EXIT'
     put(id, cortex:id(Network)),
     ?LOG_STATE_CHANGE(undefined),
-    {ok, inactive, #state{wait = []},
-        {next_event, internal, {start_nn, Network, NN_Sup}}}.
+    ok = spawn_neurons(Network),
+    ok = forward_synch(),
+    ok = backward_synch(),
+    {ok, inactive, #state{}}.
+%%--------------------------------------------------------------------
+%% @doc Spawns the network neurons.  
+%%
+%%--------------------------------------------------------------------
+spawn_neurons(Network) ->
+    {atomic, Info} = mnesia:transaction(fun() -> nnet:info(Network) end),
+    #{nnodes:=NNodes, inputs:=In, outputs:=Out} = Info,
+    NN_Pool = nn_pool:mount(Network, NNodes),
+    put(outputs,  % System inputs are the cortex outputs
+        [{nn_pool:pid(NN_Pool,Id),#output{}} || {_,Id} <-  In]), 
+    put(inputs,   % System outputs are the cortex inputs
+        [{nn_pool:pid(NN_Pool,Id),#input{ }} || {Id,_} <- Out]),
+    % put(nn_pool, NN_Pool),
+    ok.
+%%--------------------------------------------------------------------
+%% @doc Synchronisation functions at init.  
+%%
+%%--------------------------------------------------------------------
+forward_synch() -> 
+    [Pid ! {self(), forward, synch} || {Pid,_} <- get(outputs)],
+    synchronise(forward, [Pid || {Pid,_} <- get(inputs)]).
+
+backward_synch() -> 
+    [Pid ! {self(), backward, synch} || {Pid,_} <- get(inputs)],
+    synchronise(backward, [Pid || {Pid,_} <- get(outputs)]).
+
+synchronise(Session, [From|Fx]) ->
+    receive {From, Session, synch} -> nothing
+    after ?INIT_SYNCH_TIMEOUT      -> error(broken_nn)
+    end,
+    synchronise(Session, Fx);
+synchronise(_Session, []) ->
+    ok.
+
+
+%%--------------------------------------------------------------------
+%% @end
+%%--------------------------------------------------------------------
 
 %%--------------------------------------------------------------------
 %% @private
@@ -165,7 +208,7 @@ inactive(enter, OldState, State) ->
     {keep_state, State};
 inactive({call, From}, {feedforward, Inputs}, State) ->
     ?LOG_EVENT_FEEDFORWARD(Inputs),
-    Sent = [forward(P,S)||{{P,_},S}<-lists:zip(get(outputs),Inputs)],
+    Sent = [forward(P,S) || {{P,_},S} <- lists:zip(get(outputs),Inputs)],
     ?LOG_FORWARD_PROPAGATION(Sent),
     put(from, From),
     {next_state, on_feedforward, State#state{
@@ -173,16 +216,12 @@ inactive({call, From}, {feedforward, Inputs}, State) ->
     }};
 inactive({call, From}, {backprop, Errors}, State) ->
     ?LOG_EVENT_BACKFORWARD(Errors),
-    Sent = [backward(P,E)||{{P,_},E}<-lists:zip(get(inputs),Errors)],
+    Sent = [backward(P,E) || {{P,_},E} <- lists:zip(get(inputs),Errors)],
     ?LOG_BACKWARD_PROPAGATION(Sent),
     put(from, From),
     {next_state, on_backpropagation, State#state{
         wait = [Pid || {Pid, _}  <- get(outputs)]
     }};
-inactive(internal, {start_nn, Network, NN_Sup}, State) ->
-    ?LOG_EVENT_START_NEURONS_NETWORK,
-    handle_start(Network, NN_Sup),
-    {keep_state, State};
 inactive(EventType, EventContent, State) ->
     handle_common(EventType, EventContent, State).
 %%--------------------------------------------------------------------
@@ -194,13 +233,11 @@ inactive(EventType, EventContent, State) ->
 on_feedforward(enter, OldState, State) ->
     ?LOG_STATE_CHANGE(OldState),
     {keep_state, State};
-on_feedforward(info, {Pid, forward, Signal}, State) ->
+on_feedforward(info, {Pid, forward, Signal}, _State) ->
     ?LOG_FORWARD_MESSAGE_RECEIVED(Pid, Signal),
     update_input_signal(Pid, Signal),
-    on_feedforward(internal, forward, State#state{
-        wait = lists:delete(Pid, State#state.wait)
-    });
-on_feedforward(internal, forward, #state{wait = []} = State) ->
+    {keep_state_and_data, {next_event, internal, {remove_wait, Pid}}};
+on_feedforward(internal, cycle_end, State) ->
     Signals = [I#input.s || {_, I} <- get(inputs)],
     {next_state, inactive, State, {reply, get(from), Signals}};
 on_feedforward(EventType, EventContent, State) ->
@@ -215,13 +252,11 @@ on_feedforward(EventType, EventContent, State) ->
 on_backpropagation(enter, OldState, State) ->
     ?LOG_STATE_CHANGE(OldState),
     {keep_state, State};
-on_backpropagation(info, {Pid, backward, BP_Err}, State) ->
+on_backpropagation(info, {Pid, backward, BP_Err}, _State) ->
     ?LOG_BACKWARD_MESSAGE_RECEIVED(Pid, BP_Err),
     update_output_error(Pid, BP_Err),
-    on_backpropagation(internal, backward, State#state{
-        wait = lists:delete(Pid, State#state.wait)
-    });
-on_backpropagation(internal, backward, #state{wait = []} = State) ->
+    {keep_state_and_data, {next_event, internal, {remove_wait, Pid}}};
+on_backpropagation(internal, cycle_end, State) ->
     BP_Err = [O#output.e || {_, O} <- get(outputs)],
     {next_state, inactive, State, {reply, get(from), BP_Err}};
 on_backpropagation(EventType, EventContent, State) ->
@@ -231,13 +266,15 @@ on_backpropagation(EventType, EventContent, State) ->
 %% exception if the event/call is unknown.
 %%
 %%--------------------------------------------------------------------
-handle_common(internal, _EventContent, State) ->
-    {keep_state, State};
+handle_common(internal, {remove_wait, Pid}, #state{wait=[Pid]}) ->
+    {keep_state_and_data, {next_event, internal, cycle_end}};
+handle_common(internal, {remove_wait, Pid}, State) ->
+    {keep_state, State#state{wait=lists:delete(Pid,State#state.wait)}};
 handle_common(EventType, EventContent, _State) ->
     error({"Unknown event", EventType, EventContent}).
 %%--------------------------------------------------------------------
 %% @end
-%%-------------------------------------------------------------------
+%%--------------------------------------------------------------------
 
 %%--------------------------------------------------------------------
 %% @private
@@ -278,8 +315,22 @@ handle_event(_EventType, _EventContent, _StateName, State) ->
 %% @end
 %%--------------------------------------------------------------------
 terminate(_Reason, OldState, _State) ->
+    % Pids = nn_pool:pids(get(nn_pool)),
+    % wait_shutdown(Pids),
     ?LOG_STATE_CHANGE(OldState),
     ok.
+
+% wait_shutdown(Pids) -> 
+%     wait_shutdown(Pids, self()).
+
+% wait_shutdown([Self|Pids], Self) -> 
+%     wait_shutdown(Pids, Self);
+% wait_shutdown([Pid|Pids], Self) -> 
+%     case is_process_alive(Pid) of 
+%         true  -> wait_shutdown(Pids, Self);
+%         false -> timer:sleep(10),  
+
+
 
 %%--------------------------------------------------------------------
 %% @private
@@ -320,19 +371,6 @@ forward(Output_Pid, Signal) ->
 backward(Input_Pid, Error) ->
     Input_Pid ! {self(), backward, Error},
     {Input_Pid, Error}.
-
-% -------------------------------------------------------------------
-handle_start(Network, NN_Sup) ->
-    {atomic, Info} = mnesia:transaction(
-        fun() -> nnet:info(Network) end
-    ),
-    #{nnodes:=NNodes, inputs:=In, outputs:=Out} = Info,
-    NN_Pool = nn_pool:mount(NN_Sup, Network, NNodes),
-    true    = enn_pool:register_nn_pool(Network, NN_Pool),
-    put(outputs,  % System inputs are the cortex outputs
-        [{nn_pool:pid(NN_Pool,Id),#output{}} || {_,Id} <-  In]), 
-    put(inputs,   % System outputs are the cortex inputs
-        [{nn_pool:pid(NN_Pool,Id),#input{ }} || {Id,_} <- Out]).
 
 
 %%====================================================================
