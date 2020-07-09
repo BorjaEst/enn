@@ -113,7 +113,8 @@ all() ->
     [ 
         broken_connections,
         infinite_loop,
-        dummy_neurons
+        dummy_neurons,
+        caller_link
     ].
 
 %%--------------------------------------------------------------------
@@ -184,6 +185,23 @@ dummy_neurons(_Config) ->
         Id, fun test_data_generators:random_sum_of_inputs/3
     ),
     correct_model_stop(Id),
+    ?END({ok, Id}).
+
+% -------------------------------------------------------------------
+caller_link(_Config) -> 
+    {ok, Id}  = correct_model_compilation(
+        test_architectures:example()
+    ), 
+    Id = enn:start_link(Id),
+    process_flag(trap_exit, true), % To catch network exit
+    enn:cortex(Id) ! error,
+    receive Message -> {'EXIT',_, {{_,info,error},_}} = Message
+    after 100 -> error("Caller not down")
+    end,
+    process_flag(trap_exit, false), % To do not catch network exit
+    timer:sleep(10),
+    Id = enn:start_link(Id),
+    ok = enn:stop(Id), % Caller does not dies
     ?END({ok, Id}).
 
 

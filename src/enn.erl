@@ -9,9 +9,9 @@
 -compile({no_auto_import,[link/1]}).
 
 %% API
--export([start/1, stop/1, predict/2, fit/3, clone/1]).
+-export([start/1, start_link/1, stop/1, predict/2, fit/3, clone/1]).
 -export([compile/1, run/4, inputs/1, outputs/1, neurons/1]).
--export([status/1, info/1, link/1, cortex/1]).
+-export([status/1, info/1, cortex/1]).
 -export_types([network/0, neuron/0, model/0]).
 
 -type network() :: nnet:id().
@@ -95,13 +95,25 @@ info(Network) ->
     Model   :: model(),
     Network :: network().
 start(Model) when is_map(Model) ->
-    {atomic, Network} = compile(Model),
+    {atomic, Network} = mnesia:transaction(fun() -> compile(Model) end),
     start(Network);
 start(Network) ->
     case enn_sup:start_nn(Network) of 
         {ok, _Pid}                       -> Network;
         {error,{{_,{_,_, broken_nn}},_}} -> error(broken_nn)
     end. 
+
+%%--------------------------------------------------------------------
+%% @doc Start a neural network, and links the caller.
+%% @end
+%%--------------------------------------------------------------------
+-spec start_link(Model | Network) -> Network when 
+    Model   :: model(),
+    Network :: network().
+start_link(NetworkTerm) ->
+    Network = start(NetworkTerm),
+    erlang:link(cortex(Network)),
+    Network.
 
 %%--------------------------------------------------------------------
 %% @doc Stops a neural network.
@@ -111,6 +123,7 @@ start(Network) ->
       Result :: 'ok' | {'error', Error},
       Error :: 'not_found'.
 stop(Network) ->
+    erlang:unlink(cortex(Network)),
     enn_sup:terminate_nn(Network).
 
 %%--------------------------------------------------------------------
@@ -124,16 +137,6 @@ status(Network) ->
           Info          -> Info
     catch error:badarg  -> not_running 
     end.
-
-%%--------------------------------------------------------------------
-%% @doc Links the caller to the network supervisor so if the caller 
-%% dies because of an exception, the newtwork die shutdown as well.
-%% @end
-%%--------------------------------------------------------------------
--spec link(Network::network()) -> true.
-link(Network) -> 
-    #{cortex:=Pid} = enn_pool:info(Network),
-    erlang:link(Pid).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the pid of the cortex.
