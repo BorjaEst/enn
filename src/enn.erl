@@ -11,7 +11,7 @@
 %% API
 -export([start/1, start_link/1, stop/1, predict/2, fit/3, clone/1]).
 -export([compile/1, run/4, inputs/1, outputs/1, neurons/1]).
--export([status/1, info/1, cortex/1]).
+-export([status/1, info/2, cortex/1]).
 -export_types([network/0, neuron/0, model/0]).
 
 -type network() :: nnet:id().
@@ -51,9 +51,8 @@ clone(Network) ->
 inputs(Model) when is_map(Model) ->
     #{inputs := #{units := N_Inputs}} = Model,
     N_Inputs;
-inputs(Network) ->
-    #{inputs:=Inputs} = nnet:info(Network),
-    length(Inputs). 
+inputs(Network) -> % System inputs are the nnet outputs
+    length(nnet:out(Network)). 
 
 %%--------------------------------------------------------------------
 %% @doc Returns the number of outputs a network expects.
@@ -64,9 +63,8 @@ inputs(Network) ->
 outputs(Model) when is_map(Model) ->
     #{outputs := #{units := N_Outputs}} = Model,
     N_Outputs;
-outputs(Network) ->
-    #{outputs:=Outputs} = nnet:info(Network),
-    length(Outputs).
+outputs(Network) -> % System outputs are the nnet inputs
+    length(nnet:in(Network)).
 
 %%-------------------------------------------------------------------
 %% @doc Returns a list of all neurons of the network.  
@@ -75,17 +73,16 @@ outputs(Network) ->
 %%-------------------------------------------------------------------
 -spec neurons(Network::network()) -> Neurons::[neuron()].
 neurons(Network) -> 
-    #{nnodes:=NNodes} = nnet:info(Network),
-    maps:keys(NNodes).
+    maps:keys(nnet:nodes(Network)).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the network information of the specified network id.
 %% Should run inside mnesia transaction.
 %% @end
 %%--------------------------------------------------------------------
--spec info(Network::network()) -> Info::nnet:info().
-info(Network) -> 
-    nnet:info(Network).
+-spec info(Network::network(), Item::term()) -> Info::nnet:info().
+info(Network, Item) -> 
+    nnet:info(Network, Item).
 
 %%--------------------------------------------------------------------
 %% @doc Start a neural network, ready to receive inputs or training.

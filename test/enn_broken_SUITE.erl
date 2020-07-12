@@ -213,7 +213,7 @@ correct_model_compilation(Model) ->
     ?HEAD("Correct model compilation .............................."),
     {atomic,Id} = mnesia:transaction(fun() -> enn:compile(Model) end), 
     ?INFO("Model", Model),
-    {atomic,NN_Info} = mnesia:transaction(fun() -> enn:info(Id) end),
+    {atomic,NN_Info} = mnesia:transaction(fun() -> enn:info(Id,out) end),
     ?INFO("Network", NN_Info),
     ?END({ok, Id}).
 

@@ -113,13 +113,16 @@ init([Network]) ->
 %%
 %%--------------------------------------------------------------------
 spawn_neurons(Network) ->
-    {atomic, Info} = mnesia:transaction(fun() -> nnet:info(Network) end),
-    #{nnodes:=NNodes, inputs:=In, outputs:=Out} = Info,
+    {atomic, {NNodes, In, Out}} = mnesia:transaction(
+        fun() -> {nnet:nodes(Network),
+                  nnet:in(Network),
+                  nnet:out(Network)} 
+        end),
     NN_Pool = nn_pool:mount(Network, NNodes),
     put(outputs,  % System inputs are the cortex outputs
-        [{nn_pool:pid(NN_Pool,Id),#output{}} || {_,Id} <-  In]), 
+        [{nn_pool:pid(NN_Pool,Id),#output{}} || {_,Id} <-  Out]), 
     put(inputs,   % System outputs are the cortex inputs
-        [{nn_pool:pid(NN_Pool,Id),#input{ }} || {Id,_} <- Out]),
+        [{nn_pool:pid(NN_Pool,Id),#input{ }} || {Id,_} <- In]),
     ok.
 %%--------------------------------------------------------------------
 %% @doc Synchronisation functions at init.  
@@ -314,22 +317,8 @@ handle_event(_EventType, _EventContent, _StateName, State) ->
 %% @end
 %%--------------------------------------------------------------------
 terminate(_Reason, OldState, _State) ->
-    % Pids = nn_pool:pids(get(nn_pool)),
-    % wait_shutdown(Pids),
     ?LOG_STATE_CHANGE(OldState),
     ok.
-
-% wait_shutdown(Pids) -> 
-%     wait_shutdown(Pids, self()).
-
-% wait_shutdown([Self|Pids], Self) -> 
-%     wait_shutdown(Pids, Self);
-% wait_shutdown([Pid|Pids], Self) -> 
-%     case is_process_alive(Pid) of 
-%         true  -> wait_shutdown(Pids, Self);
-%         false -> timer:sleep(10),  
-
-
 
 %%--------------------------------------------------------------------
 %% @private
