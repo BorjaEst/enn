@@ -213,11 +213,17 @@ recurrent_1_input(_Config) ->
 % -------------------------------------------------------------------
 random_dense_random_inputs(_Config) ->
     N     = erlang:unique_integer([positive, monotonic]),
-    NameJ = "random_dense" ++ integer_to_list(N) ++ ".json",
-    DataF = fun test_data_generators:random_sum_of_inputs/3,
+    FileName = "random_dense" ++ integer_to_list(N) ++ ".json",
+    Training = fun test_data_generators:random_sum_of_inputs/3,
     Model = test_architectures:random_dense(?MAX_UNITS_PER_LAYER,
                                             ?MAX_NUMBER_LAYERS),
-    test_model(NameJ, Model, DataF).
+    {ok, Id}  = correct_model_compilation(Model),
+    ok = test_architectures:shuffle_connections(Id),
+    ok      = correct_model_start(Id),
+    {ok, _} = correct_model_training(Id, Training, FileName),
+    ok      = correct_model_stop(Id),
+    ok.
+    
 
 % --------------------------------------------------------------------
 % SPECIFIC HELPER FUNCTIONS ------------------------------------------

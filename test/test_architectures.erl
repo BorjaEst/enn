@@ -102,3 +102,21 @@ dummy_neurons() ->
       hidden2 =>  ?dense(2, #{outputs => sequential}),                  
       outputs => ?output(2, #{})}.
 
+% -------------------------------------------------------------------
+% TODO: Define specs and comments
+shuffle_connections(Id) -> 
+    {atomic, _} = mnesia:transaction(
+        fun() -> 
+            NNodes = nnet:nodes(Id),
+            Size_f = math:sqrt(map_size(NNodes)),
+            ToDisconnect = rcomb(maps:keys(NNodes), 1.0/Size_f),
+            nnet:disconnect(ToDisconnect),
+            ToReconnect = rcomb(maps:keys(NNodes), 1.0/Size_f),
+            nnet:connect(ToReconnect)
+        end
+    ), ok.
+
+% Returns a list of random combinations -----------------------------
+rcomb(List, X) -> 
+    lists:filter(fun(_) -> rand:uniform() < X end, List).
+
