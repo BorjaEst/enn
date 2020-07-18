@@ -217,7 +217,7 @@ inactive({call, From}, {feedforward, Inputs}, State) ->
         wait = [Pid || {Pid, _} <- get(inputs)]
     }};
 inactive({call, From}, {backprop, Errors}, State) ->
-    ?LOG_EVENT_BACKFORWARD(Errors),
+    ?LOG_EVENT_BACKWARD(Errors),
     Sent = [backward(P,E) || {{P,_},E} <- lists:zip(get(inputs),Errors)],
     ?LOG_BACKWARD_PROPAGATION(Sent),
     put(from, From),

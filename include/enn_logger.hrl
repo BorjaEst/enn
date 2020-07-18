@@ -148,15 +148,15 @@
                     ext_inputs=>ExtInputs, state=>?FUNCTION_NAME}},
                #{logger_formatter=>#{title=>"CORTEX REQUEST"}})
 ).
--define(LOG_EVENT_BACKFORWARD(Errors),
-    ?LOG_DEBUG(#{what => "Backforward request",
+-define(LOG_EVENT_BACKWARD(Errors),
+    ?LOG_DEBUG(#{what => "Backward request",
                  pid => self(), id => get(id), details => #{
                     ext_errors=>Errors,    state=>?FUNCTION_NAME}},
                #{logger_formatter=>#{title=>"CORTEX REQUEST"}})
 ).
 -else.
 -define(LOG_EVENT_FEEDFORWARD(ExtInputs), ExtInputs).
--define(LOG_EVENT_BACKFORWARD(Errors), Errors).
+-define(LOG_EVENT_BACKWARD(Errors), Errors).
 -endif.
 
 %%--------------------------------------------------------------------
