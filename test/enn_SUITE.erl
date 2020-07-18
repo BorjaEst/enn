@@ -18,7 +18,7 @@
 -define(PROGRESS_BAR, #{size => 20}).
 
 -define(TEST_MODEL(Model, Training), 
-    test_model(atom_to_list(?FUNCTION_NAME) ++ ".json", Model, Training)).
+    test_model(Model, Training)).
 
 -define(MAX_UNITS_PER_LAYER, 20).
 -define(MAX_NUMBER_LAYERS,    4).
@@ -122,8 +122,9 @@ groups() ->
             recurrent_1_input
          ]
         },
-        {test_parallel_networks, [parallel, {repeat,?PARALLEL_NN}],
-            [random_dense_random_inputs]
+        {test_parallel_networks, [parallel],
+            [random_dense_random_inputs || _ <- lists:seq(1, ?PARALLEL_NN)]
+
         }
     ].
 
@@ -212,16 +213,18 @@ recurrent_1_input(_Config) ->
 
 % -------------------------------------------------------------------
 random_dense_random_inputs(_Config) ->
-    N     = erlang:unique_integer([positive, monotonic]),
-    FileName = "random_dense" ++ integer_to_list(N) ++ ".json",
     Training = fun test_data_generators:random_sum_of_inputs/3,
     Model = test_architectures:random_dense(?MAX_UNITS_PER_LAYER,
                                             ?MAX_NUMBER_LAYERS),
     {ok, Id}  = correct_model_compilation(Model),
-    ok = test_architectures:shuffle_connections(Id),
-    ok      = correct_model_start(Id),
-    {ok, _} = correct_model_training(Id, Training, FileName),
-    ok      = correct_model_stop(Id),
+    ok = test_architectures:shuffle_connections(Id, rand:uniform(4)),
+    try enn:start(Id) of 
+        Id -> 
+            {ok, _} = correct_model_training(Id, Training),
+            ok      = correct_model_stop(Id)
+    catch
+        error:broken_nn -> ?INFO("Error raised", broken_nn)
+    end,
     ok.
     
 
@@ -229,10 +232,10 @@ random_dense_random_inputs(_Config) ->
 % SPECIFIC HELPER FUNCTIONS ------------------------------------------
 
 % -------------------------------------------------------------------
-test_model(FileName, Model, Training) ->
+test_model(Model, Training) ->
     {ok,    Id}  = correct_model_compilation(Model),
     ok           = correct_model_start(Id),
-    {ok, Loss10} = correct_model_training(Id, Training, FileName),
+    {ok, Loss10} = correct_model_training(Id, Training),
     ok           = correct_model_stop(Id),
     {ok, Loss10}.
 
@@ -252,9 +255,9 @@ correct_model_start(Id) ->
     ?END(ok).
 
 % -------------------------------------------------------------------
-correct_model_training(Id, Training, FileName) ->
+correct_model_training(Id, Training) ->
     ?HEAD("Correct fit of model using backpropagation ............."),
-    Options = [{print, 3}, {log, FileName}, {return, [loss]}],
+    Options = [{return, [loss]}],
     {atomic, {N_in, N_out}} = mnesia:transaction(
         fun() -> {enn:inputs(Id), enn:outputs(Id)} end
     ),

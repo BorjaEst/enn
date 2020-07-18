@@ -104,14 +104,24 @@ dummy_neurons() ->
 
 % -------------------------------------------------------------------
 % TODO: Define specs and comments
+shuffle_connections(Id, N) -> 
+    [shuffle_connections(Id) || _ <- lists:seq(1, N)],
+    ok.
+
 shuffle_connections(Id) -> 
     {atomic, _} = mnesia:transaction(
         fun() -> 
             NNodes = nnet:nodes(Id),
             Size_f = math:sqrt(map_size(NNodes)),
-            ToDisconnect = rcomb(maps:keys(NNodes), 1.0/Size_f),
+            ToDisconnect = rcomb(
+                [{N1,N2} || N1 <- maps:keys(NNodes), 
+                            N2 <- maps:keys(NNodes)],
+                1.0/Size_f),
             nnet:disconnect(ToDisconnect),
-            ToReconnect = rcomb(maps:keys(NNodes), 1.0/Size_f),
+            ToReconnect = rcomb(
+                [{N1,N2} || N1 <- maps:keys(NNodes), 
+                            N2 <- maps:keys(NNodes)],
+                1.0/Size_f),
             nnet:connect(ToReconnect)
         end
     ), ok.
