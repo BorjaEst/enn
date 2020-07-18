@@ -104,13 +104,13 @@ init(Id, Supervisor) ->
                    data => nnet:rnode(Id)}
         end),
     NNPool = cortex_synch(),
-    ?LOG_NEURON_STARTED, % Start log and initialization of waits
     ok = init_dictionary(Id, NNPool, Info),
     ok = init_inputs(Info),
     ok = init_outputs(Info),
     ok = forward_synch(),
     ok = backward_synch(),
     ok = init_weights(),
+    ?LOG_NEURON_STARTED, % Start log and initialization of waits
     loop(#state{ 
         forward_wait  = maps:keys(get(inputs)),
         backward_wait = [P || {P,O} <- maps:to_list(get(outputs)),
