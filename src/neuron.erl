@@ -110,7 +110,7 @@ init(Id, Supervisor) ->
     ok = forward_synch(),
     ok = backward_synch(),
     ok = init_weights(),
-    ?LOG_NEURON_STARTED, % Start log and initialization of waits
+    ?LOG_NEURON_STARTED, % Start log and initialization of weights
     loop(#state{ 
         forward_wait  = maps:keys(get(inputs)),
         backward_wait = [P || {P,O} <- maps:to_list(get(outputs)),
@@ -461,12 +461,109 @@ write_neuron() ->
 % --------------------------------------------------------------------
 % TESTS DESCRIPTIONS -------------------------------------------------
 
+% Tests the neuron receive messages ---------------------------------
+neurons_communication_test_() ->
+    [{"A neuron can receive multiple forward/backward messages",
+      {foreach, local, fun start_neuron/0, fun stop_neuron/1,
+       [
+            fun forward_echo/1,
+            fun backward_echo/1,
+            fun backandforward_echo/1
+       ]
+     }}
+    ].
+
+
 % --------------------------------------------------------------------
 % SPECIFIC SETUP FUNCTIONS -------------------------------------------
 
+% Creates a network and returns the input/output nodes --------------
+-define(MOK_INPUTS_IDS,  [join( "in", N) || N <- lists:seq(1,20)]).
+-define(MOK_OUTPUTS_IDS, [join("out", N) || N <- lists:seq(1,20)]).
+start_neuron() -> 
+    spawn_link(?MODULE, mok_init, [
+        maps:from_list([{X,#input{w=not_init}} || X <- ?MOK_INPUTS_IDS ]),
+        maps:from_list([{X,#output{type=seq}}  || X <- ?MOK_OUTPUTS_IDS]),
+        #{activation  => direct, aggregation => dot_prod,
+          initializer => glorot, bias        => not_init}]).
+
+% Destroys the network ----------------------------------------------
+stop_neuron(Neuron) ->
+    unlink(Neuron),
+    exit(Neuron, shutdown).
+
+
 % --------------------------------------------------------------------
-% ACTUAL TESTS -------------------------------------------------------
+% TEST INSTANTIATORS -------------------------------------------------
+
+% Sends a forward and receives a forward ----------------------------
+forward_echo(Pid) -> 
+    {inparallel, 
+        [?_assert(send_forward(Id, Pid)) || Id <- ?MOK_INPUTS_IDS] ++ 
+        [?_assert(wait_forward(Id, Pid)) || Id <- ?MOK_OUTPUTS_IDS]
+    }. 
+
+% Sends a backward and receives a backward --------------------------
+backward_echo(Pid) -> 
+    {inparallel, 
+        [?_assert(wait_backward(Id, Pid)) || Id <- ?MOK_INPUTS_IDS] ++
+        [?_assert(send_backward(Id, Pid)) || Id <- ?MOK_OUTPUTS_IDS] 
+    }. 
+
+% Sends a forward/backward and receives a forward/backward ----------
+backandforward_echo(Pid) -> 
+    {inparallel, 
+        [?_assert(send_forward(Id, Pid)) || Id <- ?MOK_INPUTS_IDS] ++ 
+        [?_assert(wait_forward(Id, Pid)) || Id <- ?MOK_OUTPUTS_IDS] ++
+        [?_assert(wait_backward(Id, Pid)) || Id <- ?MOK_INPUTS_IDS] ++
+        [?_assert(send_backward(Id, Pid)) || Id <- ?MOK_OUTPUTS_IDS] 
+    }. 
+
 
 % --------------------------------------------------------------------
 % SPECIFIC HELPER FUNCTIONS ------------------------------------------
+
+% Joins a string and an integer (only for tests!!!) -----------------
+join(String, Integer) -> 
+    list_to_atom(String ++ erlang:integer_to_list(Integer)).
+
+% Moking initialization for neuron ----------------------------------
+mok_init(Inputs, Outputs, Data) -> 
+    % process_flag(trap_exit, true), Do not catch exits
+    put(    id, make_ref()), 
+    put(  data,       Data), 
+    put(inputs,     Inputs),
+    put(outputs,   Outputs),
+    ok = init_weights(),
+    loop(#state{ 
+        forward_wait  = maps:keys(get(inputs)),
+        backward_wait = [P || {P,O} <- maps:to_list(get(outputs)),
+                               O#output.type == seq]
+    }). 
+
+% Sends a forward message -------------------------------------------
+send_forward(Input_id, Pid) -> 
+    timer:sleep(1),  % Give some time to the other process to register
+    Pid ! {Input_id, forward, 0.0},
+    true. 
+
+% Expects a forward message -----------------------------------------
+wait_forward(Output_id, Pid) -> 
+    register(Output_id, self()),
+    receive {Pid, forward, _} -> true
+    after    10               -> error(no_message)
+    end. 
+
+% Sends a backward messages -----------------------------------------
+send_backward(Output_id, Pid) -> 
+    timer:sleep(1),  % Give some time to the other process to register
+    Pid ! {Output_id, backward, 0.0},
+    true. 
+
+% Expects a backward message ----------------------------------------
+wait_backward(Input_id, Pid) -> 
+    register(Input_id, self()),
+    receive {Pid, backward, _} -> true
+    after    10                -> error(no_message)
+    end. 
 
