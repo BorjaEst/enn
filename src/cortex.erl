@@ -235,10 +235,7 @@ inactive(EventType, EventContent, State) ->
 on_feedforward(enter, OldState, State) ->
     ?LOG_STATE_CHANGE(OldState),
     {keep_state, State};
-on_feedforward(info, {Pid, forward, Signal}, _State) ->
-    ?LOG_FORWARD_MESSAGE_RECEIVED(Pid, Signal),
-    update_input_signal(Pid, Signal),
-    {keep_state_and_data, {next_event, internal, {remove_wait, Pid}}};
+
 on_feedforward(internal, cycle_end, State) ->
     Signals = [I#input.s || {_, I} <- get(inputs)],
     {next_state, inactive, State, {reply, get(from), Signals}};
@@ -254,10 +251,7 @@ on_feedforward(EventType, EventContent, State) ->
 on_backpropagation(enter, OldState, State) ->
     ?LOG_STATE_CHANGE(OldState),
     {keep_state, State};
-on_backpropagation(info, {Pid, backward, BP_Err}, _State) ->
-    ?LOG_BACKWARD_MESSAGE_RECEIVED(Pid, BP_Err),
-    update_output_error(Pid, BP_Err),
-    {keep_state_and_data, {next_event, internal, {remove_wait, Pid}}};
+
 on_backpropagation(internal, cycle_end, State) ->
     BP_Err = [O#output.e || {_, O} <- get(outputs)],
     {next_state, inactive, State, {reply, get(from), BP_Err}};
@@ -272,6 +266,14 @@ handle_common(internal, {remove_wait, Pid}, #state{wait=[Pid]}) ->
     {keep_state_and_data, {next_event, internal, cycle_end}};
 handle_common(internal, {remove_wait, Pid}, State) ->
     {keep_state, State#state{wait=lists:delete(Pid,State#state.wait)}};
+handle_common(info, {Pid, forward, Signal}, _State) ->
+    ?LOG_FORWARD_MESSAGE_RECEIVED(Pid, Signal),
+    update_input_signal(Pid, Signal),
+    {keep_state_and_data, {next_event, internal, {remove_wait, Pid}}};
+handle_common(info, {Pid, backward, BP_Err}, _State) ->
+    ?LOG_BACKWARD_MESSAGE_RECEIVED(Pid, BP_Err),
+    update_output_error(Pid, BP_Err),
+    {keep_state_and_data, {next_event, internal, {remove_wait, Pid}}};
 handle_common(EventType, EventContent, _State) ->
     error({"Unknown event", EventType, EventContent}).
 %%--------------------------------------------------------------------
