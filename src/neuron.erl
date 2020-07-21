@@ -149,7 +149,8 @@ forward_synch() ->
         self() ! {From, forward, synch}
     after ?INIT_SYNCH_TIMEOUT -> 
         [Pid ! {self(), forward, discn} || Pid <- maps:keys(get(outputs))],
-        exit("Neuron forward disconnected")
+        ?LOG_INFO(#{what=>"Neuron forward disconnected"}),
+        exit(normal)
     end,
     synchronise(forward, maps:keys(get(inputs))).
 
@@ -159,7 +160,8 @@ backward_synch() ->
         self() ! {From, backward, synch}
     after 2*?INIT_SYNCH_TIMEOUT ->
         [Pid ! {self(), backward, discn} || Pid <- maps:keys(get(inputs))],
-        exit("Neuron backward disconnected")
+        ?LOG_INFO(#{what=>"Neuron backward disconnected"}),
+        exit(normal)
     end,
     synchronise(backward, maps:keys(get(outputs))).
 
@@ -487,7 +489,7 @@ start_neuron() ->
         #{activation  => direct, aggregation => dot_prod,
           initializer => glorot, bias        => not_init}]).
 
-% Destroys the network ----------------------------------------------
+% Destroys the neuron -----------------------------------------------
 stop_neuron(Neuron) ->
     unlink(Neuron),
     exit(Neuron, shutdown).

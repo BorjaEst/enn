@@ -17,7 +17,7 @@
 -define(SPECS_NEURON(Neuron_id), #{
     id       => Neuron_id,
     start    => {neuron, start_link, [Neuron_id]},
-    restart  => temporary,
+    restart  => transient,
     shutdown => 500,
     modules  => [neuron]
  }).
