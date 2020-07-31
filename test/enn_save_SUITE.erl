@@ -162,7 +162,7 @@ training_saved_after_stop(Config) ->
     {atomic, {N_in, N_out}} = mnesia:transaction(
         fun() -> {enn:inputs(Id), enn:outputs(Id)} end
     ),
-    {In,Opt} = test_data_generators:random_sum_of_inputs( N_in, N_out, 10),
+    {In,Opt} = data_generators:random_sum_of_inputs( N_in, N_out, 10),
     _  = enn:fit(Id, In, Opt),
     ok = enn:stop(Id),
     {atomic, Bs2} = mnesia:transaction(fun() -> biases(Id) end),

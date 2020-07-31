@@ -58,10 +58,16 @@ end_per_suite(_Config) ->
 %% Config0 = Config1 = [tuple()]
 %% Reason = term()
 %%--------------------------------------------------------------------
+init_per_group(test_simple_architectures, Config) -> 
+    [{training_lines, ?ACC_TRAINING_LINES}|Config];
+init_per_group(test_complex_architectures, Config) -> 
+    [{training_lines, ?ACC_TRAINING_LINES}|Config];
+init_per_group(test_broken_architectures, Config) -> 
+    [{training_lines, ?DEBUG_TRAINING_LINES}|Config];
 init_per_group(test_parallel_networks, Config) -> 
     [{training_lines, ?DEBUG_TRAINING_LINES}|Config];
 init_per_group(_GroupName, Config) ->
-    [{training_lines, ?ACC_TRAINING_LINES}|Config].
+    Config.
 
 %%--------------------------------------------------------------------
 %% Function: end_per_group(GroupName, Config0) ->
@@ -97,9 +103,19 @@ init_per_testcase(mult_random_inputs, Config) ->
 init_per_testcase(recurrent_1_input, Config) ->
     [{generator, data_generators:recurrent_of_1_input()},
      {model,     test_architectures:recurrent()}|Config];
+init_per_testcase(broken_connections, Config) ->
+    [{model, test_architectures:broken_connections()}|Config];
+init_per_testcase(infinite_loop, Config) ->
+    [{generator, data_generators:random_sum_of_inputs()},
+     {model,     test_architectures:infinite_loop()}|Config];     
+init_per_testcase(dummy_neurons, Config) ->
+    [{generator, data_generators:random_sum_of_inputs()},
+     {model,     test_architectures:dummy_neurons()}|Config];
 init_per_testcase(random_dense_random_inputs, Config) ->
     [{generator, data_generators:random_sum_of_inputs()},
      {model,     test_architectures:random_dense()}|Config];
+init_per_testcase(test_pid_link, Config) ->
+    [{model, test_architectures:example()}|Config];
 init_per_testcase(_GroupName, Config) ->
     Config.
 
@@ -141,9 +157,15 @@ groups() ->
             recurrent_1_input
          ]
         },
+        {test_broken_architectures, [parallel],
+         [
+            broken_connections,
+            infinite_loop,
+            dummy_neurons
+         ]
+        },
         {test_parallel_networks, [parallel],
             [random_dense_random_inputs || _ <- lists:seq(1, ?PARALLEL_NN)]
-
         }
     ].
 
@@ -158,7 +180,9 @@ all() ->
     [ % NOTE THAT GROUPS CANNOT BE DEBUGGED WITH {step, ?STEP_OPTS}
         {group, test_simple_architectures},
         {group, test_complex_architectures},
-        {group, test_parallel_networks}
+        {group, test_broken_architectures},
+        {group, test_parallel_networks},
+        test_pid_link
     ].
 
 %%--------------------------------------------------------------------
@@ -184,88 +208,129 @@ my_test_case_example(_Config) ->
 
 % -------------------------------------------------------------------
 xor_gate_static_inputs(Config) ->
-    Loss10 = test_model(
-        ?config(model, Config),
-        ?config(generator, Config),
-        ?config(training_lines, Config)
-    ),
+    {ok,     Id} = correct_model_compilation(Config),
+    {ok,     Id} = correct_model_start(Id),
+    {ok, Loss10} = correct_model_training(Id, Config),
+    ok           = correct_model_stop(Id),
     console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
 xor_gate_random_inputs(Config) ->
-    Loss10 = test_model(
-        ?config(model, Config),
-        ?config(generator, Config),
-        ?config(training_lines, Config)
-    ),
+    {ok,     Id} = correct_model_compilation(Config),
+    {ok,     Id} = correct_model_start(Id),
+    {ok, Loss10} = correct_model_training(Id, Config),
+    ok           = correct_model_stop(Id),
     console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
 addition_static_inputs(Config) ->
-    Loss10 = test_model(
-        ?config(model, Config),
-        ?config(generator, Config),
-        ?config(training_lines, Config)
-    ),
+    {ok,     Id} = correct_model_compilation(Config),
+    {ok,     Id} = correct_model_start(Id),
+    {ok, Loss10} = correct_model_training(Id, Config),
+    ok           = correct_model_stop(Id),
     console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
 addition_random_inputs(Config) ->
-    Loss10 = test_model(
-        ?config(model, Config),
-        ?config(generator, Config),
-        ?config(training_lines, Config)
-    ),
+    {ok,     Id} = correct_model_compilation(Config),
+    {ok,     Id} = correct_model_start(Id),
+    {ok, Loss10} = correct_model_training(Id, Config),
+    ok           = correct_model_stop(Id),
     console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
 mult_random_inputs(Config) ->
-    Loss10 = test_model(
-        ?config(model, Config),
-        ?config(generator, Config),
-        ?config(training_lines, Config)
-    ),
+    {ok,     Id} = correct_model_compilation(Config),
+    {ok,     Id} = correct_model_start(Id),
+    {ok, Loss10} = correct_model_training(Id, Config),
+    ok           = correct_model_stop(Id),
     console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
 recurrent_1_input(Config) ->
-    Loss10 = test_model(
-        ?config(model, Config),
-        ?config(generator, Config),
-        ?config(training_lines, Config)
-    ),
+    {ok,     Id} = correct_model_compilation(Config),
+    {ok,     Id} = correct_model_start(Id),
+    {ok, Loss10} = correct_model_training(Id, Config),
+    ok           = correct_model_stop(Id),
     console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
+broken_connections(Config) ->
+    {ok, Id} = correct_model_compilation(Config),
+    case correct_model_start(Id) of 
+        {ok, Id} ->
+            ?ERROR("Error not raised, result"),
+            error("Error not raised");
+        {error, broken_nn} -> 
+            ?INFO("Error raised", broken_nn),
+            ?END(ok)
+    end.
+
+% -------------------------------------------------------------------
+infinite_loop(Config) ->
+    {ok, Id}  = correct_model_compilation(Config),
+    {atomic, {N_in, N_out}} = mnesia:transaction(
+        fun() -> {enn:inputs(Id), enn:outputs(Id)} end
+    ),
+    {ok, Id} = correct_model_start(Id),
+    timer:sleep(200), % Neurons need some time to exit
+    #{nn_pool := NNpool} = enn:status(Id),
+    Alive = [Pid || Pid <- nn_pool:pids(NNpool), is_process_alive(Pid)],
+    true = length(Alive) == N_in + N_out + 1, %Cortex=>+1 
+    ok = correct_model_stop(Id),
+    ?END({ok, Id}).
+
+% -------------------------------------------------------------------
+dummy_neurons(Config) ->
+    {ok, Id}  = correct_model_compilation(Config),
+    {atomic, {N_in, N_out}} = mnesia:transaction(
+        fun() -> {enn:inputs(Id), enn:outputs(Id)} end
+    ),
+    {ok, Id} = correct_model_start(Id),
+    timer:sleep(200), % Neurons need some time to exit
+    #{nn_pool := NNpool} = enn:status(Id),
+    Alive = [Pid || Pid <- nn_pool:pids(NNpool), is_process_alive(Pid)],
+    true = length(Alive) == N_in + N_out + 1, %Cortex=>+1 
+    {ok,  _} = correct_model_training(Id, Config),
+    ok       = correct_model_stop(Id),
+    ?END({ok, Id}).
+
+% -------------------------------------------------------------------
 random_dense_random_inputs(Config) ->
-    Generator = ?config(generator, Config),
-    Model     = ?config(model, Config),
-    Lines     = ?config(training_lines, Config),
-    {ok, Id}  = correct_model_compilation(Model),
-    ok = test_architectures:shuffle_connections(Id, rand:uniform(4)),
-    try enn:start(Id) of 
-        Id -> 
-            {ok, _} = correct_model_training(Id, Generator, Lines),
-            ok      = correct_model_stop(Id)
-    catch
-        error:broken_nn -> ?INFO("Error raised", broken_nn)
+    {ok,     Id} = correct_model_compilation(Config),
+    test_architectures:shuffle_connections(Id, rand:uniform(4)),
+    case correct_model_start(Id) of 
+        {ok, Id} -> 
+            {ok, _} = correct_model_training(Id, Config),
+            ok      = correct_model_stop(Id);
+        {error, broken_nn} -> 
+            ?INFO("Pass test: error raised", broken_nn),
+            ok
+    end.
+
+% -------------------------------------------------------------------
+test_pid_link(Config) -> 
+    {ok, Id}  = correct_model_compilation(Config),
+    {ok, Id} = correct_model_start(Id),
+    process_flag(trap_exit, true), % To catch network exit
+    enn:cortex(Id) ! error,
+    receive Message -> {'EXIT',_, {{_,info,error},_}} = Message
+    after 100 -> error("Caller not down")
     end,
-    ok.
+    process_flag(trap_exit, false), % To do not catch network exit
+    timer:sleep(100),
+    {ok, Id} = correct_model_start(Id),
+    ok       = correct_model_stop(Id), % Caller does not dies
+    ?END({ok, Id}).
+
 
 % --------------------------------------------------------------------
 % SPECIFIC HELPER FUNCTIONS ------------------------------------------
 
 % -------------------------------------------------------------------
-test_model(Model, Generator, Lines) ->
-    {ok,    Id}  = correct_model_compilation(Model),
-    ok           = correct_model_start(Id),
-    {ok, Loss10} = correct_model_training(Id, Generator, Lines),
-    ok           = correct_model_stop(Id),
-    Loss10.
-
-% -------------------------------------------------------------------
-correct_model_compilation(Model) ->
+correct_model_compilation(Config) ->
     ?HEAD("Correct model compilation .............................."),
+    Model = ?config(model, Config),
     {atomic,Id} = mnesia:transaction(fun() -> enn:compile(Model) end), 
     ?INFO("Model", Model),
     {atomic,NN_Info} = mnesia:transaction(fun() -> enn:info(Id,out) end),
@@ -275,17 +340,26 @@ correct_model_compilation(Model) ->
 % -------------------------------------------------------------------
 correct_model_start(Id) ->
     ?HEAD("Correct neural network start form a network id ........"),
-    Id = enn:start(Id), % Return NN_id for non_compiled start
-    ?END(ok).
+    try enn:start_link(Id) of % Return NN_id for non_compiled start
+        Id ->
+            ?INFO("Correct network start", Id),
+            ?END({ok, Id})
+    catch
+        error:broken_nn ->
+            ?INFO("Network start fail by: ", broken_nn), 
+            ?END({error, broken_nn})
+    end.
 
 % -------------------------------------------------------------------
-correct_model_training(Id, Generator, Training_lines) ->
-    ?HEAD("Correct fit of model using backpropagation ............."),
+correct_model_training(Id, Config) ->
+    ?HEAD("Correct fit of model using backpropagation ............"),
+    Generator = ?config(generator, Config),
+    Lines     = ?config(training_lines, Config),
     Options = [{return, [loss]}],
     {atomic, {N_in, N_out}} = mnesia:transaction(
         fun() -> {enn:inputs(Id), enn:outputs(Id)} end
     ),
-    {Inputs, Optimas} = Generator(N_in, N_out, Training_lines),
+    {Inputs, Optimas} = Generator(N_in, N_out, Lines),
     [Loss] = enn:run(Id, Inputs, Optimas, Options),
     ?END({ok, average(Loss, 10)}).
 
