@@ -14,6 +14,8 @@
 %% Defined agent species
 -export([]).
 
+-define(MAX_UNITS_PER_LAYER,   20).
+-define(MAX_NUMBER_LAYERS,      4).
 -define(RAND(Max_Units), rand:uniform(Max_Units)).
 -define(HIDDEN(N), list_to_atom("hidden" ++ integer_to_list(N))).
 
@@ -24,6 +26,9 @@
 
 % -------------------------------------------------------------------
 % TODO: Define specs and comments
+random_dense() -> 
+    random_dense(?MAX_UNITS_PER_LAYER, ?MAX_NUMBER_LAYERS). 
+
 random_dense(Max_Units, Max_Layers) -> 
     M0 = #{outputs => ?output(?RAND(Max_Units), #{})},
     random_dense(?RAND(Max_Layers), Max_Units, M0, outputs).

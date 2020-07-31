@@ -17,13 +17,9 @@
 -define(ERROR(Error), ct:pal( ?HI_IMPORTANCE, "Error: ~p", [Error])).
 -define(PROGRESS_BAR, #{size => 20}).
 
--define(TEST_MODEL(Model, Training), 
-    test_model(Model, Training)).
-
--define(MAX_UNITS_PER_LAYER, 20).
--define(MAX_NUMBER_LAYERS,    4).
--define(TRAINING_LINES,    8000).
--define(PARALLEL_NN,          8).
+-define(ACC_TRAINING_LINES,  8000).
+-define(DEBUG_TRAINING_LINES, 100).
+-define(PARALLEL_NN,            8).
 
 
 %%--------------------------------------------------------------------
@@ -62,8 +58,10 @@ end_per_suite(_Config) ->
 %% Config0 = Config1 = [tuple()]
 %% Reason = term()
 %%--------------------------------------------------------------------
+init_per_group(test_parallel_networks, Config) -> 
+    [{training_lines, ?DEBUG_TRAINING_LINES}|Config];
 init_per_group(_GroupName, Config) ->
-    Config.
+    [{training_lines, ?ACC_TRAINING_LINES}|Config].
 
 %%--------------------------------------------------------------------
 %% Function: end_per_group(GroupName, Config0) ->
@@ -81,6 +79,27 @@ end_per_group(_GroupName, _Config) ->
 %% Config0 = Config1 = [tuple()]
 %% Reason = term()
 %%--------------------------------------------------------------------
+init_per_testcase(xor_gate_static_inputs, Config) ->
+    [{generator, data_generators:static_xor_of_inputs()},
+     {model,     test_architectures:xor_gate()}|Config];
+init_per_testcase(xor_gate_random_inputs, Config) ->
+    [{generator, data_generators:random_xor_of_inputs()},
+     {model,     test_architectures:xor_gate()}|Config];
+init_per_testcase(addition_static_inputs, Config) ->
+    [{generator, data_generators:static_sum_of_inputs()},
+     {model,     test_architectures:addition()}|Config];
+init_per_testcase(addition_random_inputs, Config) ->
+    [{generator, data_generators:random_sum_of_inputs()},
+     {model,     test_architectures:addition()}|Config];
+init_per_testcase(mult_random_inputs, Config) ->
+    [{generator, data_generators:random_mult_of_inputs()},
+     {model,     test_architectures:multiplication()}|Config];     
+init_per_testcase(recurrent_1_input, Config) ->
+    [{generator, data_generators:recurrent_of_1_input()},
+     {model,     test_architectures:recurrent()}|Config];
+init_per_testcase(random_dense_random_inputs, Config) ->
+    [{generator, data_generators:random_sum_of_inputs()},
+     {model,     test_architectures:random_dense()}|Config];
 init_per_testcase(_GroupName, Config) ->
     Config.
 
@@ -164,80 +183,85 @@ my_test_case_example(_Config) ->
 % TESTS --------------------------------------------------------------
 
 % -------------------------------------------------------------------
-xor_gate_static_inputs(_Config) ->
-    {ok, Loss10} = ?TEST_MODEL(
-        _Model = test_architectures:xor_gate(),
-        _Data  = fun test_data_generators:static_xor_of_inputs/3
+xor_gate_static_inputs(Config) ->
+    Loss10 = test_model(
+        ?config(model, Config),
+        ?config(generator, Config),
+        ?config(training_lines, Config)
     ),
     console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
-xor_gate_random_inputs(_Config) ->
-    {ok, Loss10} = ?TEST_MODEL(
-        _Model = test_architectures:xor_gate(),
-        _Data  = fun test_data_generators:random_xor_of_inputs/3
+xor_gate_random_inputs(Config) ->
+    Loss10 = test_model(
+        ?config(model, Config),
+        ?config(generator, Config),
+        ?config(training_lines, Config)
     ),
     console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
-addition_static_inputs(_Config) ->
-    {ok, Loss10} = ?TEST_MODEL(
-        _Model = test_architectures:addition(),
-        _Data  = fun test_data_generators:static_sum_of_inputs/3
+addition_static_inputs(Config) ->
+    Loss10 = test_model(
+        ?config(model, Config),
+        ?config(generator, Config),
+        ?config(training_lines, Config)
     ),
     console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
-addition_random_inputs(_Config) ->
-    {ok, Loss10} = ?TEST_MODEL(
-        _Model = test_architectures:addition(),
-        _Data  = fun test_data_generators:random_sum_of_inputs/3
+addition_random_inputs(Config) ->
+    Loss10 = test_model(
+        ?config(model, Config),
+        ?config(generator, Config),
+        ?config(training_lines, Config)
     ),
     console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
-mult_random_inputs(_Config) ->
-    {ok, Loss10} = ?TEST_MODEL(
-        _Model = test_architectures:multiplication(),
-        _Data  = fun test_data_generators:random_mult_of_inputs/3
+mult_random_inputs(Config) ->
+    Loss10 = test_model(
+        ?config(model, Config),
+        ?config(generator, Config),
+        ?config(training_lines, Config)
     ),
     console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
-recurrent_1_input(_Config) ->
-    {ok, Loss10} = ?TEST_MODEL(
-        _Model = test_architectures:recurrent(),
-        _Data  = fun test_data_generators:recurrent_of_1_input/3
+recurrent_1_input(Config) ->
+    Loss10 = test_model(
+        ?config(model, Config),
+        ?config(generator, Config),
+        ?config(training_lines, Config)
     ),
     console_print_loss(?FUNCTION_NAME, Loss10).
 
 % -------------------------------------------------------------------
-random_dense_random_inputs(_Config) ->
-    Training = fun test_data_generators:random_sum_of_inputs/3,
-    Model = test_architectures:random_dense(?MAX_UNITS_PER_LAYER,
-                                            ?MAX_NUMBER_LAYERS),
+random_dense_random_inputs(Config) ->
+    Generator = ?config(generator, Config),
+    Model     = ?config(model, Config),
+    Lines     = ?config(training_lines, Config),
     {ok, Id}  = correct_model_compilation(Model),
     ok = test_architectures:shuffle_connections(Id, rand:uniform(4)),
     try enn:start(Id) of 
         Id -> 
-            {ok, _} = correct_model_training(Id, Training),
+            {ok, _} = correct_model_training(Id, Generator, Lines),
             ok      = correct_model_stop(Id)
     catch
         error:broken_nn -> ?INFO("Error raised", broken_nn)
     end,
     ok.
-    
 
 % --------------------------------------------------------------------
 % SPECIFIC HELPER FUNCTIONS ------------------------------------------
 
 % -------------------------------------------------------------------
-test_model(Model, Training) ->
+test_model(Model, Generator, Lines) ->
     {ok,    Id}  = correct_model_compilation(Model),
     ok           = correct_model_start(Id),
-    {ok, Loss10} = correct_model_training(Id, Training),
+    {ok, Loss10} = correct_model_training(Id, Generator, Lines),
     ok           = correct_model_stop(Id),
-    {ok, Loss10}.
+    Loss10.
 
 % -------------------------------------------------------------------
 correct_model_compilation(Model) ->
@@ -255,13 +279,13 @@ correct_model_start(Id) ->
     ?END(ok).
 
 % -------------------------------------------------------------------
-correct_model_training(Id, Training) ->
+correct_model_training(Id, Generator, Training_lines) ->
     ?HEAD("Correct fit of model using backpropagation ............."),
     Options = [{return, [loss]}],
     {atomic, {N_in, N_out}} = mnesia:transaction(
         fun() -> {enn:inputs(Id), enn:outputs(Id)} end
     ),
-    {Inputs, Optimas} = Training(N_in, N_out, ?TRAINING_LINES),
+    {Inputs, Optimas} = Generator(N_in, N_out, Training_lines),
     [Loss] = enn:run(Id, Inputs, Optimas, Options),
     ?END({ok, average(Loss, 10)}).
 
@@ -289,12 +313,12 @@ average(List, N) when length(List) < N  ->
 
 % -------------------------------------------------------------------
 console_print_loss(FunName, LossList) -> 
-    Step = round(?TRAINING_LINES/length(LossList)),
+    Step = round(?ACC_TRAINING_LINES/length(LossList)),
     Seq  = lists:zip(lists:seq(1, length(LossList)), 
                      LossList),
     Data = [{Step*N, Loss} || {N, Loss} <- Seq],
     Format = atom_to_list(FunName) ++ "\n" ++  
-             console_print("loss:", ?TRAINING_LINES, Data),
+             console_print("loss:", ?ACC_TRAINING_LINES, Data),
     ct:print(Format).
 
 console_print(Title, Size, [{N, Value} | Rest]) -> 
