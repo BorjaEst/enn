@@ -9,8 +9,8 @@
 -compile({no_auto_import,[link/1]}).
 
 %% API
--export([start/1, start_link/1, stop/1, predict/2, fit/3, clone/1]).
--export([compile/1, run/4, inputs/1, outputs/1, neurons/1]).
+-export([start/1, start_link/1, stop/1, predict/2, fit/3]).
+-export([run/4, inputs/1, outputs/1, neurons/1]).
 -export([status/1, info/2, cortex/1]).
 -export_types([network/0, neuron/0, model/0]).
 
@@ -22,25 +22,6 @@
 %%====================================================================
 %% API
 %%====================================================================
-
-%%--------------------------------------------------------------------
-%% @doc Compiles and stores a model returning its network id.
-%% Should run inside mnesia transaction.
-%% @end
-%%--------------------------------------------------------------------
--spec compile(Model::model()) -> Network::network().
-compile(Model) ->
-    nnet:from_model(Model).
-
-%%--------------------------------------------------------------------
-%% @doc Clones a network. Each element of the newtork is cloned inside
-%% the mnesia database but with a different id.
-%% Should run inside mnesia transaction.
-%% @end
-%%--------------------------------------------------------------------
--spec clone(Network::network()) -> Cloned::network().
-clone(Network) ->
-    nnet:clone(Network).
 
 %%--------------------------------------------------------------------
 %% @doc Returns the number of inputs a network expects.
@@ -92,7 +73,7 @@ info(Network, Item) ->
     Model   :: model(),
     Network :: network().
 start(Model) when is_map(Model) ->
-    {atomic, Network} = mnesia:transaction(fun() -> compile(Model) end),
+    {atomic, Network} = mnesia:transaction(fun() -> nnet:compile(Model) end),
     start(Network);
 start(Network) ->
     case enn_sup:start_nn(Network) of 

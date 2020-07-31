@@ -331,7 +331,7 @@ test_pid_link(Config) ->
 correct_model_compilation(Config) ->
     ?HEAD("Correct model compilation .............................."),
     Model = ?config(model, Config),
-    {atomic,Id} = mnesia:transaction(fun() -> enn:compile(Model) end), 
+    {atomic,Id} = mnesia:transaction(fun() -> nnet:compile(Model) end), 
     ?INFO("Model", Model),
     {atomic,NN_Info} = mnesia:transaction(fun() -> enn:info(Id,out) end),
     ?INFO("Network", NN_Info),

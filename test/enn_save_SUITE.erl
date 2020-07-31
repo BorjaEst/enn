@@ -54,8 +54,8 @@ end_per_suite(_Config) ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 init_per_group(_GroupName, Config) ->
-    {atomic,Id} = mnesia:transaction(
-        fun() -> enn:compile(test_architectures:example()) end
+    {atomic, Id} = mnesia:transaction(
+        fun() -> nnet:compile(test_architectures:example()) end
     ),
     [{network, Id} | Config].
 
@@ -177,7 +177,7 @@ correct_network_clonation() ->
 correct_network_clonation(Config) -> 
     ?HEAD("Network can be cloned ................................."),
     Id1 = ?config(network, Config),
-    {atomic,  Id2} = mnesia:transaction(fun() -> enn:clone(Id1) end),
+    {atomic,  Id2} = mnesia:transaction(fun() -> nnet:clone(Id1) end),
     {atomic, true} = mnesia:transaction(
         fun() -> 
             true =            neurons(Id1) /=            neurons(Id2),
