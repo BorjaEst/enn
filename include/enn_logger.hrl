@@ -204,15 +204,28 @@
 -endif.
 
 %%--------------------------------------------------------------------
-%% @doc Enables logs on neurons states.
+%% @doc Logs on neurons states.
 %% @end
 %%--------------------------------------------------------------------
--ifdef(debug_neurons_status).
 -define(LOG_NEURON_STARTED,
-    ?LOG_DEBUG(#{what => "Neuron started", pid =>self(), id=>get(id), 
+    ?LOG_INFO(#{what => "Neuron started", pid =>self(), id=>get(id), 
                  details => #{}},
-               #{logger_formatter=>#{title=>"NEURON STATUS"}})
+               #{logger_formatter=>#{title=>"NEURON EVENT"}})
 ).
+-define(LOG_NEURON_EXIT(Reason),
+    ?LOG_INFO(#{what => "Neuron shutdown", pid =>self(), id=>get(id), 
+                 details => #{reason => Reason}},
+               #{logger_formatter=>#{title=>"NEURON EVENT"}})
+).
+-define(LOG_NEURON_IDLE(State),
+    ?LOG_WARNING(#{what => "Neuron idle or stock", 
+                   details=>#{forward  => State#state.forward_wait,
+                              backward => State#state.backward_wait},
+                   pid  => self(), id => get(id)},
+                 #{logger_formatter=>#{title=>"NEURON WARNING"}})
+).
+
+-ifdef(debug_neurons_status).
 -define(LOG_WAITING_NEURONS(State),
     ?LOG_DEBUG(#{what => "Neuron waiting for these signals", 
                  details => #{forward  => State#state.forward_wait,
@@ -220,22 +233,7 @@
                  pid  => self(), id => get(id)},
                #{logger_formatter=>#{title=>"NEURON STATUS"}})
 ).
--define(LOG_NEURON_IDLE(State),
-    ?LOG_WARNING(#{what => "Neuron idle or stock", 
-                   details=>#{forward  => State#state.forward_wait,
-                              backward => State#state.backward_wait},
-                   pid  => self(), id => get(id)},
-                 #{logger_formatter=>#{title=>"NEURON STATUS"}})
-).
--define(LOG_NEURON_TERMINATING,
-    ?LOG_DEBUG(#{what => "Neuron terminating", 
-                 pid  => self(), id => get(id), details => []},
-               #{logger_formatter=>#{title=>"NEURON STATUS"}})
-).
 -else.
--define(LOG_NEURON_STARTED,            ok).
 -define(LOG_WAITING_NEURONS(State), State).
--define(LOG_NEURON_IDLE(State),     State).
--define(LOG_NEURON_TERMINATING,        ok).
 -endif.
 

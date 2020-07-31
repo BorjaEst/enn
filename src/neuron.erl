@@ -149,7 +149,7 @@ forward_synch() ->
         self() ! {From, forward, synch}
     after ?INIT_SYNCH_TIMEOUT -> 
         [Pid ! {self(), forward, discn} || Pid <- maps:keys(get(outputs))],
-        ?LOG_INFO(#{what=>"Neuron forward disconnected"}),
+        ?LOG_NEURON_EXIT("Neuron forward disconnected"),
         exit(normal)
     end,
     synchronise(forward, maps:keys(get(inputs))).
@@ -160,7 +160,7 @@ backward_synch() ->
         self() ! {From, backward, synch}
     after 2*?INIT_SYNCH_TIMEOUT ->
         [Pid ! {self(), backward, discn} || Pid <- maps:keys(get(inputs))],
-        ?LOG_INFO(#{what=>"Neuron backward disconnected"}),
+        ?LOG_NEURON_EXIT("Neuron backward disconnected"),
         exit(normal)
     end,
     synchronise(backward, maps:keys(get(outputs))).
@@ -256,7 +256,7 @@ terminate(Reason, _State) ->
     {atomic, _} = mnesia:transaction( 
         fun() -> write_links(), write_neuron() end
     ),
-    ?LOG_NEURON_TERMINATING,
+    ?LOG_NEURON_EXIT(Reason),
     exit(Reason).
 %%--------------------------------------------------------------------
 %% @end  
