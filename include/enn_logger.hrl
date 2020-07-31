@@ -225,11 +225,11 @@
                #{logger_formatter=>#{title=>"NEURON EVENT"}})
 ).
 -define(LOG_NEURON_IDLE(State),
-    ?LOG_WARNING(#{what => "Neuron idle or stock", 
-                   details=>#{forward  => State#state.forward_wait,
-                              backward => State#state.backward_wait},
-                   pid  => self(), id => get(id)},
-                 #{logger_formatter=>#{title=>"NEURON WARNING"}})
+    ?LOG_NOTICE(#{what => "Neuron idle or stock", 
+                  details=>#{forward  => State#state.forward_wait,
+                             backward => State#state.backward_wait},
+                  pid  => self(), id => get(id)},
+                #{logger_formatter=>#{title=>"NEURON WARNING"}})
 ).
 
 -ifdef(debug_neurons_status).
