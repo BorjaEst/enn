@@ -55,31 +55,32 @@ ok
 You can create a neural network simply with enn:start/1:
 ```erl
 2> Network = enn:start(
-2>     model:sequential([
-2>         layer:input( 2                       ),
-2>         layer:dense( 3, #{activation => tanh}),
-2>         layer:output(2                       )
-2>     ])).
-{network, #Ref<0.367976965.4190896130.201756>}
+2>     #{inputs  => layer:input(2, #{hidden1 => sequential}),
+2>       hidden1 => layer:sigmoid(4, #{hidden2 => sequential}),
+2>       hidden2 => layer:dense(3, #{outputs => sequential}),
+2>       outputs => layer:output(1, #{})}).
+{network,#Ref<0.367976965.4190896130.201756>}
 ```
 > It is important to save the "Network id", you will need it to stop the network.
 
 Another option is to first compile the model and run it after in 2 steps:
 ```erl
-2> Network = enn:compile(
-2>     model:sequential([
-2>         layer:input( 2                       ),
-2>         layer:dense( 3, #{activation => tanh}),
-2>         layer:output(2                       )
-2>     ])),
-2> enn:start(Network).
-{network, #Ref<0.367976965.4190896130.204258>}
+2> {atomic, Network} = mnesia:transaction(
+2>     fun() -> nnet:compile(
+2>         #{inputs  => layer:input(2, #{hidden1 => sequential}),
+2>           hidden1 => layer:sigmoid(4, #{hidden2 => sequential}),
+2>           hidden2 => layer:dense(3, #{outputs => sequential}),
+2>           outputs => layer:output(2, #{})})
+2>     end).
+{atomic,{network, #Ref<0.367976965.4190896130.204258>}}
+3> Network = enn:start(Network).
+{network,#Ref<0.367976965.4190896130.204258>}
 ```
 
 ### Generate/load your training data
 Then you should gerenate your training, for example:
 ```erl
-3> Loops  = 2000,
+3> Loops  = 8000,
 3> Inputs = [[rand:uniform()-0.5, rand:uniform()-0.5] || _ <- lists:seq(1, Loops)],
 3> Optima = [[I1+I2, I1-I2] || [I1, I2] <- Inputs],
 3> ok.
@@ -91,16 +92,16 @@ This operation is done by enn:fit/3:
 ```erl
 4> enn:fit(Network, Inputs, Optima),
 4> ok.
-200     [==>.................]  loss:   0.7023357850785679      
-400     [====>...............]  loss:   0.4756651445573089      
-600     [======>.............]  loss:   0.4007308266912763      
-800     [========>...........]  loss:   0.352693640197892       
-1000    [==========>.........]  loss:   0.2836852528877784      
-1200    [============>.......]  loss:   0.23039384337127725     
-1400    [==============>.....]  loss:   0.18402347148602524     
-1600    [================>...]  loss:   0.14579458406750548     
-1800    [==================>.]  loss:   0.1043275109902257      
-2000    [====================]  loss:   0.08482314127899158    
+800     [==>.................]  loss:   0.5324397056244214      
+1600    [====>...............]  loss:   0.4869926512788517      
+2400    [======>.............]  loss:   0.4189957818517215      
+3200    [========>...........]  loss:   0.3559475178487766      
+4000    [==========>.........]  loss:   0.3010031908365078      
+4800    [============>.......]  loss:   0.2503973090555499      
+5600    [==============>.....]  loss:   0.1866318856840655      
+6400    [================>...]  loss:   0.1127141419963432      
+7200    [==================>.]  loss:   0.0537037399650812      
+8000    [====================]  loss:   0.0284808195771375      
 ok
 ```
 
@@ -108,13 +109,13 @@ ok
 This operation is done by enn:predict/2:
 ```erl
 5> enn:predict(Network, [
-5>     [0.1, 0.6],
-5>     [0.3, 0.2],
-5>     [0.1, 0.1]
+5>      [0.1, 0.6],
+5>      [0.3, 0.2],
+5>      [0.1, 0.1]
 5> ]).
-[[0.5807413412972212,-0.453551952162384],
- [0.4702901667692009,0.18243722520393055],
- [0.1914040508238413,0.051403340047410706]]
+[[0.6172463551362715, -0.47078835817371445 ],
+ [0.49594263285192497, 0.0965897828109617  ],
+ [0.21946863843177294,-0.010693899601060347]]
 ```
 
 > For more options such log the cycles, or do not do not print the results, explore the options in the function enn:run/4. 
@@ -133,13 +134,13 @@ You will see in the observer window the network is gone.
 ### Clone your work into a different network
 Just call enn:clone/1
 ```erl
-7> Clone_id = enn:clone(Network).
-{#Ref<0.367976965.4190896130.204297>,cortex}
+7> {atomic, Clone_id} = mnesia:transaction(fun() -> nnet:clone(Network) end).
+{atomic,{network,#Ref<0.3730030165.1951137794.240054>}}
 ```
 
 
 ### Resume your neural network
-
+Restart the network with enn:start/1:
 ```erl
 8> enn:start(Network),
 8> enn:predict(Network, [
@@ -147,9 +148,9 @@ Just call enn:clone/1
 8>     [0.3, 0.2],
 8>     [0.1, 0.1]
 8> ]).
-[[0.5807413412972212,-0.453551952162384],
- [0.4702901667692009,0.18243722520393055],
- [0.1914040508238413,0.051403340047410706]]
+[[0.6172463551362715, -0.47078835817371445 ],
+ [0.49594263285192497, 0.0965897828109617  ],
+ [0.21946863843177294,-0.010693899601060347]]]
 ```
 
 
