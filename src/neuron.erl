@@ -56,6 +56,9 @@
 % Configuration parameters
 -define(INIT_SYNCH_TIMEOUT,   10).
 -define(STDIDLE_TIMEOUT,    1000).
+-define(SAT(Val), max(   -1.0e6, 
+                  min(    1.0e6,
+                  Val))).
 
 %%%===================================================================
 %%% API
@@ -334,7 +337,7 @@ calculate_soma(Aggregation, Tensors, Bias) ->
 %% @end
 %%--------------------------------------------------------------------
 calculate_signal(Activation, Soma) -> 
-    activation:func(Activation, Soma).
+    ?SAT(activation:func(Activation, Soma)).
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the error from propagation.
@@ -348,7 +351,7 @@ calculate_error(Outputs) ->
 %% @end
 %%--------------------------------------------------------------------
 calculate_beta(Activation, Error) -> 
-    activation:beta(Activation, Error, get(prev_soma)).
+    ?SAT(activation:beta(Activation, Error, get(prev_soma))).
 
 %%--------------------------------------------------------------------
 %% @doc Calculates the new weights from back propagation of the error.
@@ -416,7 +419,7 @@ remove_output(Pid) ->
 %% is generated.
 %% @end
 %%--------------------------------------------------------------------
-updt_weight(Wi,Xi,B,_) when is_number(Wi) -> Wi+dw(Xi,B);
+updt_weight(Wi,Xi,B,_) when is_number(Wi) -> ?SAT(Wi+dw(Xi,B));
 updt_weight(not_init,_,_,Init)            -> winit(Init).
 
 %%--------------------------------------------------------------------
