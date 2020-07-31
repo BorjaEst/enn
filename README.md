@@ -58,7 +58,7 @@ You can create a neural network simply with enn:start/1:
 2>     #{inputs  => layer:input(2, #{hidden1 => sequential}),
 2>       hidden1 => layer:sigmoid(4, #{hidden2 => sequential}),
 2>       hidden2 => layer:dense(3, #{outputs => sequential}),
-2>       outputs => layer:output(1, #{})}).
+2>       outputs => layer:output(2, #{})}).
 {network,#Ref<0.367976965.4190896130.201756>}
 ```
 > It is important to save the "Network id", you will need it to stop the network.
