@@ -126,21 +126,28 @@
 %% @doc Enables logs on cortex state changes.
 %% @end
 %%--------------------------------------------------------------------
+-define(LOG_CORTEX_STARTED,
+    ?LOG_INFO(#{what => "Cortex started", pid =>self(), id=>get(id), 
+                 details => #{}},
+               #{logger_formatter=>#{title=>"CORTEX EVENT"}})
+).
+-define(LOG_CORTEX_EXIT(Reason),
+    ?LOG_INFO(#{what => "Cortex shutdown", pid =>self(), id=>get(id), 
+                 details => #{reason => Reason}},
+               #{logger_formatter=>#{title=>"CORTEX EVENT"}})
+).
+
 -ifdef(debug_cortex_states).
 -define(LOG_STATE_CHANGE(OldState),
-    ?LOG_INFO(#{what => "Cortex state has changed", 
-                pid=>self(), id => get(id), details => #{
-                    state_new=>?FUNCTION_NAME, old_state=>OldState}},
-              #{logger_formatter=>#{title=>"CORTEX STATE"}})
+    ?LOG_DEBUG(#{what => "Cortex state has changed", 
+                 pid=>self(), id => get(id), details => #{
+                   state_new=>?FUNCTION_NAME, old_state=>OldState}},
+               #{logger_formatter=>#{title=>"CORTEX STATE"}})
 ).
 -else.
 -define(LOG_STATE_CHANGE(OldState), OldState).
 -endif.
 
-%%--------------------------------------------------------------------
-%% @doc Enables logs on cortex requests.
-%% @end
-%%--------------------------------------------------------------------
 -ifdef(debug_cortex_requests).
 -define(LOG_EVENT_FEEDFORWARD(ExtInputs),
     ?LOG_DEBUG(#{what => "Feedforward request",
@@ -160,7 +167,7 @@
 -endif.
 
 %%--------------------------------------------------------------------
-%% @doc Enables logs on propagations.
+%% @doc Logs on propagations.
 %% @end
 %%--------------------------------------------------------------------
 -ifdef(debug_propagation).

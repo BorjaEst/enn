@@ -103,10 +103,10 @@ init([Network]) ->
     true = enn_pool:register_as_cortex(Network),
     process_flag(trap_exit, true), % To catch supervisor 'EXIT'
     put(id, cortex:id(Network)),
-    ?LOG_STATE_CHANGE(undefined),
     ok = spawn_neurons(Network),
     ok = forward_synch(),
     ok = backward_synch(),
+    ?LOG_CORTEX_STARTED,
     {ok, inactive, #state{}}.
 %%--------------------------------------------------------------------
 %% @doc Spawns the network neurons.  
@@ -318,8 +318,9 @@ handle_event(_EventType, _EventContent, _StateName, State) ->
 %% @spec terminate(Reason, StateName, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(_Reason, OldState, _State) ->
+terminate(Reason, OldState, _State) ->
     ?LOG_STATE_CHANGE(OldState),
+    ?LOG_CORTEX_EXIT(Reason),
     ok.
 
 %%--------------------------------------------------------------------
