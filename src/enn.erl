@@ -11,7 +11,7 @@
 %% API
 -export([start/1, start_link/1, stop/1, predict/2, fit/3]).
 -export([run/4, inputs/1, outputs/1, neurons/1]).
--export([status/1, info/2, cortex/1]).
+-export([status/1, cortex/1]).
 -export_types([network/0, neuron/0, model/0]).
 
 -type network() :: nnet:id().
@@ -55,15 +55,6 @@ outputs(Network) -> % System outputs are the nnet inputs
 -spec neurons(Network::network()) -> Neurons::[neuron()].
 neurons(Network) -> 
     maps:keys(nnet:nodes(Network)).
-
-%%--------------------------------------------------------------------
-%% @doc Returns the network information of the specified network id.
-%% Should run inside mnesia transaction.
-%% @end
-%%--------------------------------------------------------------------
--spec info(Network::network(), Item::term()) -> Info::nnet:info().
-info(Network, Item) -> 
-    nnet:info(Network, Item).
 
 %%--------------------------------------------------------------------
 %% @doc Start a neural network, ready to receive inputs or training.
