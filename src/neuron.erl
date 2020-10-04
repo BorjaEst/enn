@@ -49,9 +49,10 @@
 -define(DATA, element(#state.data, State)).
 
 % Learning parameters (to be moved to a module optimizer in a future)
--define(LEARNING_FACTOR, 0.01).  
--define(MOMENTUM_FACTOR, 0.00).
--define(INITIAL_ERROR,   0.00).
+-define( INTEGRATION_FACTOR, 0.40).  
+-define(PROPORTIONAL_FACTOR, 0.02).  
+-define(  DERIVATIVE_FACTOR, 0.01).  
+-define(      INITIAL_ERROR, 0.00).
 
 % Configuration parameters
 -define(INIT_SYNCH_TIMEOUT,   10).
@@ -305,7 +306,7 @@ backward(Pid, Input, Beta) ->
 recalculate_weights(Beta) -> 
     #{initializer:=Init, bias:=Bias} = Data = get(data),
     AdaptW = fun(X,Ix) -> adapt_weights(X, Ix, Beta, Init) end,
-    put(data, Data#{bias:=adapt_Bias(Bias, Beta, Init)}),
+    put(data, Data#{bias:=adapt_Bias(Bias, Beta)}),
     put(inputs, lists:foldl(AdaptW, get(inputs), get(prev_tensor))).
 
 
@@ -359,13 +360,16 @@ calculate_beta(Activation, Error) ->
 %%--------------------------------------------------------------------
 adapt_weights({Pid,_,Xi}, Inputs, Beta, Init) -> 
     I = maps:get(Pid, Inputs),
-    Inputs#{Pid:=updt_input(I,Xi,Beta,Init)}.
+    Inputs#{Pid:=updt_input(Pid,I,Xi,Beta,Init)}.
 
-updt_input(I, Xi, Beta, Init) -> 
-    I#input{w=updt_weight(?W(I),Xi,Beta,Init)}.
+updt_input(Pid, I, Xi, Beta, Init) -> 
+    I#input{w=updt_weight(Pid,?W(I),Xi,Beta,Init)}.
 
-adapt_Bias(Bias, Beta, Init) ->
-    updt_weight(Bias, 1.0, Beta, Init).
+adapt_Bias(Bias, Beta) ->
+    case is_number(Bias) of 
+        true  -> ?SAT(Bias + ?INTEGRATION_FACTOR * Beta);
+        false -> ?SAT( 0.0 + ?INTEGRATION_FACTOR * Beta)
+    end.
 
 
 %%%===================================================================
@@ -419,14 +423,15 @@ remove_output(Pid) ->
 %% is generated.
 %% @end
 %%--------------------------------------------------------------------
-updt_weight(Wi,Xi,B,_) when is_number(Wi) -> ?SAT(Wi+dw(Xi,B));
-updt_weight(not_init,_,_,Init)            -> winit(Init).
+updt_weight(Pid,Wi,Xi,B,_) when is_number(Wi) -> ?SAT(Wi+dw(Pid,Xi,B));
+updt_weight(Pid,not_init,Xi,_,Init)           -> winit(Pid,Xi,Init).
 
 %%--------------------------------------------------------------------
 %% @doc Initialises a weight.
 %% @end
 %%--------------------------------------------------------------------
-winit(Init) -> 
+winit(Pid, Xi, Init) -> 
+    put(Pid, Xi),
     initializer:value(Init, #{
         fan_in  => maps:size(get( inputs)),
         fan_out => maps:size(get(outputs))
@@ -439,11 +444,21 @@ winit(Init) ->
 %     NewMi = ?MOMENTUM_FACTOR * Mi - ?LEARNING_FACTOR * get(beta) * Xi,
 %     NewWi = Wi - NewMi.
 
-% TODO: Add saturation and error deviation not proportinal to X 
-%       (Saturation and protection)
 
 % Weight variation calculation .......................................
-dw(Xi, Beta) -> ?LEARNING_FACTOR * Beta * Xi.
+dw(Pid, Xi, Beta) -> 
+    dpw(Pid, Xi, Beta) + ddw(Pid, Xi, Beta).
+
+% Proportional weigth calculation ...................................
+dpw(_Pid, Xi, Beta) -> 
+    Dpw = ?PROPORTIONAL_FACTOR * Beta * Xi,
+    Dpw.
+
+% Derivative weigth calculation .....................................
+ddw(Pid, Xi, Beta) -> 
+    Ddw = ?DERIVATIVE_FACTOR * Beta * (Xi - get(Pid)),
+    put(Pid, Xi),
+    Ddw.
 
 % -------------------------------------------------------------------
 write_links() -> 
